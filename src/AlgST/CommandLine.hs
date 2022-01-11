@@ -48,7 +48,8 @@ readSource = \case
 
 data RunOpts = RunOpts
   { optsSource :: !Source,
-    optsOutputMode :: !(Maybe OutputMode)
+    optsOutputMode :: !(Maybe OutputMode),
+    optsQuiet :: !Bool
   }
   deriving (Show)
 
@@ -82,8 +83,12 @@ sourceParser = sourceFile <|> sourceLiteral <|> sourceImplicit
       fmap (maybe SourceStdin SourceFile)
         . O.optional
         . O.strArgument
-        $ fpOpts <> O.help "If a FILE is given input will be read from this file. Otherwise it will be read from STDIN."
-    fpOpts = mconcat [O.metavar "FILE"]
+        $ fpOpts <> O.help fpHelp
+    fpOpts =
+      mconcat [O.metavar "FILE"]
+    fpHelp =
+      "If a FILE is given input will be read from this file. Otherwise it \
+      \will be read from STDIN."
 
 optsParser :: O.Parser RunOpts
 optsParser = do
@@ -104,6 +109,13 @@ optsParser = do
                   \not a terminal."
               ]
         ]
+
+  optsQuiet <-
+    O.flag False True . mconcat $
+      [ O.long "quiet",
+        O.short 'q',
+        O.help "Suppress status messages."
+      ]
 
   optsSource <-
     sourceParser

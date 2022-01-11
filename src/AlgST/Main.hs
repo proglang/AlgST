@@ -1,11 +1,5 @@
 module AlgST.Main (main) where
 
-import Control.Applicative
-import Control.DeepSeq
-import Control.Exception
-import Control.Monad
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.Maybe
 import AlgST.Builtins (builtins)
 import AlgST.CommandLine
 import AlgST.Parse.Parser
@@ -13,10 +7,16 @@ import AlgST.Rename
 import AlgST.Typing
 import AlgST.Util.Error
 import AlgST.Util.Output
+import Control.Applicative
+import Control.DeepSeq
+import Control.Exception
+import Control.Monad
+import Control.Monad.Trans.Class
+import Control.Monad.Trans.Maybe
+import Data.Foldable
 import System.Console.ANSI
 import System.Exit
 import System.IO
-import Data.Foldable
 
 data Options = Options
   { runOpts :: !RunOpts,
@@ -59,12 +59,16 @@ runStage opts stage res = do
   let failure = style [SetColor Foreground Dull Red] . styleBold
 
   let styled selector f s = applyStyle (selector opts) f (showString s) ""
-  putStr $ styled stdoutMode info $ stage ++ " ... "
+  let putStatus style msg =
+        if optsQuiet (runOpts opts)
+          then pure ()
+          else putStr $ styled stdoutMode style msg
+  putStatus info $ stage ++ " ... "
   hFlush stdout
 
   case res of
     Left errs -> do
-      putStrLn $ styled stdoutMode failure "failed"
+      putStatus failure "failed\n"
       hPutStrLn stderr $
         renderErrors
           (stderrMode opts)
@@ -72,5 +76,5 @@ runStage opts stage res = do
           errs
       exitFailure
     Right a -> do
-      putStrLn $ styled stdoutMode success "ok"
+      putStatus success "ok\n"
       pure a
