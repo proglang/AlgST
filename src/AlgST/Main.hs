@@ -6,8 +6,6 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
-import Data.Foldable
-import Data.Maybe
 import AlgST.Builtins (builtins)
 import AlgST.CommandLine
 import AlgST.Parse.Parser
@@ -18,6 +16,7 @@ import AlgST.Util.Output
 import System.Console.ANSI
 import System.Exit
 import System.IO
+import Data.Foldable
 
 data Options = Options
   { runOpts :: !RunOpts,
@@ -33,10 +32,11 @@ main = do
       <$> maybe (discoverMode stdout) pure (optsOutputMode runOpts)
       <*> maybe (discoverMode stderr) pure (optsOutputMode runOpts)
 
-  -- Force the input completely so that the output does not overlap.
-  inputIsTerm <- (isNothing (optsSourceFile runOpts) &&) <$> hIsTerminalDevice stdin
-  lazySrc <- maybe getContents readFile (optsSourceFile runOpts)
-  src <- evaluate $!! lazySrc
+  inputIsTerm <- (sourceIsTerm (optsSource runOpts) &&) <$> hIsTerminalDevice stdin
+  -- Force the input completely so that the output and remaining input do not
+  -- overlap. This is only "required" in the case when reading from STDIN but
+  -- should be alright for all the toy files to force always.
+  src <- evaluate . force =<< readSource (optsSource runOpts)
 
   -- When we read the source code from STDIN and STDIN + one of the output
   -- streams are terminal devices we output a seperating newline.
@@ -68,7 +68,7 @@ runStage opts stage res = do
       hPutStrLn stderr $
         renderErrors
           (stderrMode opts)
-          (fold $ optsSourceFile $ runOpts opts)
+          (fold $ sourcePrettyName $ optsSource $ runOpts opts)
           errs
       exitFailure
     Right a -> do
