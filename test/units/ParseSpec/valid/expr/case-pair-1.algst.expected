@@ -1,0 +1,16 @@
+Exp.Case
+|
++- Exp.Var x
+|
+`- (,) a b
+   |
+   `- Exp.App
+      |
+      +- Exp.App
+      |  |
+      |  +- Exp.Var (+)
+      |  |
+      |  `- Exp.Var a
+      |
+      `- Exp.Var b
+

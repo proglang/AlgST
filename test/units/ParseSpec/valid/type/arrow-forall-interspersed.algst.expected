@@ -1,0 +1,14 @@
+Type.Forall a:TU
+|
+`- Type.Arrow U
+   |
+   +- Type.Var a
+   |
+   `- Type.Forall b:TU
+      |
+      `- Type.Arrow U
+         |
+         +- Type.Var a
+         |
+         `- Type.Var b
+

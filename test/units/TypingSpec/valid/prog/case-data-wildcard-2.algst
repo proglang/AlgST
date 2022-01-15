@@ -1,0 +1,7 @@
+data List a = Cons a (List a) | Nil
+
+unsafe_head : ∀(a:TU). List a -> a
+unsafe_head [a] xs = case xs of {
+  Cons a _ -> a,
+  xs' -> unsafe_head [a] xs'
+}

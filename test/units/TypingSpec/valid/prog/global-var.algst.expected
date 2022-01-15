@@ -1,0 +1,46 @@
+constUnit
+|
++- type
+|  |
+|  `- Type.Forall 41#a:TU
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Var 41#a
+|        |  |
+|        |  `- TU
+|        |
+|        `- Type.Unit
+|
++- params
+|  |
+|  +- [39#_]
+|  |
+|  `- 40#_
+|
+`- definition
+   |
+   `- Exp.TypeAbs 39#_:TU
+      |
+      `- Exp.Abs U 40#_
+         |
+         +- Type.Var 39#_
+         |  |
+         |  `- TU
+         |
+         `- Exp.Var unit
+
+unit
+|
++- type
+|  |
+|  `- Type.Unit
+|
++- params
+|
+`- definition
+   |
+   `- Exp.Lit
+      |
+      `- Lit.Unit
+

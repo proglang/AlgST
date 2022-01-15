@@ -1,0 +1,5 @@
+type T1 a a = a -> a
+
+data T2 b b = T2
+
+protocol T3 c c = T3

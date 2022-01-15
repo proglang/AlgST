@@ -1,0 +1,70 @@
+D
+|
+`- DataDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- TL
+   |
+   +- parameters
+   |
+   `- constructors
+      |
+      `- D
+
+D
+|
+`- Decl.DataCon (D)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |
+   +- multiplicity
+   |  |
+   |  `- L
+   |
+   `- items
+
+foo
+|
++- type
+|  |
+|  `- Type.Arrow U
+|     |
+|     +- Type.Type
+|     |  |
+|     |  `- TypeRef
+|     |     |
+|     |     `- D
+|     |
+|     `- Type.Unit
+|
++- params
+|  |
+|  `- 39#x
+|
+`- definition
+   |
+   `- Exp.Abs U 39#x
+      |
+      +- Type.Type
+      |  |
+      |  `- TypeRef
+      |     |
+      |     `- D
+      |
+      `- Exp.Exp
+         |
+         `- TcExpX.ValueCase
+            |
+            +- Exp.Var 39#x
+            |
+            `- D
+               |
+               `- Exp.Lit
+                  |
+                  `- Lit.Unit
+

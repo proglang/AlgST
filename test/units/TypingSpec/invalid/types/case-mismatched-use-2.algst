@@ -1,0 +1,5 @@
+\[a : TL] (x : AB) (f: a -> ()) -> \(a : a) -o
+    case x of {
+      A -> (),
+      B -> f a   -- Error: a is not consumed in first branch, but in second.
+    }

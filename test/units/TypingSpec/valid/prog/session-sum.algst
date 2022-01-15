@@ -1,0 +1,31 @@
+-- use "./session-arith" (..)
+-- use "./session-repeater" (..)
+
+protocol Arith
+  = Add +Int +Int -Int
+  | Neg +Int -Int
+
+protocol Repeat (p:P)
+  = More p (Repeat p)
+  | Quit
+
+data List (a:TU)
+  = Cons a (List a)
+  | Nil
+
+sum : List Int -> !Repeat Arith.end -> Int
+sum =
+  let rec go : Int -> List Int -> !Repeat Arith.end -> Int =
+    \(acc : Int) (xs : List Int) (c : !Repeat Arith.end) -> case xs of {
+      Cons x xs ->
+        let c = select More [Arith, end] c in
+        let c = select Add [!Repeat Arith.end] c in
+        let c = send [Int, !Int.?Int.!Repeat Arith.end] x c in
+        let c = send [Int, ?Int.!Repeat Arith.end] acc c in
+        let (acc', c) = receive [Int, !Repeat Arith.end] c in
+        go acc' xs c,
+      Nil ->
+        let _ = select Quit [Arith, end] c in
+        acc
+    }
+  in go 0

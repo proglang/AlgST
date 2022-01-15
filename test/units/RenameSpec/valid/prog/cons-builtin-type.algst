@@ -1,0 +1,12 @@
+-- Bultin types are Int, Bool, Char, String.
+--
+-- It should still be possible to use these as names for data/protocol constructors.
+--
+-- (cf. RenameSpec/invalid/prog/builtin-type-shadow.algst)
+
+data Literal
+  = Unit
+  | Bool Bool
+  | Int Int
+  | Char Char
+  | String String

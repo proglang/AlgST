@@ -1,0 +1,8 @@
+
+1:4: error:
+	 Non-associative operators
+	     == at 1:9
+	 and == at 1:4
+	 are used next to each other.
+	
+	 Use parentheses to explicitly specify the associativity.

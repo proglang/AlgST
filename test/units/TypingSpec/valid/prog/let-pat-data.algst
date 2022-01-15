@@ -1,0 +1,11 @@
+data Identity a = Identity a
+
+runIdentity : ∀(a:TU). Identity a -> a
+runIdentity id =
+  let Identity a = id in
+  a
+
+matchD0 : D0 -> ()
+matchD0 d0 =
+  let D0 = d0 in
+  ()

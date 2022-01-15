@@ -1,0 +1,12 @@
+
+2:7: error:
+	 Expression
+	     rec go : Bool -o Int = λ(a:Bool) -o go a
+	 has type
+	     Bool -o Int
+	 but it should have type
+	     Bool -> Int
+
+2:21: error:
+	 Unexpected kind TL for type Bool -o Int
+	 Expected a subkind of TU

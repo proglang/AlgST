@@ -1,0 +1,34 @@
+Exp.App
+|
++- Exp.TypeApp
+|  |
+|  +- Exp.App
+|  |  |
+|  |  +- Exp.App
+|  |  |  |
+|  |  |  +- Exp.Var a
+|  |  |  |
+|  |  |  `- Exp.Var b
+|  |  |
+|  |  `- Exp.Var c
+|  |
+|  `- Type.Con T
+|
+`- Exp.App
+   |
+   +- Exp.App
+   |  |
+   |  +- Exp.TypeApp
+   |  |  |
+   |  |  +- Exp.TypeApp
+   |  |  |  |
+   |  |  |  +- Exp.Var d
+   |  |  |  |
+   |  |  |  `- Type.Con Int
+   |  |  |
+   |  |  `- Type.Con Bool
+   |  |
+   |  `- Exp.Var e
+   |
+   `- Exp.Var f
+

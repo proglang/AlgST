@@ -1,0 +1,2 @@
+data SnocList = Snoc SnocList Int | Nil
+data ConsList = Cons ConsList Int | Nil

@@ -1,0 +1,12 @@
+Exp.Abs L a
+|
++- Type.Con Bool
+|
+`- Exp.TypeAbs b:TU
+   |
+   `- Exp.Abs L c
+      |
+      +- Type.Con Int
+      |
+      `- Exp.Var n
+

@@ -1,0 +1,74 @@
+sendInt1
+|
++- type
+|  |
+|  `- Type.Forall 45#s:SL
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Session (!)
+|        |  |
+|        |  +- Type.Type
+|        |  |  |
+|        |  |  `- TypeRef
+|        |  |     |
+|        |  |     `- Int
+|        |  |
+|        |  `- Type.Var 45#s
+|        |     |
+|        |     `- SL
+|        |
+|        `- Type.Var 45#s
+|           |
+|           `- SL
+|
++- params
+|  |
+|  +- [43#s]
+|  |
+|  `- 44#c
+|
+`- definition
+   |
+   `- Exp.TypeAbs 43#s:SL
+      |
+      `- Exp.Abs U 44#c
+         |
+         +- Type.Session (!)
+         |  |
+         |  +- Type.Type
+         |  |  |
+         |  |  `- TypeRef
+         |  |     |
+         |  |     `- Int
+         |  |
+         |  `- Type.Var 43#s
+         |     |
+         |     `- SL
+         |
+         `- Exp.App
+            |
+            +- Exp.App
+            |  |
+            |  +- Exp.TypeApp
+            |  |  |
+            |  |  +- Exp.TypeApp
+            |  |  |  |
+            |  |  |  +- Exp.Var send
+            |  |  |  |
+            |  |  |  `- Type.Type
+            |  |  |     |
+            |  |  |     `- TypeRef
+            |  |  |        |
+            |  |  |        `- Int
+            |  |  |
+            |  |  `- Type.Var 43#s
+            |  |     |
+            |  |     `- SL
+            |  |
+            |  `- Exp.Lit
+            |     |
+            |     `- Lit.Int 1
+            |
+            `- Exp.Var 44#c
+

@@ -1,0 +1,218 @@
+List
+|
+`- DataDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- TU
+   |
+   +- parameters
+   |  |
+   |  `- (elem:TU)
+   |
+   `- constructors
+      |
+      +- Cons
+      |  |
+      |  +- Type.Var 6#elem
+      |  |  |
+      |  |  `- TU
+      |  |
+      |  `- Type.Type
+      |     |
+      |     `- TypeRef
+      |        |
+      |        +- List
+      |        |
+      |        `- Type.Var 6#elem
+      |           |
+      |           `- TU
+      |
+      `- Nil
+
+Maybe
+|
+`- DataDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- TU
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   `- constructors
+      |
+      +- Just
+      |  |
+      |  `- Type.Var 7#a
+      |     |
+      |     `- TU
+      |
+      `- Nothing
+
+Cons
+|
+`- Decl.DataCon (List)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (elem:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      +- Type.Var 6#elem
+      |  |
+      |  `- TU
+      |
+      `- Type.Type
+         |
+         `- TypeRef
+            |
+            +- List
+            |
+            `- Type.Var 6#elem
+               |
+               `- TU
+
+Just
+|
+`- Decl.DataCon (Maybe)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      `- Type.Var 7#a
+         |
+         `- TU
+
+Nil
+|
+`- Decl.DataCon (List)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (elem:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+
+Nothing
+|
+`- Decl.DataCon (Maybe)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+
+empty
+|
++- type
+|  |
+|  `- Type.Forall 46#a:TU
+|     |
+|     `- Type.Type
+|        |
+|        `- TypeRef
+|           |
+|           +- List
+|           |
+|           `- Type.Var 46#a
+|              |
+|              `- TU
+|
++- params
+|  |
+|  `- [45#a]
+|
+`- definition
+   |
+   `- Exp.TypeAbs 45#a:TU
+      |
+      `- Exp.TypeApp
+         |
+         +- Exp.Con Nil
+         |
+         `- Type.Var 45#a
+            |
+            `- TU
+
+empty_head
+|
++- type
+|  |
+|  `- Type.Type
+|     |
+|     `- TypeRef
+|        |
+|        +- Maybe
+|        |
+|        `- Type.Unit
+|
++- params
+|
+`- definition
+   |
+   `- Exp.Exp
+      |
+      `- TcExpX.ValueCase
+         |
+         +- Exp.TypeApp
+         |  |
+         |  +- Exp.Var empty
+         |  |
+         |  `- Type.Unit
+         |
+         +- Cons 48#_ 47#x
+         |  |
+         |  `- Exp.App
+         |     |
+         |     +- Exp.TypeApp
+         |     |  |
+         |     |  +- Exp.Con Just
+         |     |  |
+         |     |  `- Type.Unit
+         |     |
+         |     `- Exp.Var 47#x
+         |
+         `- Nil
+            |
+            `- Exp.TypeApp
+               |
+               +- Exp.Con Nothing
+               |
+               `- Type.Unit
+

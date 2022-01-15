@@ -1,0 +1,2 @@
+-- Imagine   type IntId = Int -> Int
+rec id : IntId = \(i:Int) -> i

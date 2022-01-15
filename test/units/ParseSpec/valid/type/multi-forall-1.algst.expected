@@ -1,0 +1,6 @@
+Type.Forall a:TU
+|
+`- Type.Forall b:TU
+   |
+   `- Type.Var a
+

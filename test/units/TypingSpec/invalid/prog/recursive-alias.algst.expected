@@ -1,0 +1,9 @@
+
+1:1: error:
+	 Cycle in type synonym declarations.
+	   1:1: type Recursive t = Recursive (t, Recursive t)
+
+3:1: error:
+	 Cycle in type synonym declarations.
+	   3:1: type A = B
+	   4:1: type B = A

@@ -1,0 +1,6 @@
+
+1:22: error:
+	 Type of
+	    f
+	 is neither a forall type nor convertible to a forall type:
+	    Int -> Int

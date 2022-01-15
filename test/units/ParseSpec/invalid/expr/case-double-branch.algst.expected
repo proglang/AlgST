@@ -1,0 +1,5 @@
+
+3:3: error:
+	 Duplicate case alternative True
+	 Branches at: 2:3
+	              3:3

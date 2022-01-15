@@ -1,0 +1,378 @@
+BTree
+|
+`- DataDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- TU
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   `- constructors
+      |
+      +- Branch
+      |  |
+      |  +- Type.Type
+      |  |  |
+      |  |  `- TypeRef
+      |  |     |
+      |  |     +- BTree
+      |  |     |
+      |  |     `- Type.Var 0#a
+      |  |        |
+      |  |        `- TU
+      |  |
+      |  `- Type.Type
+      |     |
+      |     `- TypeRef
+      |        |
+      |        +- BTree
+      |        |
+      |        `- Type.Var 0#a
+      |           |
+      |           `- TU
+      |
+      `- Leaf
+         |
+         `- Type.Var 0#a
+            |
+            `- TU
+
+Branch
+|
+`- Decl.DataCon (BTree)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      +- Type.Type
+      |  |
+      |  `- TypeRef
+      |     |
+      |     +- BTree
+      |     |
+      |     `- Type.Var 0#a
+      |        |
+      |        `- TU
+      |
+      `- Type.Type
+         |
+         `- TypeRef
+            |
+            +- BTree
+            |
+            `- Type.Var 0#a
+               |
+               `- TU
+
+Leaf
+|
+`- Decl.DataCon (BTree)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      `- Type.Var 0#a
+         |
+         `- TU
+
+sendBTree
+|
++- type
+|  |
+|  `- Type.Forall 51#a:TU
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Forall 52#s:SL
+|        |  |
+|        |  `- Type.Arrow U
+|        |     |
+|        |     +- Type.Session (!)
+|        |     |  |
+|        |     |  +- Type.Var 51#a
+|        |     |  |  |
+|        |     |  |  `- TU
+|        |     |  |
+|        |     |  `- Type.Var 52#s
+|        |     |     |
+|        |     |     `- SL
+|        |     |
+|        |     `- Type.Var 52#s
+|        |        |
+|        |        `- SL
+|        |
+|        `- Type.Arrow U
+|           |
+|           +- Type.Type
+|           |  |
+|           |  `- TypeRef
+|           |     |
+|           |     +- BTree
+|           |     |
+|           |     `- Type.Var 51#a
+|           |        |
+|           |        `- TU
+|           |
+|           `- Type.Forall 53#s:SL
+|              |
+|              `- Type.Arrow U
+|                 |
+|                 +- Type.Session (!)
+|                 |  |
+|                 |  +- Type.Type
+|                 |  |  |
+|                 |  |  `- TypeRef
+|                 |  |     |
+|                 |  |     +- BTree
+|                 |  |     |
+|                 |  |     `- Type.Var 51#a
+|                 |  |        |
+|                 |  |        `- TU
+|                 |  |
+|                 |  `- Type.Var 53#s
+|                 |     |
+|                 |     `- SL
+|                 |
+|                 `- Type.Var 53#s
+|                    |
+|                    `- SL
+|
++- params
+|  |
+|  +- [46#a]
+|  |
+|  +- 47#sendA
+|  |
+|  +- 48#t
+|  |
+|  +- [49#s]
+|  |
+|  `- 50#c
+|
+`- definition
+   |
+   `- Exp.TypeAbs 46#a:TU
+      |
+      `- Exp.Abs U 47#sendA
+         |
+         +- Type.Forall 52#s:SL
+         |  |
+         |  `- Type.Arrow U
+         |     |
+         |     +- Type.Session (!)
+         |     |  |
+         |     |  +- Type.Var 46#a
+         |     |  |  |
+         |     |  |  `- TU
+         |     |  |
+         |     |  `- Type.Var 52#s
+         |     |     |
+         |     |     `- SL
+         |     |
+         |     `- Type.Var 52#s
+         |        |
+         |        `- SL
+         |
+         `- Exp.Abs U 48#t
+            |
+            +- Type.Type
+            |  |
+            |  `- TypeRef
+            |     |
+            |     +- BTree
+            |     |
+            |     `- Type.Var 46#a
+            |        |
+            |        `- TU
+            |
+            `- Exp.TypeAbs 49#s:SL
+               |
+               `- Exp.Abs U 50#c
+                  |
+                  +- Type.Session (!)
+                  |  |
+                  |  +- Type.Type
+                  |  |  |
+                  |  |  `- TypeRef
+                  |  |     |
+                  |  |     +- BTree
+                  |  |     |
+                  |  |     `- Type.Var 46#a
+                  |  |        |
+                  |  |        `- TU
+                  |  |
+                  |  `- Type.Var 49#s
+                  |     |
+                  |     `- SL
+                  |
+                  `- Exp.Exp
+                     |
+                     `- TcExpX.ValueCase
+                        |
+                        +- Exp.Var 48#t
+                        |
+                        +- Branch 55#r 54#l
+                        |  |
+                        |  `- Exp.Exp
+                        |     |
+                        |     `- TcExpX.ValueCase
+                        |        |
+                        |        +- Exp.App
+                        |        |  |
+                        |        |  +- Exp.TypeApp
+                        |        |  |  |
+                        |        |  |  +- Exp.TypeApp
+                        |        |  |  |  |
+                        |        |  |  |  +- Exp.Select Branch
+                        |        |  |  |  |
+                        |        |  |  |  `- Type.Var 46#a
+                        |        |  |  |     |
+                        |        |  |  |     `- TU
+                        |        |  |  |
+                        |        |  |  `- Type.Var 49#s
+                        |        |  |     |
+                        |        |  |     `- SL
+                        |        |  |
+                        |        |  `- Exp.Var 50#c
+                        |        |
+                        |        `- 56#c
+                        |           |
+                        |           `- Exp.Exp
+                        |              |
+                        |              `- TcExpX.ValueCase
+                        |                 |
+                        |                 +- Exp.App
+                        |                 |  |
+                        |                 |  +- Exp.App
+                        |                 |  |  |
+                        |                 |  |  +- Exp.App
+                        |                 |  |  |  |
+                        |                 |  |  |  +- Exp.TypeApp
+                        |                 |  |  |  |  |
+                        |                 |  |  |  |  +- Exp.TypeApp
+                        |                 |  |  |  |  |  |
+                        |                 |  |  |  |  |  +- Exp.Var sendBTree
+                        |                 |  |  |  |  |  |
+                        |                 |  |  |  |  |  `- Type.Var 46#a
+                        |                 |  |  |  |  |     |
+                        |                 |  |  |  |  |     `- TU
+                        |                 |  |  |  |  |
+                        |                 |  |  |  |  `- Type.Session (!)
+                        |                 |  |  |  |     |
+                        |                 |  |  |  |     +- Type.Type
+                        |                 |  |  |  |     |  |
+                        |                 |  |  |  |     |  `- TypeRef
+                        |                 |  |  |  |     |     |
+                        |                 |  |  |  |     |     +- BTree
+                        |                 |  |  |  |     |     |
+                        |                 |  |  |  |     |     `- Type.Var 46#a
+                        |                 |  |  |  |     |        |
+                        |                 |  |  |  |     |        `- TU
+                        |                 |  |  |  |     |
+                        |                 |  |  |  |     `- Type.Var 49#s
+                        |                 |  |  |  |        |
+                        |                 |  |  |  |        `- SL
+                        |                 |  |  |  |
+                        |                 |  |  |  `- Exp.Var 47#sendA
+                        |                 |  |  |
+                        |                 |  |  `- Exp.Var 54#l
+                        |                 |  |
+                        |                 |  `- Exp.Var 56#c
+                        |                 |
+                        |                 `- 57#c
+                        |                    |
+                        |                    `- Exp.Exp
+                        |                       |
+                        |                       `- TcExpX.ValueCase
+                        |                          |
+                        |                          +- Exp.App
+                        |                          |  |
+                        |                          |  +- Exp.App
+                        |                          |  |  |
+                        |                          |  |  +- Exp.App
+                        |                          |  |  |  |
+                        |                          |  |  |  +- Exp.TypeApp
+                        |                          |  |  |  |  |
+                        |                          |  |  |  |  +- Exp.TypeApp
+                        |                          |  |  |  |  |  |
+                        |                          |  |  |  |  |  +- Exp.Var sendBTree
+                        |                          |  |  |  |  |  |
+                        |                          |  |  |  |  |  `- Type.Var 46#a
+                        |                          |  |  |  |  |     |
+                        |                          |  |  |  |  |     `- TU
+                        |                          |  |  |  |  |
+                        |                          |  |  |  |  `- Type.Var 49#s
+                        |                          |  |  |  |     |
+                        |                          |  |  |  |     `- SL
+                        |                          |  |  |  |
+                        |                          |  |  |  `- Exp.Var 47#sendA
+                        |                          |  |  |
+                        |                          |  |  `- Exp.Var 55#r
+                        |                          |  |
+                        |                          |  `- Exp.Var 57#c
+                        |                          |
+                        |                          `- 58#c
+                        |                             |
+                        |                             `- Exp.Var 58#c
+                        |
+                        `- Leaf 59#a
+                           |
+                           `- Exp.Exp
+                              |
+                              `- TcExpX.ValueCase
+                                 |
+                                 +- Exp.App
+                                 |  |
+                                 |  +- Exp.TypeApp
+                                 |  |  |
+                                 |  |  +- Exp.TypeApp
+                                 |  |  |  |
+                                 |  |  |  +- Exp.Select Leaf
+                                 |  |  |  |
+                                 |  |  |  `- Type.Var 46#a
+                                 |  |  |     |
+                                 |  |  |     `- TU
+                                 |  |  |
+                                 |  |  `- Type.Var 49#s
+                                 |  |     |
+                                 |  |     `- SL
+                                 |  |
+                                 |  `- Exp.Var 50#c
+                                 |
+                                 `- 60#c
+                                    |
+                                    `- Exp.App
+                                       |
+                                       +- Exp.TypeApp
+                                       |  |
+                                       |  +- Exp.Var 47#sendA
+                                       |  |
+                                       |  `- Type.Var 49#s
+                                       |     |
+                                       |     `- SL
+                                       |
+                                       `- Exp.Var 60#c
+

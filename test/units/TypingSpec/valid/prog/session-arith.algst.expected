@@ -1,0 +1,340 @@
+Arith
+|
+`- ProtoDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- P
+   |
+   +- parameters
+   |
+   `- constructors
+      |
+      +- Add
+      |  |
+      |  +- Type.Type
+      |  |  |
+      |  |  `- TypeRef
+      |  |     |
+      |  |     `- Int
+      |  |
+      |  +- Type.Type
+      |  |  |
+      |  |  `- TypeRef
+      |  |     |
+      |  |     `- Int
+      |  |
+      |  `- Type.Negate
+      |     |
+      |     `- Type.Type
+      |        |
+      |        `- TypeRef
+      |           |
+      |           `- Int
+      |
+      `- Neg
+         |
+         +- Type.Type
+         |  |
+         |  `- TypeRef
+         |     |
+         |     `- Int
+         |
+         `- Type.Negate
+            |
+            `- Type.Type
+               |
+               `- TypeRef
+                  |
+                  `- Int
+
+Add
+|
+`- Decl.ProtocolCon (Arith)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |
+   `- items
+      |
+      +- Type.Type
+      |  |
+      |  `- TypeRef
+      |     |
+      |     `- Int
+      |
+      +- Type.Type
+      |  |
+      |  `- TypeRef
+      |     |
+      |     `- Int
+      |
+      `- Type.Negate
+         |
+         `- Type.Type
+            |
+            `- TypeRef
+               |
+               `- Int
+
+Neg
+|
+`- Decl.ProtocolCon (Arith)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |
+   `- items
+      |
+      +- Type.Type
+      |  |
+      |  `- TypeRef
+      |     |
+      |     `- Int
+      |
+      `- Type.Negate
+         |
+         `- Type.Type
+            |
+            `- TypeRef
+               |
+               `- Int
+
+arithServer
+|
++- type
+|  |
+|  `- Type.Forall 41#s:SL
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Session (?)
+|        |  |
+|        |  +- Type.Type
+|        |  |  |
+|        |  |  `- TypeRef
+|        |  |     |
+|        |  |     `- Arith
+|        |  |
+|        |  `- Type.Var 41#s
+|        |     |
+|        |     `- SL
+|        |
+|        `- Type.Var 41#s
+|           |
+|           `- SL
+|
++- params
+|  |
+|  +- [39#s]
+|  |
+|  `- 40#c
+|
+`- definition
+   |
+   `- Exp.TypeAbs 39#s:SL
+      |
+      `- Exp.Abs U 40#c
+         |
+         +- Type.Session (?)
+         |  |
+         |  +- Type.Type
+         |  |  |
+         |  |  `- TypeRef
+         |  |     |
+         |  |     `- Arith
+         |  |
+         |  `- Type.Var 39#s
+         |     |
+         |     `- SL
+         |
+         `- Exp.Exp
+            |
+            `- TcExpX.RecvCase
+               |
+               +- Exp.Var 40#c
+               |
+               +- Add 42#c
+               |  |
+               |  `- Exp.Exp
+               |     |
+               |     `- TcExpX.ValueCase
+               |        |
+               |        +- Exp.App
+               |        |  |
+               |        |  +- Exp.TypeApp
+               |        |  |  |
+               |        |  |  +- Exp.TypeApp
+               |        |  |  |  |
+               |        |  |  |  +- Exp.Var receive
+               |        |  |  |  |
+               |        |  |  |  `- Type.Type
+               |        |  |  |     |
+               |        |  |  |     `- TypeRef
+               |        |  |  |        |
+               |        |  |  |        `- Int
+               |        |  |  |
+               |        |  |  `- Type.Session (?)
+               |        |  |     |
+               |        |  |     +- Type.Type
+               |        |  |     |  |
+               |        |  |     |  `- TypeRef
+               |        |  |     |     |
+               |        |  |     |     `- Int
+               |        |  |     |
+               |        |  |     `- Type.Session (!)
+               |        |  |        |
+               |        |  |        +- Type.Type
+               |        |  |        |  |
+               |        |  |        |  `- TypeRef
+               |        |  |        |     |
+               |        |  |        |     `- Int
+               |        |  |        |
+               |        |  |        `- Type.Var 39#s
+               |        |  |           |
+               |        |  |           `- SL
+               |        |  |
+               |        |  `- Exp.Var 42#c
+               |        |
+               |        `- (,) 44#c 43#x
+               |           |
+               |           `- Exp.Exp
+               |              |
+               |              `- TcExpX.ValueCase
+               |                 |
+               |                 +- Exp.App
+               |                 |  |
+               |                 |  +- Exp.TypeApp
+               |                 |  |  |
+               |                 |  |  +- Exp.TypeApp
+               |                 |  |  |  |
+               |                 |  |  |  +- Exp.Var receive
+               |                 |  |  |  |
+               |                 |  |  |  `- Type.Type
+               |                 |  |  |     |
+               |                 |  |  |     `- TypeRef
+               |                 |  |  |        |
+               |                 |  |  |        `- Int
+               |                 |  |  |
+               |                 |  |  `- Type.Session (!)
+               |                 |  |     |
+               |                 |  |     +- Type.Type
+               |                 |  |     |  |
+               |                 |  |     |  `- TypeRef
+               |                 |  |     |     |
+               |                 |  |     |     `- Int
+               |                 |  |     |
+               |                 |  |     `- Type.Var 39#s
+               |                 |  |        |
+               |                 |  |        `- SL
+               |                 |  |
+               |                 |  `- Exp.Var 44#c
+               |                 |
+               |                 `- (,) 46#c 45#y
+               |                    |
+               |                    `- Exp.App
+               |                       |
+               |                       +- Exp.App
+               |                       |  |
+               |                       |  +- Exp.TypeApp
+               |                       |  |  |
+               |                       |  |  +- Exp.TypeApp
+               |                       |  |  |  |
+               |                       |  |  |  +- Exp.Var send
+               |                       |  |  |  |
+               |                       |  |  |  `- Type.Type
+               |                       |  |  |     |
+               |                       |  |  |     `- TypeRef
+               |                       |  |  |        |
+               |                       |  |  |        `- Int
+               |                       |  |  |
+               |                       |  |  `- Type.Var 39#s
+               |                       |  |     |
+               |                       |  |     `- SL
+               |                       |  |
+               |                       |  `- Exp.App
+               |                       |     |
+               |                       |     +- Exp.App
+               |                       |     |  |
+               |                       |     |  +- Exp.Var (+)
+               |                       |     |  |
+               |                       |     |  `- Exp.Var 43#x
+               |                       |     |
+               |                       |     `- Exp.Var 45#y
+               |                       |
+               |                       `- Exp.Var 46#c
+               |
+               `- Neg 47#c
+                  |
+                  `- Exp.Exp
+                     |
+                     `- TcExpX.ValueCase
+                        |
+                        +- Exp.App
+                        |  |
+                        |  +- Exp.TypeApp
+                        |  |  |
+                        |  |  +- Exp.TypeApp
+                        |  |  |  |
+                        |  |  |  +- Exp.Var receive
+                        |  |  |  |
+                        |  |  |  `- Type.Type
+                        |  |  |     |
+                        |  |  |     `- TypeRef
+                        |  |  |        |
+                        |  |  |        `- Int
+                        |  |  |
+                        |  |  `- Type.Session (!)
+                        |  |     |
+                        |  |     +- Type.Type
+                        |  |     |  |
+                        |  |     |  `- TypeRef
+                        |  |     |     |
+                        |  |     |     `- Int
+                        |  |     |
+                        |  |     `- Type.Var 39#s
+                        |  |        |
+                        |  |        `- SL
+                        |  |
+                        |  `- Exp.Var 47#c
+                        |
+                        `- (,) 49#c 48#x
+                           |
+                           `- Exp.App
+                              |
+                              +- Exp.App
+                              |  |
+                              |  +- Exp.TypeApp
+                              |  |  |
+                              |  |  +- Exp.TypeApp
+                              |  |  |  |
+                              |  |  |  +- Exp.Var send
+                              |  |  |  |
+                              |  |  |  `- Type.Type
+                              |  |  |     |
+                              |  |  |     `- TypeRef
+                              |  |  |        |
+                              |  |  |        `- Int
+                              |  |  |
+                              |  |  `- Type.Var 39#s
+                              |  |     |
+                              |  |     `- SL
+                              |  |
+                              |  `- Exp.App
+                              |     |
+                              |     +- Exp.App
+                              |     |  |
+                              |     |  +- Exp.Var (-)
+                              |     |  |
+                              |     |  `- Exp.Lit
+                              |     |     |
+                              |     |     `- Lit.Int 0
+                              |     |
+                              |     `- Exp.Var 48#x
+                              |
+                              `- Exp.Var 49#c
+

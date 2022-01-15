@@ -1,0 +1,7 @@
+data Maybe : TL (a:TL) = Just a | Nothing
+
+fromMaybe : ∀(a:TL). (() -> a) -> Maybe a -> a
+fromMaybe makeA m = case m of {
+  Just a -> a,
+  Nothing -> makeA ()
+}

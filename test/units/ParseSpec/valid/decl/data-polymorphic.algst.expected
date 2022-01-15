@@ -1,0 +1,186 @@
+BTree
+|
+`- DataDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- TU
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   `- constructors
+      |
+      +- Branch
+      |  |
+      |  +- Type.App
+      |  |  |
+      |  |  +- Type.Con BTree
+      |  |  |
+      |  |  `- Type.Var a
+      |  |
+      |  `- Type.App
+      |     |
+      |     +- Type.Con BTree
+      |     |
+      |     `- Type.Var a
+      |
+      `- Leaf
+         |
+         `- Type.Var a
+
+BTree2
+|
+`- DataDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- TU
+   |
+   +- parameters
+   |  |
+   |  +- (branch:TU)
+   |  |
+   |  `- (leaf:TU)
+   |
+   `- constructors
+      |
+      +- Branch2
+      |  |
+      |  +- Type.Var branch
+      |  |
+      |  +- Type.App
+      |  |  |
+      |  |  +- Type.App
+      |  |  |  |
+      |  |  |  +- Type.Con BTree2
+      |  |  |  |
+      |  |  |  `- Type.Var branch
+      |  |  |
+      |  |  `- Type.Var leaf
+      |  |
+      |  `- Type.App
+      |     |
+      |     +- Type.App
+      |     |  |
+      |     |  +- Type.Con BTree2
+      |     |  |
+      |     |  `- Type.Var branch
+      |     |
+      |     `- Type.Var leaf
+      |
+      `- Leaf2
+         |
+         `- Type.Var leaf
+
+Branch
+|
+`- Decl.DataCon (BTree)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      +- Type.App
+      |  |
+      |  +- Type.Con BTree
+      |  |
+      |  `- Type.Var a
+      |
+      `- Type.App
+         |
+         +- Type.Con BTree
+         |
+         `- Type.Var a
+
+Branch2
+|
+`- Decl.DataCon (BTree2)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  +- (branch:TU)
+   |  |
+   |  `- (leaf:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      +- Type.Var branch
+      |
+      +- Type.App
+      |  |
+      |  +- Type.App
+      |  |  |
+      |  |  +- Type.Con BTree2
+      |  |  |
+      |  |  `- Type.Var branch
+      |  |
+      |  `- Type.Var leaf
+      |
+      `- Type.App
+         |
+         +- Type.App
+         |  |
+         |  +- Type.Con BTree2
+         |  |
+         |  `- Type.Var branch
+         |
+         `- Type.Var leaf
+
+Leaf
+|
+`- Decl.DataCon (BTree)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      `- Type.Var a
+
+Leaf2
+|
+`- Decl.DataCon (BTree2)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  +- (branch:TU)
+   |  |
+   |  `- (leaf:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      `- Type.Var leaf
+

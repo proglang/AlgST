@@ -1,0 +1,509 @@
+{
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeApplications #-}
+module AlgST.Parse.Parser
+  ( -- * Parsers
+    Parser
+  , parseType
+  , parseProg
+  , parseKind
+  , parseExpr
+
+    -- * Running Parsers
+  , feedParser
+  , runParser
+  , runParserIO
+  , runParserSimple
+  ) where
+
+import           Control.Category              ((>>>), (<<<))
+import           Control.Monad.State
+import           Control.Monad.Trans.Maybe
+import           Data.Bifunctor
+import qualified Data.DList                    as DL
+import           Data.Foldable
+import           Data.Functor.Identity
+import qualified Data.Map.Strict               as Map
+import           Data.Maybe
+import           Data.Monoid
+import           Data.Proxy
+import           Data.Sequence                 (Seq(..))
+import qualified Data.Sequence                 as Seq
+import           AlgST.Parse.Lexer
+import           AlgST.Parse.Operators
+import           AlgST.Parse.ParseUtils
+import           AlgST.Parse.Phase
+import           AlgST.Syntax.Decl
+import           AlgST.Syntax.Expression       as E
+import qualified AlgST.Syntax.Kind             as K
+import           AlgST.Syntax.Operators
+import           AlgST.Syntax.Program
+import qualified AlgST.Syntax.Type             as T
+import           AlgST.Syntax.Variable
+import           AlgST.Util
+import           AlgST.Util.Error
+import           AlgST.Util.ErrorMessage
+import           Syntax.Base
+
+}
+
+%name parseType_ Type
+%name parseProg_ Prog
+%name parseKind_ Kind
+%name parseExpr_ Exp
+
+%tokentype { Token }
+%error { parseError }
+%monad { ParseM } { (>>=) } { return }
+
+%token
+  nl       {TokenNL _}
+  '()'     {TokenUnit _}
+  '->'     {TokenUnArrow _}
+  '-o'     {TokenLinArrow _}
+  lambda   {TokenLambda _}
+  '('      {TokenLParen _}
+  ')'      {TokenRParen _}
+  ','      {TokenComma _}
+  '['      {TokenLBracket _}
+  ']'      {TokenRBracket _}
+  ':'      {TokenColon _}
+  '!'      {TokenMOut _}
+  '?'      {TokenMIn _}
+  '{'      {TokenLBrace _}
+  '}'      {TokenRBrace _}
+  '_'      {TokenWild _}
+  '.'      {TokenDot _}
+  '+'      {TokenPlus _}
+  '-'      {TokenMinus _}
+  '(,)'    {TokenPairCon _}
+  UPPER_ID {TokenUpperId _ _}
+  LOWER_ID {TokenLowerId _ _}
+  OPERATOR {TokenOperator _ _}
+  KIND     {TokenKind $$}
+  INT      {TokenInt _ _ }
+  CHAR     {TokenChar _ _}
+  STR      {TokenString _ _}
+  rec      {TokenRec _}
+  let      {TokenLet _}
+  in       {TokenIn _}
+  '='      {TokenEq _}
+  data     {TokenData _}
+  protocol {TokenProtocol _}
+  type     {TokenType _}
+  '|'      {TokenPipe _}
+  if       {TokenIf _}
+  then     {TokenThen _}
+  else     {TokenElse _}
+  new      {TokenNew _}
+  select   {TokenSelect _}
+  case     {TokenCase _}
+  of       {TokenOf _}
+  forall   {TokenForall _}
+  dualof   {TokenDualof _}
+  end      {TokenEnd _}
+
+%%
+
+-------------
+-- PROGRAM --
+-------------
+
+Prog :: { PProgram -> ParseM PProgram }
+  : {- empty -}   { pure }
+  | Decls         { \base -> runProgBuilder base $1 }
+
+NL :: { () }
+  : nl NL {}
+  | nl    {}
+
+Decls :: { ProgBuilder }
+  : Decl          { $1 }
+  | Decls NL Decl { $1 >>> $3 }
+
+Decl :: { ProgBuilder }
+  -- Function signature
+  : ProgVar TySig {
+      programValueDecl $1 $2
+    }
+  -- Function declaration
+  | ProgVar ValueParams '=' Exp {
+      programValueBinding $1 (DL.toList $2) $4
+    }
+  -- Type abbreviation
+  | type KindedTVarM TypeParams '=' Type {% do
+      let (name, mkind) = $2
+      let decl = AliasDecl (OriginUser (pos $1)) TypeAlias
+            { aliasParams = toList $3
+            , aliasKind = mkind
+            , aliasType = $5
+            }
+      pure $ programTypeDecl name decl
+    }
+  -- Datatype declaration
+  | data KindedTVar TypeParams {% do
+      let (name, kind) = $2 K.TU
+      let decl = DataDecl (OriginUser (pos $1)) TypeNominal
+            { nominalParams = toList $3
+            , nominalKind = kind
+            , nominalConstructors = mempty
+            }
+      pure $ programTypeDecl name decl
+    }
+  | data KindedTVar TypeParams '=' DataCons {% do
+      let (name, kind) = $2 K.TU
+      let decl = DataDecl (OriginUser (pos $1)) TypeNominal
+            { nominalParams = toList $3
+            , nominalKind = kind
+            , nominalConstructors = $5
+            }
+      pure $ programTypeDecl name decl
+    }
+  | protocol KindedTVar TypeParams '=' DataCons {% do
+      let (name, kind) = $2 K.P
+      let decl = ProtoDecl (OriginUser (pos $1)) TypeNominal
+            { nominalParams = toList $3
+            , nominalKind = kind
+            , nominalConstructors = $5
+            }
+      pure $ programTypeDecl name decl
+    }
+
+TySig :: { PType }
+  : ':' Type     { $2 }
+
+TypeParams :: { DL.DList (TypeVar, K.Kind) }
+  : {- empty -}           { mempty }
+  | TypeParams KindBind   { $1 <> DL.singleton $2 }
+
+DataCons :: { Constructors PType }
+  : DataCon              {  uncurry Map.singleton $1 }
+  | DataCons '|' DataCon {% uncurry insertNoDuplicates $3 $1 }
+
+DataCon :: { (ProgVar, (Pos, [PType])) }
+  : Constructor TypeSeq { ($1, (pos $1, DL.toList $2)) }
+
+ValueParams :: { DL.DList PTVar }
+  : {- empty -}                             { mempty }
+  | ValueParams ProgVarWild                 { $1 `DL.snoc` Left $2 }
+  | ValueParams '[' TyVarList ']'           { $1 <> $3 }
+
+TyVarList :: { DL.DList PTVar }
+  : wildcard(TypeVar)                       { DL.singleton (Right $1) }
+  | TyVarList ',' wildcard(TypeVar)         { $1 `DL.snoc` Right $3 }
+
+----------------
+-- EXPRESSION --
+----------------
+
+EAtom :: { PExp }
+  : INT                            { let (TokenInt p x) = $1    in E.Lit p $ E.Int    x }
+  | CHAR                           { let (TokenChar p x) = $1   in E.Lit p $ E.Char   x }
+  | STR                            { let (TokenString p x) = $1 in E.Lit p $ E.String x }
+  | '()'                           { E.Lit (pos $1) E.Unit }
+  | '(,)'                          {% fatalErrors [errorMisplacedPairCon @ProgVar (pos $1) Proxy] }
+  | ProgVar                        { E.Var (pos $1) $1 }
+  | Constructor                    { E.Con (pos $1) $1 }
+  | '(' ExpInner ')'               {% $2 InParens }
+  | '(' Exp ',' Exp ')'            { E.Pair (pos $1) $2 $4 }
+  | new                            { E.Exp $ BuiltinNew (pos $1) }
+  | select Constructor             { E.Select (pos $1) $2 }
+  | select '(,)'                   { E.Select (pos $1) (pairConId (pos $2)) }
+  | case Exp of Cases              { E.Case (pos $1) $2 $4 }
+
+ETail :: { PExp }
+  : LamExp                         { $1 }
+  | if Exp then Exp else Exp       { E.Cond (pos $1) $2 $4 $6 }
+  | let LetBind '=' Exp in Exp     { $2 (pos $1) $4 $6 }
+  | RecExp                         {% $1 E.Rec }
+  | let RecExp in Exp              {% $2 \p v t r ->
+      E.UnLet (pos $1) v Nothing (E.Rec p v t r) $4
+    }
+
+EApp :: { PExp }
+  : EAtom                          { $1 }
+  | EApp EAtom                     { E.App (pos $1) $1 $2 }
+  | EApp '[' TypeApps ']'          { $3 (pos $2) $1 }
+
+EAppTail :: { PExp }
+  : EApp                           { $1 }
+  | ETail                          { $1 }
+  | EApp ETail                     { E.App (pos $1) $1 $2 }
+
+EOps :: { Parenthesized -> ParseM PExp }
+  : OpsExp                        { \ps -> resolveOpSeq ps $1 }
+  | OpTys                         { \ps -> resolveOpSeq ps $ Operator $1 Nil }
+  | OpTys EAppTail                { \ps -> resolveOpSeq ps $ Operator $1 (Operand $2 Nil) }
+  | OpTys OpsExp                  { \ps -> resolveOpSeq ps $ Operator $1 $2 }
+
+ExpInner :: { Parenthesized -> ParseM PExp }
+  : EOps                           { $1 }
+  | EAppTail                       { const (pure $1) }
+
+Exp :: { PExp }
+  : ExpInner                       {% $1 TopLevel }
+
+TypeApps :: { Pos -> PExp -> PExp }
+  : Type                           { \p e -> E.TypeApp p e $1 }
+  | TypeApps ',' Type              { \p e -> E.TypeApp p ($1 p e) $3 }
+
+RecExp :: { forall a. (Pos -> ProgVar -> PType -> E.RecLam Parse -> a) -> ParseM a }
+  : rec ProgVar TySig '=' Exp {
+      \f -> case $5 of
+        E.RecAbs r -> pure $ f (pos $1) $2 $3 r
+        _ -> fatalErrors [errorRecNoTermLambda (pos $5)]
+    }
+
+LetBind :: { Pos -> PExp -> PExp -> PExp }
+  : ProgVarWild optional(TySig)   { \p -> E.UnLet p $1 $2 }
+  | Pattern                       { \p -> uncurry (E.PatLet p) $1 }
+
+LamExp :: { PExp }
+  : lambda Abs Arrow Exp {% do
+      let (build, Any anyTermAbs) = $2
+      let (arrPos, arrMul) = $3
+      when (arrMul == Lin && not anyTermAbs) do
+        addErrors [errorNoTermLinLambda (pos $1) arrPos]
+      pure $ appEndo (build $3) $4
+    }
+
+Abs :: { ((Pos, Multiplicity) -> Endo PExp, Any) }
+  : optional(Abs) '(' wildcard(ProgVar) ':' Type ')' { do
+      let (outer, _) = fold $1
+      let build (p, m) = Endo $ E.Abs @Parse (pos $2) . E.Bind p m $3 $5
+      (outer <> build, Any True)
+    }
+  | optional(Abs) '[' wildcard(TypeVar) ':' Kind ']' { do
+      let (outer, anyTermAbs) = fold $1
+      let build _ = Endo $ E.TypeAbs @Parse (pos $2) . K.Bind (pos $5) $3 $5
+      (outer <> build, anyTermAbs)
+    }
+
+Cases :: { PCaseMap }
+  : -- An empty case is not allowed. Accepting it here allows us to provide
+    -- better error messages.
+    '{' '}' { emptyCaseMap }
+  | -- optional NL: The closing brace may be on column 0 of a new line. Usually
+    -- NL separates declarations.
+    '{' CaseMap optional(',') optional(NL) '}' { $2 }
+
+CaseMap :: { PCaseMap }
+  : Case             {% $1 emptyCaseMap }
+  | CaseMap ',' Case {% $3 $1 }
+
+-- Case :: { (ProgVar, CaseBranch [] Parse) }
+Case :: { PCaseMap -> ParseM PCaseMap }
+  : Pattern '->' Exp { \pcm -> do
+      let (con, binds) = $1
+      let branch = CaseBranch
+            { branchPos = pos con
+            , branchBinds = binds
+            , branchExp = $3
+            }
+      cases <- insertNoDuplicates con branch (E.casesPatterns pcm)
+      pure pcm{ E.casesPatterns = cases }
+    }
+  | ProgVarWild '->' Exp { \pcm -> do
+      let wildBranch = CaseBranch
+            { branchPos = pos $1
+            , branchBinds = Identity $1
+            , branchExp = $3
+            }
+      whenJust (E.casesWildcard pcm) \prevWild ->
+        addErrors [errorMultipleWildcards prevWild wildBranch]
+      pure pcm{ E.casesWildcard = Just wildBranch }
+    }
+
+Pattern :: { (ProgVar, [ProgVar]) }
+  : Constructor ProgVarWildSeq            { ($1, DL.toList $2) }
+  | '(,)' ProgVarWildSeq                  { (pairConId (pos $1), DL.toList $2) }
+  | '(' ProgVarWild ',' ProgVarWild ')'   { (pairConId (pos $1), [$2, $4]) }
+
+Op :: { ProgVar }
+  : OPERATOR  { mkVar (pos $1) (getText $1) }
+  | '+'       { mkVar (pos $1) "+" }
+  | '-'       { mkVar (pos $1) "-" }
+
+OpTys :: { (ProgVar, PExp -> PExp) }
+  : Op                        { ($1, id) }
+  | OpTys '[' TypeApps ']'    { second ($3 (pos $2) .) $1 }
+
+OpsExp :: { OpSeq OpsExp (ProgVar, PExp -> PExp) }
+  : EApp OpTys           { Operand $1 $ Operator $2 Nil }
+  | EApp OpTys EAppTail  { Operand $1 $ Operator $2 $ Operand $3 Nil }
+  | EApp OpTys OpsExp    { Operand $1 $ Operator $2 $3 }
+
+
+----------
+-- TYPE --
+----------
+
+-- polarised(t :: PType) :: PType
+polarised(t)
+  :     t              { $1 }
+  | '+' polarised(t)   { $2 }
+  | '-' polarised(t)   { T.Negate (pos $1) $2 :: PType }
+
+TypeAtom :: { PType }
+  : '()'                          { T.Unit (pos $1) }
+  | '(,)'                         {% fatalErrors [errorMisplacedPairCon @TypeVar (pos $1) Proxy] }
+  | '(' Type ',' TupleType ')'    { T.Pair (pos $1) $2 $4 }
+  | end                           { T.End (pos $1) }
+  | TypeVar                       { T.Var (pos $1) $1 }
+  | TypeName                      { T.Con (pos $1) $1 }
+  | '(' Type ')'                  { $2 }
+
+Type1 :: { PType }
+  : TypeAtom                      { $1 }
+  | Type1 TypeAtom                { T.App (pos $1) $1 $2 }
+
+Type2 :: { PType }
+  : polarised(Type1)              { $1 }
+
+Type3 :: { PType }
+  : Type2                         { $1 }
+  | Polarity Type2 '.' Type3      { uncurry T.Session $1 $2 $4 }
+
+Type4 :: { PType }
+  : Type3                         { $1 }
+  | dualof Type4                  { T.Dualof (pos $1) $2 }
+
+Type5 :: { PType }
+  : Type4                         { $1 }
+  | Type4 Arrow Type5             { uncurry T.Arrow $2 $1 $3 }
+  | Forall Type5                  { $1 $2 }
+
+Type :: { PType }
+  : Type5                         { $1 }
+
+Forall :: { PType -> PType }
+  : forall KindBind TypeParams '.' { do
+      let bind (v, k) = Endo $ T.Forall @Parse (pos $1) . K.Bind (pos v) v k
+      appEndo $ foldMap bind ($2 : toList $3)
+    }
+
+TupleType :: { PType }
+  : Type               { $1 }
+  | Type ',' TupleType { T.Pair (pos $1) $1 $3 }
+
+Arrow :: { (Pos, Multiplicity) }
+  : '->' { (pos $1, Un) }
+  | '-o' { (pos $1, Lin) }
+
+Polarity :: { (Pos, T.Polarity) }
+  : '!' { (pos $1, T.Out) }
+  | '?' { (pos $1, T.In) }
+
+-- TYPE SEQUENCE
+
+TypeSeq :: { DL.DList PType }
+  : {- empty -}                     { DL.empty }
+  | TypeSeq polarised(TypeAtom)     {  $1 `DL.snoc` $2 }
+    -- TypeAtom by itself does not allow prefixing with +/- without wrapping in
+    -- parentheses. The polarisation also can't be moved to TypeAtom since it
+    -- has a lower precedence than type application
+
+----------
+-- KIND --
+----------
+
+Kind :: { K.Kind }
+  : KIND { $1 }
+
+-- PROGRAM VARIABLE
+
+ProgVar :: { ProgVar }
+  : LOWER_ID { mkVar (pos $1) (getText $1) }
+
+Constructor :: { ProgVar }
+  : UPPER_ID { mkVar (pos $1) (getText $1) }
+  | KIND     { mkVar (pos $1) (show $1) }
+
+ProgVarWild :: { ProgVar }
+  : wildcard(ProgVar)   { $1 }
+
+-- wildcard(v) : Variable v => v
+wildcard(v)
+  : v     { $1 }
+  | '_'   { mkVar (pos $1) "_" }
+
+-- optional(t) : Maybe t
+optional(t)
+  : {- empty -}  { Nothing }
+  | t            { Just $1 }
+
+ProgVarWildSeq :: { DL.DList ProgVar }
+  :                            { DL.empty }
+  | ProgVarWildSeq ProgVarWild { $1 `DL.snoc` $2 }
+
+-- TYPE VARIABLE
+
+TypeVar :: { TypeVar }
+  : LOWER_ID { mkVar (pos $1) (getText $1) }
+
+TypeName :: { TypeVar }
+  : UPPER_ID { mkVar (pos $1) (getText $1) }
+  | KIND     { mkVar (pos $1) (show $1) }
+
+KindBind :: { (TypeVar, K.Kind) }
+  : '(' TypeVar ':' Kind ')'  { ($2, $4) }
+  | '(' TypeVar ')'           { ($2, K.TU (pos $2)) }
+  | TypeVar                   { ($1, K.TU (pos $1)) }
+
+KindedTVarM :: { (TypeVar, Maybe K.Kind) }
+  : TypeName ':' Kind { ($1, Just $3) }
+  | TypeName          { ($1, Nothing) }
+
+KindedTVar ::  { (Pos -> K.Kind) -> (TypeVar, K.Kind) }
+  : KindedTVarM       { \k -> let (v, mk) = $1 in (v, k (pos v) `fromMaybe` mk) }
+
+{
+newtype Parser a = Parser ([Token] -> ParseM a)
+  deriving (Functor)
+
+parseProg :: PProgram -> Parser PProgram
+parseProg base = Parser \toks -> do
+  mkP <- parseProg_ toks
+  mkP base
+
+parseType :: Parser PType
+parseType = Parser $ parseType_ . dropNewlines
+
+parseKind :: Parser K.Kind
+parseKind = Parser $ parseKind_ . dropNewlines
+
+parseExpr :: Parser PExp
+parseExpr = Parser $ parseExpr_ . dropNewlines
+
+feedParser :: Parser a -> String -> ParseM a
+feedParser = flip lexer
+
+runParser :: Parser a -> String -> Either [PosError] a
+runParser parser = runParseM . feedParser parser
+
+-- | Runs a parser with the contents of the provided file. This function may
+-- throw for all of the reasons 'readFile' may throw.
+runParserIO :: Parser a -> FilePath -> IO (Either [PosError] a)
+runParserIO parser file = runParser parser <$> readFile file
+
+-- | Runs a parser from on the given input string, returning either the
+-- rendered errors (mode 'Plain') or the successfull result.
+runParserSimple :: Parser a -> String -> Either String a
+runParserSimple p = first (renderErrors Plain "") . runParser p
+
+lexer :: String -> Parser a -> ParseM a
+lexer str (Parser f) =
+  case scanTokens str of
+    Right toks ->
+      f toks
+    Left (PosError p err) ->
+      fatalError p err
+
+parseError :: [Token] -> ParseM a
+parseError = uncurry fatalError <<< \case
+  [] -> (defaultPos, [Error "Unexpected end of file."])
+  t:_ -> (pos t, [Error "Unexpected token", Error t])
+}

@@ -1,0 +1,6 @@
+
+1:15: error:
+	 Type of
+	    x
+	 is neither a function type nor convertible to a function type:
+	    Int

@@ -1,0 +1,6 @@
+
+1:28: error:
+	 Type of
+	    f
+	 is neither a function type nor convertible to a function type:
+	    ∀(a:TU). a -> ()

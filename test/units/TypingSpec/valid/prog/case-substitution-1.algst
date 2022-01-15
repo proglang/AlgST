@@ -1,0 +1,7 @@
+data Id a = Id a
+
+getId : forall a. Id a -> a
+getId [_] id =
+  case id of {
+    Id a -> a
+  }

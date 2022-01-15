@@ -1,0 +1,19 @@
+-- Bultin types are Int, Bool, Char, String.
+--
+-- It should not be possible to declare new types of these names.
+--
+-- (cf. RenameSpec/valid/prog/cons-builtin-type.algst)
+--
+-- TODO: Improve error messages! Compare with ca04cad7635e7a6ee9aa8a1238f51e61ca0bc4c9.
+
+type Int = ()
+
+data Bool = Yes | No
+
+protocol Char
+  = Eof
+  | C +Int
+
+data String
+  = Cons Char String
+  | Empty

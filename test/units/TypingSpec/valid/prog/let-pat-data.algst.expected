@@ -1,0 +1,134 @@
+Identity
+|
+`- DataDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- TU
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   `- constructors
+      |
+      `- Identity
+         |
+         `- Type.Var 6#a
+            |
+            `- TU
+
+Identity
+|
+`- Decl.DataCon (Identity)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      `- Type.Var 6#a
+         |
+         `- TU
+
+matchD0
+|
++- type
+|  |
+|  `- Type.Arrow U
+|     |
+|     +- Type.Type
+|     |  |
+|     |  `- TypeRef
+|     |     |
+|     |     `- D0
+|     |
+|     `- Type.Unit
+|
++- params
+|  |
+|  `- 41#d0
+|
+`- definition
+   |
+   `- Exp.Abs U 41#d0
+      |
+      +- Type.Type
+      |  |
+      |  `- TypeRef
+      |     |
+      |     `- D0
+      |
+      `- Exp.Exp
+         |
+         `- TcExpX.ValueCase
+            |
+            +- Exp.Var 41#d0
+            |
+            `- D0
+               |
+               `- Exp.Lit
+                  |
+                  `- Lit.Unit
+
+runIdentity
+|
++- type
+|  |
+|  `- Type.Forall 47#a:TU
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Type
+|        |  |
+|        |  `- TypeRef
+|        |     |
+|        |     +- Identity
+|        |     |
+|        |     `- Type.Var 47#a
+|        |        |
+|        |        `- TU
+|        |
+|        `- Type.Var 47#a
+|           |
+|           `- TU
+|
++- params
+|  |
+|  `- 46#id
+|
+`- definition
+   |
+   `- Exp.TypeAbs 57#_:TU
+      |
+      `- Exp.Abs U 46#id
+         |
+         +- Type.Type
+         |  |
+         |  `- TypeRef
+         |     |
+         |     +- Identity
+         |     |
+         |     `- Type.Var 57#_
+         |        |
+         |        `- TU
+         |
+         `- Exp.Exp
+            |
+            `- TcExpX.ValueCase
+               |
+               +- Exp.Var 46#id
+               |
+               `- Identity 48#a
+                  |
+                  `- Exp.Var 48#a
+

@@ -1,0 +1,14 @@
+Exp.App
+|
++- Exp.Var (+)
+|
+`- Exp.App
+   |
+   +- Exp.App
+   |  |
+   |  +- Exp.Var (*)
+   |  |
+   |  `- Exp.Var a
+   |
+   `- Exp.Var b
+

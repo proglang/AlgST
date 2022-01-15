@@ -1,0 +1,11 @@
+sendInt1 : ∀(s:SL). !Int.s -> s
+sendInt1 [s] c = send [Int, s] 1 c
+
+-- Intresting: because 'send' has to work both for linear and unrestricted
+-- types an eta-reduced version is not possible.
+--
+-- Since 'send' is built-in we *could* require that it is always used with a
+-- type application and specify a poor man's version of kind polymorphism.
+--
+-- sendInt2 : ∀(s:SL). !Int.s -> s
+-- sendInt2 = send [Int] 2

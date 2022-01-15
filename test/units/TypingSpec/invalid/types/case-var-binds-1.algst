@@ -1,0 +1,4 @@
+\(b : Bool) -> case b of {
+  True x -> (),
+  False -> ()
+}

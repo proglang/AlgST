@@ -1,0 +1,4 @@
+pairId2 : ∀(a:TU) (b:TU). (a, b) -> (a, b)
+pairId2 ab =
+  let (,) a b = ab in
+  (a, b)

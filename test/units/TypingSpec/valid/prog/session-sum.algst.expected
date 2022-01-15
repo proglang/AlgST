@@ -1,0 +1,656 @@
+Arith
+|
+`- ProtoDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- P
+   |
+   +- parameters
+   |
+   `- constructors
+      |
+      +- Add
+      |  |
+      |  +- Type.Type
+      |  |  |
+      |  |  `- TypeRef
+      |  |     |
+      |  |     `- Int
+      |  |
+      |  +- Type.Type
+      |  |  |
+      |  |  `- TypeRef
+      |  |     |
+      |  |     `- Int
+      |  |
+      |  `- Type.Negate
+      |     |
+      |     `- Type.Type
+      |        |
+      |        `- TypeRef
+      |           |
+      |           `- Int
+      |
+      `- Neg
+         |
+         +- Type.Type
+         |  |
+         |  `- TypeRef
+         |     |
+         |     `- Int
+         |
+         `- Type.Negate
+            |
+            `- Type.Type
+               |
+               `- TypeRef
+                  |
+                  `- Int
+
+List
+|
+`- DataDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- TU
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   `- constructors
+      |
+      +- Cons
+      |  |
+      |  +- Type.Var 6#a
+      |  |  |
+      |  |  `- TU
+      |  |
+      |  `- Type.Type
+      |     |
+      |     `- TypeRef
+      |        |
+      |        +- List
+      |        |
+      |        `- Type.Var 6#a
+      |           |
+      |           `- TU
+      |
+      `- Nil
+
+Repeat
+|
+`- ProtoDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- P
+   |
+   +- parameters
+   |  |
+   |  `- (p:P)
+   |
+   `- constructors
+      |
+      +- More
+      |  |
+      |  +- Type.Var 10#p
+      |  |  |
+      |  |  `- P
+      |  |
+      |  `- Type.Type
+      |     |
+      |     `- TypeRef
+      |        |
+      |        +- Repeat
+      |        |
+      |        `- Type.Var 10#p
+      |           |
+      |           `- P
+      |
+      `- Quit
+
+Add
+|
+`- Decl.ProtocolCon (Arith)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |
+   `- items
+      |
+      +- Type.Type
+      |  |
+      |  `- TypeRef
+      |     |
+      |     `- Int
+      |
+      +- Type.Type
+      |  |
+      |  `- TypeRef
+      |     |
+      |     `- Int
+      |
+      `- Type.Negate
+         |
+         `- Type.Type
+            |
+            `- TypeRef
+               |
+               `- Int
+
+Cons
+|
+`- Decl.DataCon (List)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      +- Type.Var 6#a
+      |  |
+      |  `- TU
+      |
+      `- Type.Type
+         |
+         `- TypeRef
+            |
+            +- List
+            |
+            `- Type.Var 6#a
+               |
+               `- TU
+
+More
+|
+`- Decl.ProtocolCon (Repeat)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (p:P)
+   |
+   `- items
+      |
+      +- Type.Var 10#p
+      |  |
+      |  `- P
+      |
+      `- Type.Type
+         |
+         `- TypeRef
+            |
+            +- Repeat
+            |
+            `- Type.Var 10#p
+               |
+               `- P
+
+Neg
+|
+`- Decl.ProtocolCon (Arith)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |
+   `- items
+      |
+      +- Type.Type
+      |  |
+      |  `- TypeRef
+      |     |
+      |     `- Int
+      |
+      `- Type.Negate
+         |
+         `- Type.Type
+            |
+            `- TypeRef
+               |
+               `- Int
+
+Nil
+|
+`- Decl.DataCon (List)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+
+Quit
+|
+`- Decl.ProtocolCon (Repeat)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (p:P)
+   |
+   `- items
+
+sum
+|
++- type
+|  |
+|  `- Type.Arrow U
+|     |
+|     +- Type.Type
+|     |  |
+|     |  `- TypeRef
+|     |     |
+|     |     +- List
+|     |     |
+|     |     `- Type.Type
+|     |        |
+|     |        `- TypeRef
+|     |           |
+|     |           `- Int
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Session (!)
+|        |  |
+|        |  +- Type.Type
+|        |  |  |
+|        |  |  `- TypeRef
+|        |  |     |
+|        |  |     +- Repeat
+|        |  |     |
+|        |  |     `- Type.Type
+|        |  |        |
+|        |  |        `- TypeRef
+|        |  |           |
+|        |  |           `- Arith
+|        |  |
+|        |  `- Type.End
+|        |
+|        `- Type.Type
+|           |
+|           `- TypeRef
+|              |
+|              `- Int
+|
++- params
+|
+`- definition
+   |
+   `- Exp.Exp
+      |
+      `- TcExpX.ValueCase
+         |
+         +- Exp.Rec 49#go
+         |  |
+         |  +- Type.Arrow U
+         |  |  |
+         |  |  +- Type.Type
+         |  |  |  |
+         |  |  |  `- TypeRef
+         |  |  |     |
+         |  |  |     `- Int
+         |  |  |
+         |  |  `- Type.Arrow U
+         |  |     |
+         |  |     +- Type.Type
+         |  |     |  |
+         |  |     |  `- TypeRef
+         |  |     |     |
+         |  |     |     +- List
+         |  |     |     |
+         |  |     |     `- Type.Type
+         |  |     |        |
+         |  |     |        `- TypeRef
+         |  |     |           |
+         |  |     |           `- Int
+         |  |     |
+         |  |     `- Type.Arrow U
+         |  |        |
+         |  |        +- Type.Session (!)
+         |  |        |  |
+         |  |        |  +- Type.Type
+         |  |        |  |  |
+         |  |        |  |  `- TypeRef
+         |  |        |  |     |
+         |  |        |  |     +- Repeat
+         |  |        |  |     |
+         |  |        |  |     `- Type.Type
+         |  |        |  |        |
+         |  |        |  |        `- TypeRef
+         |  |        |  |           |
+         |  |        |  |           `- Arith
+         |  |        |  |
+         |  |        |  `- Type.End
+         |  |        |
+         |  |        `- Type.Type
+         |  |           |
+         |  |           `- TypeRef
+         |  |              |
+         |  |              `- Int
+         |  |
+         |  `- Exp.Abs U 50#acc
+         |     |
+         |     +- Type.Type
+         |     |  |
+         |     |  `- TypeRef
+         |     |     |
+         |     |     `- Int
+         |     |
+         |     `- Exp.Abs U 51#xs
+         |        |
+         |        +- Type.Type
+         |        |  |
+         |        |  `- TypeRef
+         |        |     |
+         |        |     +- List
+         |        |     |
+         |        |     `- Type.Type
+         |        |        |
+         |        |        `- TypeRef
+         |        |           |
+         |        |           `- Int
+         |        |
+         |        `- Exp.Abs U 52#c
+         |           |
+         |           +- Type.Session (!)
+         |           |  |
+         |           |  +- Type.Type
+         |           |  |  |
+         |           |  |  `- TypeRef
+         |           |  |     |
+         |           |  |     +- Repeat
+         |           |  |     |
+         |           |  |     `- Type.Type
+         |           |  |        |
+         |           |  |        `- TypeRef
+         |           |  |           |
+         |           |  |           `- Arith
+         |           |  |
+         |           |  `- Type.End
+         |           |
+         |           `- Exp.Exp
+         |              |
+         |              `- TcExpX.ValueCase
+         |                 |
+         |                 +- Exp.Var 51#xs
+         |                 |
+         |                 +- Cons 54#xs 53#x
+         |                 |  |
+         |                 |  `- Exp.Exp
+         |                 |     |
+         |                 |     `- TcExpX.ValueCase
+         |                 |        |
+         |                 |        +- Exp.App
+         |                 |        |  |
+         |                 |        |  +- Exp.TypeApp
+         |                 |        |  |  |
+         |                 |        |  |  +- Exp.TypeApp
+         |                 |        |  |  |  |
+         |                 |        |  |  |  +- Exp.Select More
+         |                 |        |  |  |  |
+         |                 |        |  |  |  `- Type.Type
+         |                 |        |  |  |     |
+         |                 |        |  |  |     `- TypeRef
+         |                 |        |  |  |        |
+         |                 |        |  |  |        `- Arith
+         |                 |        |  |  |
+         |                 |        |  |  `- Type.End
+         |                 |        |  |
+         |                 |        |  `- Exp.Var 52#c
+         |                 |        |
+         |                 |        `- 55#c
+         |                 |           |
+         |                 |           `- Exp.Exp
+         |                 |              |
+         |                 |              `- TcExpX.ValueCase
+         |                 |                 |
+         |                 |                 +- Exp.App
+         |                 |                 |  |
+         |                 |                 |  +- Exp.TypeApp
+         |                 |                 |  |  |
+         |                 |                 |  |  +- Exp.Select Add
+         |                 |                 |  |  |
+         |                 |                 |  |  `- Type.Session (!)
+         |                 |                 |  |     |
+         |                 |                 |  |     +- Type.Type
+         |                 |                 |  |     |  |
+         |                 |                 |  |     |  `- TypeRef
+         |                 |                 |  |     |     |
+         |                 |                 |  |     |     +- Repeat
+         |                 |                 |  |     |     |
+         |                 |                 |  |     |     `- Type.Type
+         |                 |                 |  |     |        |
+         |                 |                 |  |     |        `- TypeRef
+         |                 |                 |  |     |           |
+         |                 |                 |  |     |           `- Arith
+         |                 |                 |  |     |
+         |                 |                 |  |     `- Type.End
+         |                 |                 |  |
+         |                 |                 |  `- Exp.Var 55#c
+         |                 |                 |
+         |                 |                 `- 56#c
+         |                 |                    |
+         |                 |                    `- Exp.Exp
+         |                 |                       |
+         |                 |                       `- TcExpX.ValueCase
+         |                 |                          |
+         |                 |                          +- Exp.App
+         |                 |                          |  |
+         |                 |                          |  +- Exp.App
+         |                 |                          |  |  |
+         |                 |                          |  |  +- Exp.TypeApp
+         |                 |                          |  |  |  |
+         |                 |                          |  |  |  +- Exp.TypeApp
+         |                 |                          |  |  |  |  |
+         |                 |                          |  |  |  |  +- Exp.Var send
+         |                 |                          |  |  |  |  |
+         |                 |                          |  |  |  |  `- Type.Type
+         |                 |                          |  |  |  |     |
+         |                 |                          |  |  |  |     `- TypeRef
+         |                 |                          |  |  |  |        |
+         |                 |                          |  |  |  |        `- Int
+         |                 |                          |  |  |  |
+         |                 |                          |  |  |  `- Type.Session (!)
+         |                 |                          |  |  |     |
+         |                 |                          |  |  |     +- Type.Type
+         |                 |                          |  |  |     |  |
+         |                 |                          |  |  |     |  `- TypeRef
+         |                 |                          |  |  |     |     |
+         |                 |                          |  |  |     |     `- Int
+         |                 |                          |  |  |     |
+         |                 |                          |  |  |     `- Type.Session (?)
+         |                 |                          |  |  |        |
+         |                 |                          |  |  |        +- Type.Type
+         |                 |                          |  |  |        |  |
+         |                 |                          |  |  |        |  `- TypeRef
+         |                 |                          |  |  |        |     |
+         |                 |                          |  |  |        |     `- Int
+         |                 |                          |  |  |        |
+         |                 |                          |  |  |        `- Type.Session (!)
+         |                 |                          |  |  |           |
+         |                 |                          |  |  |           +- Type.Type
+         |                 |                          |  |  |           |  |
+         |                 |                          |  |  |           |  `- TypeRef
+         |                 |                          |  |  |           |     |
+         |                 |                          |  |  |           |     +- Repeat
+         |                 |                          |  |  |           |     |
+         |                 |                          |  |  |           |     `- Type.Type
+         |                 |                          |  |  |           |        |
+         |                 |                          |  |  |           |        `- TypeRef
+         |                 |                          |  |  |           |           |
+         |                 |                          |  |  |           |           `- Arith
+         |                 |                          |  |  |           |
+         |                 |                          |  |  |           `- Type.End
+         |                 |                          |  |  |
+         |                 |                          |  |  `- Exp.Var 53#x
+         |                 |                          |  |
+         |                 |                          |  `- Exp.Var 56#c
+         |                 |                          |
+         |                 |                          `- 57#c
+         |                 |                             |
+         |                 |                             `- Exp.Exp
+         |                 |                                |
+         |                 |                                `- TcExpX.ValueCase
+         |                 |                                   |
+         |                 |                                   +- Exp.App
+         |                 |                                   |  |
+         |                 |                                   |  +- Exp.App
+         |                 |                                   |  |  |
+         |                 |                                   |  |  +- Exp.TypeApp
+         |                 |                                   |  |  |  |
+         |                 |                                   |  |  |  +- Exp.TypeApp
+         |                 |                                   |  |  |  |  |
+         |                 |                                   |  |  |  |  +- Exp.Var send
+         |                 |                                   |  |  |  |  |
+         |                 |                                   |  |  |  |  `- Type.Type
+         |                 |                                   |  |  |  |     |
+         |                 |                                   |  |  |  |     `- TypeRef
+         |                 |                                   |  |  |  |        |
+         |                 |                                   |  |  |  |        `- Int
+         |                 |                                   |  |  |  |
+         |                 |                                   |  |  |  `- Type.Session (?)
+         |                 |                                   |  |  |     |
+         |                 |                                   |  |  |     +- Type.Type
+         |                 |                                   |  |  |     |  |
+         |                 |                                   |  |  |     |  `- TypeRef
+         |                 |                                   |  |  |     |     |
+         |                 |                                   |  |  |     |     `- Int
+         |                 |                                   |  |  |     |
+         |                 |                                   |  |  |     `- Type.Session (!)
+         |                 |                                   |  |  |        |
+         |                 |                                   |  |  |        +- Type.Type
+         |                 |                                   |  |  |        |  |
+         |                 |                                   |  |  |        |  `- TypeRef
+         |                 |                                   |  |  |        |     |
+         |                 |                                   |  |  |        |     +- Repeat
+         |                 |                                   |  |  |        |     |
+         |                 |                                   |  |  |        |     `- Type.Type
+         |                 |                                   |  |  |        |        |
+         |                 |                                   |  |  |        |        `- TypeRef
+         |                 |                                   |  |  |        |           |
+         |                 |                                   |  |  |        |           `- Arith
+         |                 |                                   |  |  |        |
+         |                 |                                   |  |  |        `- Type.End
+         |                 |                                   |  |  |
+         |                 |                                   |  |  `- Exp.Var 50#acc
+         |                 |                                   |  |
+         |                 |                                   |  `- Exp.Var 57#c
+         |                 |                                   |
+         |                 |                                   `- 58#c
+         |                 |                                      |
+         |                 |                                      `- Exp.Exp
+         |                 |                                         |
+         |                 |                                         `- TcExpX.ValueCase
+         |                 |                                            |
+         |                 |                                            +- Exp.App
+         |                 |                                            |  |
+         |                 |                                            |  +- Exp.TypeApp
+         |                 |                                            |  |  |
+         |                 |                                            |  |  +- Exp.TypeApp
+         |                 |                                            |  |  |  |
+         |                 |                                            |  |  |  +- Exp.Var receive
+         |                 |                                            |  |  |  |
+         |                 |                                            |  |  |  `- Type.Type
+         |                 |                                            |  |  |     |
+         |                 |                                            |  |  |     `- TypeRef
+         |                 |                                            |  |  |        |
+         |                 |                                            |  |  |        `- Int
+         |                 |                                            |  |  |
+         |                 |                                            |  |  `- Type.Session (!)
+         |                 |                                            |  |     |
+         |                 |                                            |  |     +- Type.Type
+         |                 |                                            |  |     |  |
+         |                 |                                            |  |     |  `- TypeRef
+         |                 |                                            |  |     |     |
+         |                 |                                            |  |     |     +- Repeat
+         |                 |                                            |  |     |     |
+         |                 |                                            |  |     |     `- Type.Type
+         |                 |                                            |  |     |        |
+         |                 |                                            |  |     |        `- TypeRef
+         |                 |                                            |  |     |           |
+         |                 |                                            |  |     |           `- Arith
+         |                 |                                            |  |     |
+         |                 |                                            |  |     `- Type.End
+         |                 |                                            |  |
+         |                 |                                            |  `- Exp.Var 58#c
+         |                 |                                            |
+         |                 |                                            `- (,) 60#c 59#acc'
+         |                 |                                               |
+         |                 |                                               `- Exp.App
+         |                 |                                                  |
+         |                 |                                                  +- Exp.App
+         |                 |                                                  |  |
+         |                 |                                                  |  +- Exp.App
+         |                 |                                                  |  |  |
+         |                 |                                                  |  |  +- Exp.Var 49#go
+         |                 |                                                  |  |  |
+         |                 |                                                  |  |  `- Exp.Var 59#acc'
+         |                 |                                                  |  |
+         |                 |                                                  |  `- Exp.Var 54#xs
+         |                 |                                                  |
+         |                 |                                                  `- Exp.Var 60#c
+         |                 |
+         |                 `- Nil
+         |                    |
+         |                    `- Exp.Exp
+         |                       |
+         |                       `- TcExpX.ValueCase
+         |                          |
+         |                          +- Exp.App
+         |                          |  |
+         |                          |  +- Exp.TypeApp
+         |                          |  |  |
+         |                          |  |  +- Exp.TypeApp
+         |                          |  |  |  |
+         |                          |  |  |  +- Exp.Select Quit
+         |                          |  |  |  |
+         |                          |  |  |  `- Type.Type
+         |                          |  |  |     |
+         |                          |  |  |     `- TypeRef
+         |                          |  |  |        |
+         |                          |  |  |        `- Arith
+         |                          |  |  |
+         |                          |  |  `- Type.End
+         |                          |  |
+         |                          |  `- Exp.Var 52#c
+         |                          |
+         |                          `- 61#_
+         |                             |
+         |                             `- Exp.Var 50#acc
+         |
+         `- 62#go
+            |
+            `- Exp.App
+               |
+               +- Exp.Var 62#go
+               |
+               `- Exp.Lit
+                  |
+                  `- Lit.Int 0
+

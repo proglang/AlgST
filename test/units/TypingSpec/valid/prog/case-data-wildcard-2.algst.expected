@@ -1,0 +1,148 @@
+List
+|
+`- DataDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- TU
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   `- constructors
+      |
+      +- Cons
+      |  |
+      |  +- Type.Var 6#a
+      |  |  |
+      |  |  `- TU
+      |  |
+      |  `- Type.Type
+      |     |
+      |     `- TypeRef
+      |        |
+      |        +- List
+      |        |
+      |        `- Type.Var 6#a
+      |           |
+      |           `- TU
+      |
+      `- Nil
+
+Cons
+|
+`- Decl.DataCon (List)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      +- Type.Var 6#a
+      |  |
+      |  `- TU
+      |
+      `- Type.Type
+         |
+         `- TypeRef
+            |
+            +- List
+            |
+            `- Type.Var 6#a
+               |
+               `- TU
+
+Nil
+|
+`- Decl.DataCon (List)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+
+unsafe_head
+|
++- type
+|  |
+|  `- Type.Forall 48#a:TU
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Type
+|        |  |
+|        |  `- TypeRef
+|        |     |
+|        |     +- List
+|        |     |
+|        |     `- Type.Var 48#a
+|        |        |
+|        |        `- TU
+|        |
+|        `- Type.Var 48#a
+|           |
+|           `- TU
+|
++- params
+|  |
+|  +- [46#a]
+|  |
+|  `- 47#xs
+|
+`- definition
+   |
+   `- Exp.TypeAbs 46#a:TU
+      |
+      `- Exp.Abs U 47#xs
+         |
+         +- Type.Type
+         |  |
+         |  `- TypeRef
+         |     |
+         |     +- List
+         |     |
+         |     `- Type.Var 46#a
+         |        |
+         |        `- TU
+         |
+         `- Exp.Exp
+            |
+            `- TcExpX.ValueCase
+               |
+               +- Exp.Var 47#xs
+               |
+               +- Cons 50#_ 49#a
+               |  |
+               |  `- Exp.Var 49#a
+               |
+               `- 51#xs'
+                  |
+                  `- Exp.App
+                     |
+                     +- Exp.TypeApp
+                     |  |
+                     |  +- Exp.Var unsafe_head
+                     |  |
+                     |  `- Type.Var 46#a
+                     |     |
+                     |     `- TU
+                     |
+                     `- Exp.Var 51#xs'
+

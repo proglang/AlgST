@@ -1,0 +1,4 @@
+
+1:15: error:
+	 Unexpected kind P for type a
+	 Expected a subkind of TL

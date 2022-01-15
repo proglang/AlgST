@@ -1,0 +1,96 @@
+Id
+|
+`- DataDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- TU
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   `- constructors
+      |
+      `- Id
+         |
+         `- Type.Var 3#a
+            |
+            `- TU
+
+Id
+|
+`- Decl.DataCon (Id)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      `- Type.Var 3#a
+         |
+         `- TU
+
+getId
+|
++- type
+|  |
+|  `- Type.Forall 43#a:TU
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Type
+|        |  |
+|        |  `- TypeRef
+|        |     |
+|        |     +- Id
+|        |     |
+|        |     `- Type.Var 43#a
+|        |        |
+|        |        `- TU
+|        |
+|        `- Type.Var 43#a
+|           |
+|           `- TU
+|
++- params
+|  |
+|  +- [41#_]
+|  |
+|  `- 42#id
+|
+`- definition
+   |
+   `- Exp.TypeAbs 41#_:TU
+      |
+      `- Exp.Abs U 42#id
+         |
+         +- Type.Type
+         |  |
+         |  `- TypeRef
+         |     |
+         |     +- Id
+         |     |
+         |     `- Type.Var 41#_
+         |        |
+         |        `- TU
+         |
+         `- Exp.Exp
+            |
+            `- TcExpX.ValueCase
+               |
+               +- Exp.Var 42#id
+               |
+               `- Id 44#a
+                  |
+                  `- Exp.Var 44#a
+

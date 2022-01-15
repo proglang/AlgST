@@ -1,0 +1,5 @@
+\(b : Bool) -> case b of {
+  True -> 1,
+  False -> 2,
+  _ -> 3,
+}

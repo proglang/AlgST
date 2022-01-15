@@ -1,0 +1,32 @@
+foo
+|
++- type
+|  |
+|  `- Type.Forall 40#a:TU
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Var 40#a
+|        |  |
+|        |  `- TU
+|        |
+|        `- Type.Var 40#a
+|           |
+|           `- TU
+|
++- params
+|  |
+|  `- 39#a
+|
+`- definition
+   |
+   `- Exp.TypeAbs 53#_:TU
+      |
+      `- Exp.Abs U 39#a
+         |
+         +- Type.Var 53#_
+         |  |
+         |  `- TU
+         |
+         `- Exp.Var 39#a
+

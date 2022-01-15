@@ -1,0 +1,16 @@
+Exp.TypeAbs 0#a:TU
+|
+`- Exp.Abs U 1#a
+   |
+   +- Type.Con Int
+   |
+   `- Exp.App
+      |
+      +- Exp.TypeApp
+      |  |
+      |  +- Exp.Var global
+      |  |
+      |  `- Type.Var 0#a
+      |
+      `- Exp.Var 1#a
+

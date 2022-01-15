@@ -1,0 +1,15 @@
+data BTree (a:TU)
+  = Branch (BTree a) (BTree a)
+  | Leaf a
+
+sendBTree : ∀(a:TU). (∀(s:SL). !a.s -> s) -> BTree a -> ∀(s:SL). !BTree a.s -> s
+sendBTree [a] sendA t [s] c = case t of {
+  Leaf a ->
+    let c = select Leaf [a,s] c in
+    sendA [s] c,
+  Branch l r ->
+    let c = select Branch [a, s] c in
+    let c = sendBTree [a, !BTree a.s] sendA l c in
+    let c = sendBTree [a, s] sendA r c in
+    c
+}

@@ -1,0 +1,4 @@
+recvPair : ∀(a:TU) (b:TU) (s:SL). ?(a, b).s -> ?a.?b.s
+recvPair c =
+  let (,) c = c in
+  c

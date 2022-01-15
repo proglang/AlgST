@@ -1,0 +1,12 @@
+Exp.UnLet _
+|
++- Exp.Var x
+|
+`- Exp.PatLet C _ _
+   |
+   +- Exp.Var x
+   |
+   `- Exp.Lit
+      |
+      `- Lit.Unit
+

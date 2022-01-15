@@ -1,0 +1,20 @@
+Exp.Case
+|
++- Exp.Var global
+|
+`- C1 0#a 1#b 2#c
+   |
+   `- Exp.App
+      |
+      +- Exp.App
+      |  |
+      |  +- Exp.App
+      |  |  |
+      |  |  +- Exp.Con C2
+      |  |  |
+      |  |  `- Exp.Var 0#a
+      |  |
+      |  `- Exp.Var 1#b
+      |
+      `- Exp.Var 2#c
+

@@ -1,0 +1,14 @@
+Exp.Abs U _
+|
++- Type.Con Bool
+|
+`- Exp.TypeAbs _:TU
+   |
+   `- Exp.Abs U _
+      |
+      +- Type.Con Int
+      |
+      `- Exp.Lit
+         |
+         `- Lit.Int 0
+

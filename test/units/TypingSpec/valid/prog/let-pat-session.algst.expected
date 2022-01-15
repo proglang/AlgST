@@ -1,0 +1,172 @@
+Identity
+|
+`- DataDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- TU
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   `- constructors
+      |
+      `- Identity
+         |
+         `- Type.Var 6#a
+            |
+            `- TU
+
+Identity
+|
+`- Decl.DataCon (Identity)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      `- Type.Var 6#a
+         |
+         `- TU
+
+runIdentity
+|
++- type
+|  |
+|  `- Type.Forall 46#a:TU
+|     |
+|     `- Type.Forall 47#s:SL
+|        |
+|        `- Type.Arrow U
+|           |
+|           +- Type.Session (?)
+|           |  |
+|           |  +- Type.Type
+|           |  |  |
+|           |  |  `- TypeRef
+|           |  |     |
+|           |  |     +- Identity
+|           |  |     |
+|           |  |     `- Type.Var 46#a
+|           |  |        |
+|           |  |        `- TU
+|           |  |
+|           |  `- Type.Var 47#s
+|           |     |
+|           |     `- SL
+|           |
+|           `- Type.Session (?)
+|              |
+|              +- Type.Var 46#a
+|              |  |
+|              |  `- TU
+|              |
+|              `- Type.Var 47#s
+|                 |
+|                 `- SL
+|
++- params
+|  |
+|  `- 45#c
+|
+`- definition
+   |
+   `- Exp.TypeAbs 60#_:TU
+      |
+      `- Exp.TypeAbs 61#_:SL
+         |
+         `- Exp.Abs U 45#c
+            |
+            +- Type.Session (?)
+            |  |
+            |  +- Type.Type
+            |  |  |
+            |  |  `- TypeRef
+            |  |     |
+            |  |     +- Identity
+            |  |     |
+            |  |     `- Type.Var 60#_
+            |  |        |
+            |  |        `- TU
+            |  |
+            |  `- Type.Var 61#_
+            |     |
+            |     `- SL
+            |
+            `- Exp.Exp
+               |
+               `- TcExpX.RecvCase
+                  |
+                  +- Exp.Var 45#c
+                  |
+                  `- Identity 48#c
+                     |
+                     `- Exp.Var 48#c
+
+skipD0
+|
++- type
+|  |
+|  `- Type.Forall 50#s:SL
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Session (?)
+|        |  |
+|        |  +- Type.Type
+|        |  |  |
+|        |  |  `- TypeRef
+|        |  |     |
+|        |  |     `- D0
+|        |  |
+|        |  `- Type.Var 50#s
+|        |     |
+|        |     `- SL
+|        |
+|        `- Type.Var 50#s
+|           |
+|           `- SL
+|
++- params
+|  |
+|  `- 49#c
+|
+`- definition
+   |
+   `- Exp.TypeAbs 62#_:SL
+      |
+      `- Exp.Abs U 49#c
+         |
+         +- Type.Session (?)
+         |  |
+         |  +- Type.Type
+         |  |  |
+         |  |  `- TypeRef
+         |  |     |
+         |  |     `- D0
+         |  |
+         |  `- Type.Var 62#_
+         |     |
+         |     `- SL
+         |
+         `- Exp.Exp
+            |
+            `- TcExpX.RecvCase
+               |
+               +- Exp.Var 49#c
+               |
+               `- D0 51#c
+                  |
+                  `- Exp.Var 51#c
+

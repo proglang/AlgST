@@ -1,0 +1,30 @@
+Exp.Rec id
+|
++- Type.Forall a:TL
+|  |
+|  `- Type.Forall b:TL
+|     |
+|     `- Type.App
+|        |
+|        +- Type.App
+|        |  |
+|        |  +- Type.Con PairId
+|        |  |
+|        |  `- Type.Var a
+|        |
+|        `- Type.Var b
+|
+`- Exp.TypeAbs a:TL
+   |
+   `- Exp.TypeAbs b:TL
+      |
+      `- Exp.Abs U p
+         |
+         +- Type.Pair
+         |  |
+         |  +- Type.Var a
+         |  |
+         |  `- Type.Var b
+         |
+         `- Exp.Var p
+

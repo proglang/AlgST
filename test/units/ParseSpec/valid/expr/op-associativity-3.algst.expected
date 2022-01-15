@@ -1,0 +1,42 @@
+Exp.App
+|
++- Exp.App
+|  |
+|  +- Exp.Var (<|)
+|  |
+|  `- Exp.Var finally
+|
+`- Exp.App
+   |
+   +- Exp.App
+   |  |
+   |  +- Exp.Var (|>)
+   |  |
+   |  `- Exp.App
+   |     |
+   |     +- Exp.App
+   |     |  |
+   |     |  +- Exp.Var (|>)
+   |     |  |
+   |     |  `- Exp.App
+   |     |     |
+   |     |     +- Exp.App
+   |     |     |  |
+   |     |     |  +- Exp.Var (|>)
+   |     |     |  |
+   |     |     |  `- Exp.App
+   |     |     |     |
+   |     |     |     +- Exp.App
+   |     |     |     |  |
+   |     |     |     |  +- Exp.Var (==)
+   |     |     |     |  |
+   |     |     |     |  `- Exp.Var a
+   |     |     |     |
+   |     |     |     `- Exp.Var b
+   |     |     |
+   |     |     `- Exp.Var pipe
+   |     |
+   |     `- Exp.Var here
+   |
+   `- Exp.Var first
+

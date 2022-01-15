@@ -1,0 +1,22 @@
+Exp.UnLet 0#a
+|
++- Exp.Lit
+|  |
+|  `- Lit.Int 1
+|
+`- Exp.App
+   |
+   +- Exp.App
+   |  |
+   |  +- Exp.Var (+)
+   |  |
+   |  `- Exp.UnLet 1#a
+   |     |
+   |     +- Exp.Lit
+   |     |  |
+   |     |  `- Lit.Int 2
+   |     |
+   |     `- Exp.Var 1#a
+   |
+   `- Exp.Var 0#a
+

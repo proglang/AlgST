@@ -1,0 +1,4 @@
+
+1:1: error:
+	 The declared type of MyProtocol is TU
+	 ‘protocol’ declarations can only declare types with kind P (the default).

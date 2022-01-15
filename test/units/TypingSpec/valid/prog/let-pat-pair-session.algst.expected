@@ -1,0 +1,84 @@
+recvPair
+|
++- type
+|  |
+|  `- Type.Forall 44#a:TU
+|     |
+|     `- Type.Forall 45#b:TU
+|        |
+|        `- Type.Forall 46#s:SL
+|           |
+|           `- Type.Arrow U
+|              |
+|              +- Type.Session (?)
+|              |  |
+|              |  +- Type.Pair
+|              |  |  |
+|              |  |  +- Type.Var 44#a
+|              |  |  |  |
+|              |  |  |  `- TU
+|              |  |  |
+|              |  |  `- Type.Var 45#b
+|              |  |     |
+|              |  |     `- TU
+|              |  |
+|              |  `- Type.Var 46#s
+|              |     |
+|              |     `- SL
+|              |
+|              `- Type.Session (?)
+|                 |
+|                 +- Type.Var 44#a
+|                 |  |
+|                 |  `- TU
+|                 |
+|                 `- Type.Session (?)
+|                    |
+|                    +- Type.Var 45#b
+|                    |  |
+|                    |  `- TU
+|                    |
+|                    `- Type.Var 46#s
+|                       |
+|                       `- SL
+|
++- params
+|  |
+|  `- 43#c
+|
+`- definition
+   |
+   `- Exp.TypeAbs 56#_:TU
+      |
+      `- Exp.TypeAbs 57#_:TU
+         |
+         `- Exp.TypeAbs 58#_:SL
+            |
+            `- Exp.Abs U 43#c
+               |
+               +- Type.Session (?)
+               |  |
+               |  +- Type.Pair
+               |  |  |
+               |  |  +- Type.Var 56#_
+               |  |  |  |
+               |  |  |  `- TU
+               |  |  |
+               |  |  `- Type.Var 57#_
+               |  |     |
+               |  |     `- TU
+               |  |
+               |  `- Type.Var 58#_
+               |     |
+               |     `- SL
+               |
+               `- Exp.Exp
+                  |
+                  `- TcExpX.RecvCase
+                     |
+                     +- Exp.Var 43#c
+                     |
+                     `- (,) 47#c
+                        |
+                        `- Exp.Var 47#c
+

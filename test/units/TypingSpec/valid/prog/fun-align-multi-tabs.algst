@@ -1,0 +1,2 @@
+foo : ∀(a:TL). ∀(b:TU). a -> b -o a
+foo [a,b] a b = a

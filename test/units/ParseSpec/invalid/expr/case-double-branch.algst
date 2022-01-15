@@ -1,0 +1,4 @@
+case x of {
+  True -> 1,
+  True -> 2,
+}

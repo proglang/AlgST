@@ -1,0 +1,2 @@
+-- FIXME: Don't talk about a "case" in the error message.
+let D0 = D0' in ()

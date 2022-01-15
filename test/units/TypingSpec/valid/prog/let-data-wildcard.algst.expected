@@ -1,0 +1,66 @@
+and
+|
++- type
+|  |
+|  `- Type.Arrow U
+|     |
+|     +- Type.Type
+|     |  |
+|     |  `- TypeRef
+|     |     |
+|     |     `- Bool
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Type
+|        |  |
+|        |  `- TypeRef
+|        |     |
+|        |     `- D0
+|        |
+|        `- Type.Unit
+|
++- params
+|  |
+|  +- 39#a
+|  |
+|  `- 40#b
+|
+`- definition
+   |
+   `- Exp.Abs U 39#a
+      |
+      +- Type.Type
+      |  |
+      |  `- TypeRef
+      |     |
+      |     `- Bool
+      |
+      `- Exp.Abs U 40#b
+         |
+         +- Type.Type
+         |  |
+         |  `- TypeRef
+         |     |
+         |     `- D0
+         |
+         `- Exp.Exp
+            |
+            `- TcExpX.ValueCase
+               |
+               +- Exp.Var 39#a
+               |
+               `- 41#_
+                  |
+                  `- Exp.Exp
+                     |
+                     `- TcExpX.ValueCase
+                        |
+                        +- Exp.Var 40#b
+                        |
+                        `- 42#_
+                           |
+                           `- Exp.Lit
+                              |
+                              `- Lit.Unit
+

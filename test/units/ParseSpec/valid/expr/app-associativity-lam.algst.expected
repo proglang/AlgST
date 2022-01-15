@@ -1,0 +1,30 @@
+Exp.App
+|
++- Exp.Var foo
+|
+`- Exp.Abs U n
+   |
+   +- Type.Con Int
+   |
+   `- Exp.App
+      |
+      +- Exp.App
+      |  |
+      |  +- Exp.Var (*)
+      |  |
+      |  `- Exp.Var bar
+      |
+      `- Exp.Abs U x
+         |
+         +- Type.Con Int
+         |
+         `- Exp.App
+            |
+            +- Exp.App
+            |  |
+            |  +- Exp.Var (+)
+            |  |
+            |  `- Exp.Var x
+            |
+            `- Exp.Var n
+

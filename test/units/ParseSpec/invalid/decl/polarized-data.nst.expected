@@ -1,0 +1,5 @@
+
+1:21: error:
+	 Data constructor NotAMsg with polarised fields
+	 In the declaration for NotAProtocol
+	 Change it to a `protocol` declaration for polarised constructor fields.

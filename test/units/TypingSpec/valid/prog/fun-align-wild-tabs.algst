@@ -1,0 +1,2 @@
+foo : ∀(a:TU). a -> a
+foo [_] a = a

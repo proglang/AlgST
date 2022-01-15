@@ -1,0 +1,5 @@
+
+1:1: error:
+	 Invalid type application
+	    () ()
+	 Type constructor () needs 0 paramters, 1 provided.

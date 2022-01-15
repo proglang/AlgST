@@ -1,0 +1,3 @@
+
+2:3: error:
+	 Branches of a receiving case must bind exactly one variable.

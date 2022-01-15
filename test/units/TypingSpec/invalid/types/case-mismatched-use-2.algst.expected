@@ -1,0 +1,6 @@
+
+4:14: error:
+	 Linear variable
+	    a : a
+	 is not consumed in branch A at 3:7
+	 but is consumed in branch B at 4:7

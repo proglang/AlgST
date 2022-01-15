@@ -1,0 +1,4 @@
+
+1:7: error:
+	 Unexpected kind TL for type D0_TL
+	 Expected a subkind of TU

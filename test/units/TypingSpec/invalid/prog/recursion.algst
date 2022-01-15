@@ -1,0 +1,2 @@
+foo : Bool -> Int
+foo = rec go : Bool -o Int = \(a:Bool) -o go a

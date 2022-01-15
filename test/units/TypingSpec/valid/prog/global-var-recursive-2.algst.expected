@@ -1,0 +1,42 @@
+bottom1
+|
++- type
+|  |
+|  `- Type.Forall 39#a:TU
+|     |
+|     `- Type.Var 39#a
+|        |
+|        `- TU
+|
++- params
+|
+`- definition
+   |
+   `- Exp.Var bottom2
+
+bottom2
+|
++- type
+|  |
+|  `- Type.Forall 41#a:TU
+|     |
+|     `- Type.Var 41#a
+|        |
+|        `- TU
+|
++- params
+|  |
+|  `- [40#a]
+|
+`- definition
+   |
+   `- Exp.TypeAbs 40#a:TU
+      |
+      `- Exp.TypeApp
+         |
+         +- Exp.Var bottom1
+         |
+         `- Type.Var 40#a
+            |
+            `- TU
+

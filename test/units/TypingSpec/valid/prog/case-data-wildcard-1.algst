@@ -1,0 +1,6 @@
+and : Bool -> Bool -> Bool
+and x y =
+  case x of {
+    True -> y,
+    _    -> False
+  }

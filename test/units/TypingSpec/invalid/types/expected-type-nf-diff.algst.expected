@@ -1,0 +1,9 @@
+
+1:27: error:
+	 Expression
+	     ()
+	 has type
+	     ()
+	 but it should have type
+	  [NF] end
+	 [LIT] dualof dualof end

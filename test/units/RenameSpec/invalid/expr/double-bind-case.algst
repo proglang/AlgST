@@ -1,0 +1,3 @@
+case global of {
+  C1 x x -> 0
+}

@@ -1,0 +1,18 @@
+Exp.Abs U 0#a
+|
++- Type.Con Int
+|
+`- Exp.UnLet 1#a
+   |
+   +- Exp.App
+   |  |
+   |  +- Exp.App
+   |  |  |
+   |  |  +- Exp.Var (+)
+   |  |  |
+   |  |  `- Exp.Var 0#a
+   |  |
+   |  `- Exp.Var 0#a
+   |
+   `- Exp.Var 1#a
+

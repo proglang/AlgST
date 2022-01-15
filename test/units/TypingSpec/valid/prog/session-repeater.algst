@@ -1,0 +1,15 @@
+protocol Repeat (p:P)
+  = More p (Repeat p)
+  | Quit
+
+type Service (p:P) =
+  ∀(s:SL). ?p.s -> s
+
+repeater : ∀(p:P). Service p -> Service (Repeat p)
+repeater [p] handleOne [s] = rec go : ?Repeat p.s -> s = \(c : ?Repeat p.s) ->
+  case c of {
+    More c ->
+      go (handleOne [?Repeat p.s] c),
+    Quit c ->
+      c
+  }

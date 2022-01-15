@@ -1,0 +1,28 @@
+Service
+|
+`- AliasDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- Nothing
+   |
+   +- parameters
+   |  |
+   |  `- (x:P)
+   |
+   `- alias
+      |
+      `- Type.Forall s:SL
+         |
+         `- Type.Arrow U
+            |
+            +- Type.Session (?)
+            |  |
+            |  +- Type.Var x
+            |  |
+            |  `- Type.Var s
+            |
+            `- Type.Var s
+

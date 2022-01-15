@@ -1,0 +1,144 @@
+Maybe
+|
+`- DataDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- TL
+   |
+   +- parameters
+   |  |
+   |  `- (a:TL)
+   |
+   `- constructors
+      |
+      +- Just
+      |  |
+      |  `- Type.Var 6#a
+      |     |
+      |     `- TL
+      |
+      `- Nothing
+
+Just
+|
+`- Decl.DataCon (Maybe)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TL)
+   |
+   +- multiplicity
+   |  |
+   |  `- L
+   |
+   `- items
+      |
+      `- Type.Var 6#a
+         |
+         `- TL
+
+Nothing
+|
+`- Decl.DataCon (Maybe)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TL)
+   |
+   +- multiplicity
+   |  |
+   |  `- L
+   |
+   `- items
+
+fromMaybe
+|
++- type
+|  |
+|  `- Type.Forall 44#a:TL
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Arrow U
+|        |  |
+|        |  +- Type.Unit
+|        |  |
+|        |  `- Type.Var 44#a
+|        |     |
+|        |     `- TL
+|        |
+|        `- Type.Arrow U
+|           |
+|           +- Type.Type
+|           |  |
+|           |  `- TypeRef
+|           |     |
+|           |     +- Maybe
+|           |     |
+|           |     `- Type.Var 44#a
+|           |        |
+|           |        `- TL
+|           |
+|           `- Type.Var 44#a
+|              |
+|              `- TL
+|
++- params
+|  |
+|  +- 42#makeA
+|  |
+|  `- 43#m
+|
+`- definition
+   |
+   `- Exp.TypeAbs 58#_:TL
+      |
+      `- Exp.Abs U 42#makeA
+         |
+         +- Type.Arrow U
+         |  |
+         |  +- Type.Unit
+         |  |
+         |  `- Type.Var 58#_
+         |     |
+         |     `- TL
+         |
+         `- Exp.Abs U 43#m
+            |
+            +- Type.Type
+            |  |
+            |  `- TypeRef
+            |     |
+            |     +- Maybe
+            |     |
+            |     `- Type.Var 58#_
+            |        |
+            |        `- TL
+            |
+            `- Exp.Exp
+               |
+               `- TcExpX.ValueCase
+                  |
+                  +- Exp.Var 43#m
+                  |
+                  +- Just 45#a
+                  |  |
+                  |  `- Exp.Var 45#a
+                  |
+                  `- Nothing
+                     |
+                     `- Exp.App
+                        |
+                        +- Exp.Var 42#makeA
+                        |
+                        `- Exp.Lit
+                           |
+                           `- Lit.Unit
+

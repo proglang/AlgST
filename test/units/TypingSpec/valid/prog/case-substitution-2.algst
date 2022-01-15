@@ -1,0 +1,18 @@
+data List (elem:TU)
+  = Cons elem (List elem)
+  | Nil
+
+data Maybe (a:TU)
+  = Just a
+  | Nothing
+
+empty : forall (a:TU). List a
+empty [a] = Nil [a]
+
+empty_head : Maybe ()
+empty_head =
+  case empty [()] of {
+    Nil -> Nothing [()],
+    -- Substitutions have to be composed!
+    Cons x _ -> Just [()] x,
+  }

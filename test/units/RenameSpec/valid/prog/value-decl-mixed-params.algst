@@ -1,0 +1,8 @@
+const1 : forall (a:TL) (b:TU). a -> b -> a
+const1 [_] [_] a _ = a
+
+const2 : forall (a:TL) (b:TU). a -> b -> a
+const2 [a] [b] a _ = id [a] a
+
+id : forall (a:TL). a -> a
+id [_] a = a

@@ -1,0 +1,16 @@
+Exp.UnLet id
+|
++- Exp.Rec id
+|  |
+|  +- Type.Con IntId
+|  |
+|  `- Exp.Abs U i
+|     |
+|     +- Type.Con Int
+|     |
+|     `- Exp.Var i
+|
+`- Exp.Lit
+   |
+   `- Lit.Unit
+

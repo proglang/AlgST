@@ -1,0 +1,78 @@
+add
+|
++- type
+|  |
+|  `- Type.Arrow U
+|     |
+|     +- Type.Con Int
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Con Int
+|        |
+|        `- Type.Con Int
+|
++- params
+|  |
+|  +- 22#a
+|  |
+|  `- 23#b
+|
+`- definition
+   |
+   `- Exp.App
+      |
+      +- Exp.App
+      |  |
+      |  +- Exp.Var (+)
+      |  |
+      |  `- Exp.Var 22#a
+      |
+      `- Exp.Var 23#b
+
+add3
+|
++- type
+|  |
+|  `- Type.Arrow U
+|     |
+|     +- Type.Con Int
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Con Int
+|        |
+|        `- Type.Arrow U
+|           |
+|           +- Type.Con Int
+|           |
+|           `- Type.Con Int
+|
++- params
+|  |
+|  +- 24#a
+|  |
+|  +- 25#b
+|  |
+|  `- 26#c
+|
+`- definition
+   |
+   `- Exp.App
+      |
+      +- Exp.App
+      |  |
+      |  +- Exp.Var add
+      |  |
+      |  `- Exp.App
+      |     |
+      |     +- Exp.App
+      |     |  |
+      |     |  +- Exp.Var add
+      |     |  |
+      |     |  `- Exp.Var 24#a
+      |     |
+      |     `- Exp.Var 25#b
+      |
+      `- Exp.Var 26#c
+

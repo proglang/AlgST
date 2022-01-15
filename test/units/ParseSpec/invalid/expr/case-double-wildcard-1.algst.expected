@@ -1,0 +1,5 @@
+
+3:3: error:
+	 Multiple wildcards in case expression: _ _
+	 Branches at: 2:3
+	              3:3

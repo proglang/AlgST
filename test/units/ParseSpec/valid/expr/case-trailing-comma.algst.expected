@@ -1,0 +1,22 @@
+Exp.Case
+|
++- Exp.Var expr
+|
++- A
+|  |
+|  `- Exp.Case
+|     |
+|     +- Exp.Var expr
+|     |
+|     `- NoTrailing
+|        |
+|        `- Exp.Lit
+|           |
+|           `- Lit.Unit
+|
+`- Trailing
+   |
+   `- Exp.Lit
+      |
+      `- Lit.Unit
+

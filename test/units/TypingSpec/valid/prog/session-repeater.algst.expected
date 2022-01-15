@@ -1,0 +1,238 @@
+Repeat
+|
+`- ProtoDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- P
+   |
+   +- parameters
+   |  |
+   |  `- (p:P)
+   |
+   `- constructors
+      |
+      +- More
+      |  |
+      |  +- Type.Var 9#p
+      |  |  |
+      |  |  `- P
+      |  |
+      |  `- Type.Type
+      |     |
+      |     `- TypeRef
+      |        |
+      |        +- Repeat
+      |        |
+      |        `- Type.Var 9#p
+      |           |
+      |           `- P
+      |
+      `- Quit
+
+More
+|
+`- Decl.ProtocolCon (Repeat)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (p:P)
+   |
+   `- items
+      |
+      +- Type.Var 9#p
+      |  |
+      |  `- P
+      |
+      `- Type.Type
+         |
+         `- TypeRef
+            |
+            +- Repeat
+            |
+            `- Type.Var 9#p
+               |
+               `- P
+
+Quit
+|
+`- Decl.ProtocolCon (Repeat)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (p:P)
+   |
+   `- items
+
+repeater
+|
++- type
+|  |
+|  `- Type.Forall 51#p:P
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Forall 11#s:SL
+|        |  |
+|        |  `- Type.Arrow U
+|        |     |
+|        |     +- Type.Session (?)
+|        |     |  |
+|        |     |  +- Type.Var 51#p
+|        |     |  |  |
+|        |     |  |  `- P
+|        |     |  |
+|        |     |  `- Type.Var 11#s
+|        |     |     |
+|        |     |     `- SL
+|        |     |
+|        |     `- Type.Var 11#s
+|        |        |
+|        |        `- SL
+|        |
+|        `- Type.Forall 11#s:SL
+|           |
+|           `- Type.Arrow U
+|              |
+|              +- Type.Session (?)
+|              |  |
+|              |  +- Type.Type
+|              |  |  |
+|              |  |  `- TypeRef
+|              |  |     |
+|              |  |     +- Repeat
+|              |  |     |
+|              |  |     `- Type.Var 51#p
+|              |  |        |
+|              |  |        `- P
+|              |  |
+|              |  `- Type.Var 11#s
+|              |     |
+|              |     `- SL
+|              |
+|              `- Type.Var 11#s
+|                 |
+|                 `- SL
+|
++- params
+|  |
+|  +- [48#p]
+|  |
+|  +- 49#handleOne
+|  |
+|  `- [50#s]
+|
+`- definition
+   |
+   `- Exp.TypeAbs 48#p:P
+      |
+      `- Exp.Abs U 49#handleOne
+         |
+         +- Type.Forall 11#s:SL
+         |  |
+         |  `- Type.Arrow U
+         |     |
+         |     +- Type.Session (?)
+         |     |  |
+         |     |  +- Type.Var 48#p
+         |     |  |  |
+         |     |  |  `- P
+         |     |  |
+         |     |  `- Type.Var 11#s
+         |     |     |
+         |     |     `- SL
+         |     |
+         |     `- Type.Var 11#s
+         |        |
+         |        `- SL
+         |
+         `- Exp.TypeAbs 50#s:SL
+            |
+            `- Exp.Rec 52#go
+               |
+               +- Type.Arrow U
+               |  |
+               |  +- Type.Session (?)
+               |  |  |
+               |  |  +- Type.Type
+               |  |  |  |
+               |  |  |  `- TypeRef
+               |  |  |     |
+               |  |  |     +- Repeat
+               |  |  |     |
+               |  |  |     `- Type.Var 48#p
+               |  |  |        |
+               |  |  |        `- P
+               |  |  |
+               |  |  `- Type.Var 50#s
+               |  |     |
+               |  |     `- SL
+               |  |
+               |  `- Type.Var 50#s
+               |     |
+               |     `- SL
+               |
+               `- Exp.Abs U 53#c
+                  |
+                  +- Type.Session (?)
+                  |  |
+                  |  +- Type.Type
+                  |  |  |
+                  |  |  `- TypeRef
+                  |  |     |
+                  |  |     +- Repeat
+                  |  |     |
+                  |  |     `- Type.Var 48#p
+                  |  |        |
+                  |  |        `- P
+                  |  |
+                  |  `- Type.Var 50#s
+                  |     |
+                  |     `- SL
+                  |
+                  `- Exp.Exp
+                     |
+                     `- TcExpX.RecvCase
+                        |
+                        +- Exp.Var 53#c
+                        |
+                        +- More 54#c
+                        |  |
+                        |  `- Exp.App
+                        |     |
+                        |     +- Exp.Var 52#go
+                        |     |
+                        |     `- Exp.App
+                        |        |
+                        |        +- Exp.TypeApp
+                        |        |  |
+                        |        |  +- Exp.Var 49#handleOne
+                        |        |  |
+                        |        |  `- Type.Session (?)
+                        |        |     |
+                        |        |     +- Type.Type
+                        |        |     |  |
+                        |        |     |  `- TypeRef
+                        |        |     |     |
+                        |        |     |     +- Repeat
+                        |        |     |     |
+                        |        |     |     `- Type.Var 48#p
+                        |        |     |        |
+                        |        |     |        `- P
+                        |        |     |
+                        |        |     `- Type.Var 50#s
+                        |        |        |
+                        |        |        `- SL
+                        |        |
+                        |        `- Exp.Var 54#c
+                        |
+                        `- Quit 55#c
+                           |
+                           `- Exp.Var 55#c
+

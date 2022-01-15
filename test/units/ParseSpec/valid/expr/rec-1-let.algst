@@ -1,0 +1,2 @@
+-- Imagine   type IntId = Int -> Int
+let rec id : IntId = \(i:Int) -> i in ()

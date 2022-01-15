@@ -1,0 +1,64 @@
+and
+|
++- type
+|  |
+|  `- Type.Arrow U
+|     |
+|     +- Type.Type
+|     |  |
+|     |  `- TypeRef
+|     |     |
+|     |     `- Bool
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Type
+|        |  |
+|        |  `- TypeRef
+|        |     |
+|        |     `- Bool
+|        |
+|        `- Type.Type
+|           |
+|           `- TypeRef
+|              |
+|              `- Bool
+|
++- params
+|  |
+|  +- 39#x
+|  |
+|  `- 40#y
+|
+`- definition
+   |
+   `- Exp.Abs U 39#x
+      |
+      +- Type.Type
+      |  |
+      |  `- TypeRef
+      |     |
+      |     `- Bool
+      |
+      `- Exp.Abs U 40#y
+         |
+         +- Type.Type
+         |  |
+         |  `- TypeRef
+         |     |
+         |     `- Bool
+         |
+         `- Exp.Exp
+            |
+            `- TcExpX.ValueCase
+               |
+               +- Exp.Var 39#x
+               |
+               +- True
+               |  |
+               |  `- Exp.Var 40#y
+               |
+               `- 41#_
+                  |
+                  `- Exp.Con False
+

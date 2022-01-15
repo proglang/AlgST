@@ -1,0 +1,11 @@
+data Identity a = Identity a
+
+runIdentity : ∀(a:TU) (s:SL). ?Identity a.s -> ?a.s
+runIdentity c =
+  let Identity c = c in
+  c
+
+skipD0 : ∀(s:SL). ?D0.s -> s
+skipD0 c =
+  let D0 c = c in
+  c

@@ -1,0 +1,3 @@
+data NotAProtocol
+    = NotAMsg -Int
+--  | ActuallyAllowed +Int 

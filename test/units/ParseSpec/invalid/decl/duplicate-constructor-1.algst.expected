@@ -1,0 +1,5 @@
+
+2:37: error:
+	 Multiple declarations of Nil
+	 Declared at: 1:37
+	              2:37

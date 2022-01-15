@@ -1,0 +1,54 @@
+foo
+|
++- type
+|  |
+|  `- Type.Forall 43#a:TL
+|     |
+|     `- Type.Forall 44#b:TU
+|        |
+|        `- Type.Arrow U
+|           |
+|           +- Type.Var 43#a
+|           |  |
+|           |  `- TL
+|           |
+|           `- Type.Arrow L
+|              |
+|              +- Type.Var 44#b
+|              |  |
+|              |  `- TU
+|              |
+|              `- Type.Var 43#a
+|                 |
+|                 `- TL
+|
++- params
+|  |
+|  +- [39#a]
+|  |
+|  +- [40#b]
+|  |
+|  +- 41#a
+|  |
+|  `- 42#b
+|
+`- definition
+   |
+   `- Exp.TypeAbs 39#a:TL
+      |
+      `- Exp.TypeAbs 40#b:TU
+         |
+         `- Exp.Abs U 41#a
+            |
+            +- Type.Var 39#a
+            |  |
+            |  `- TL
+            |
+            `- Exp.Abs L 42#b
+               |
+               +- Type.Var 40#b
+               |  |
+               |  `- TU
+               |
+               `- Exp.Var 41#a
+

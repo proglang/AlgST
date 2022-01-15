@@ -1,0 +1,14 @@
+Exp.UnLet 0#a
+|
++- Exp.Lit
+|  |
+|  `- Lit.Int 1
+|
+`- Exp.UnLet 1#a
+   |
+   +- Exp.Lit
+   |  |
+   |  `- Lit.Int 2
+   |
+   `- Exp.Var 1#a
+

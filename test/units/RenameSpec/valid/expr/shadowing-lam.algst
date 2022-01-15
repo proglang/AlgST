@@ -1,0 +1,8 @@
+\(a:Int) -> \(a:Bool) -> a+a
+
+-- It would be great, if we could disallow expressions like
+--
+--    \(a:Int) (a:Bool) -> ...
+--
+-- (when the shadowing occurs under the same syntactical lamda) but our current
+-- AST is not equipped for this.

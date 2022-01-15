@@ -1,0 +1,5 @@
+unit : ()
+unit = ()
+
+constUnit : forall a. a -> ()
+constUnit [_] _ = unit

@@ -1,0 +1,12 @@
+Type.Dualof
+|
+`- Type.Session (!)
+   |
+   +- Type.Var p1
+   |
+   `- Type.Session (?)
+      |
+      +- Type.Var p2
+      |
+      `- Type.End
+

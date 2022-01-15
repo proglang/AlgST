@@ -1,0 +1,5 @@
+let x = 1 in
+let rec x : Int -> Int = \(x:Int) -> x in         -- (x:Int) param
+let y = rec x : Int -> Int = \(_:Int) -> x 10 in  -- rec x
+let x = x 10 in                                   -- let rec x (ln. 2)
+x                                                 -- let x (ln. 4)

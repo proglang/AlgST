@@ -1,0 +1,1 @@
+forall (a:TU). a -> forall (b:TU). a -> b

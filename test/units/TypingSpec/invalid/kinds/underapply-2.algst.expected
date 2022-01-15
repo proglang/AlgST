@@ -1,0 +1,5 @@
+
+1:15: error:
+	 Invalid type application
+	    D3 p
+	 Type constructor D3 needs 3 paramters, 1 provided.

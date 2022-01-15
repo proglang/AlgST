@@ -1,0 +1,4 @@
+
+1:7: error:
+	 Pair constructor (,) cannot be used as a type constructor.
+	 It can only appear in patterns and with ‘select’.

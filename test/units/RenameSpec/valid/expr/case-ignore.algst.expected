@@ -1,0 +1,10 @@
+Exp.Case
+|
++- Exp.Var global
+|
+`- C1 0#_ 1#_
+   |
+   `- Exp.Lit
+      |
+      `- Lit.Int 0
+

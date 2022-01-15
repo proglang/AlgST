@@ -1,0 +1,2 @@
+foo : ∀(a:TU). Int
+foo x = 42

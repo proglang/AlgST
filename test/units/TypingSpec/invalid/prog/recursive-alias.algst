@@ -1,0 +1,4 @@
+type Recursive (t:TU) = Recursive (t, Recursive t)
+
+type A = B
+type B = A

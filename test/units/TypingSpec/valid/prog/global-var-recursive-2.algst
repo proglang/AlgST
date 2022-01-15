@@ -1,0 +1,5 @@
+bottom1 : forall (a:TU). a
+bottom1 = bottom2
+
+bottom2 : forall (a:TU). a
+bottom2 [a] = bottom1 [a]

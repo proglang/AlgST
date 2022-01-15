@@ -1,0 +1,15 @@
+protocol Arith
+  = Add +Int +Int -Int
+  | Neg +Int -Int
+
+arithServer : ∀(s:SL). ?Arith.s -> s
+arithServer [s] c = case c of {
+  Add c ->
+    let (x, c) = receive [Int, ?Int.!Int.s] c in
+    let (y, c) = receive [Int, !Int.s] c in
+    send [Int, s] (x+y) c,
+
+  Neg c ->
+    let (x, c) = receive [Int, !Int.s] c in
+    send [Int, s] (0-x) c
+}

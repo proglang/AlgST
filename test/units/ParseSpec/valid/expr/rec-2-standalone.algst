@@ -1,0 +1,2 @@
+-- Imagine   type PairId a b = (a, b) -> (a, b)
+rec id : ∀(a:TL) (b:TL). PairId a b = \[a:TL] [b:TL] (p:(a,b)) -> p

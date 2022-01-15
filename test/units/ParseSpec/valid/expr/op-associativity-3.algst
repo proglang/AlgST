@@ -1,0 +1,5 @@
+finally <|
+  a == b 
+    |> pipe
+    |> here
+    |> first

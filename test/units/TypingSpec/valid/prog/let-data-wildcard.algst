@@ -1,0 +1,5 @@
+and : Bool -> D0 -> ()
+and a b =
+  let _ = a in
+  let _ = b in
+  ()

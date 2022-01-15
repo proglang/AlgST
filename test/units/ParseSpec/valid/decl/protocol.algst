@@ -1,0 +1,4 @@
+protocol Arith
+  = Add Int Int -Int Arith
+  | Neg +Int -Int Arith
+  | Quit

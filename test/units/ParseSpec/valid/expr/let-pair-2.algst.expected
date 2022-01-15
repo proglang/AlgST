@@ -1,0 +1,18 @@
+Exp.PatLet (,) a b
+|
++- Exp.Var x
+|
+`- Exp.PatLet (,) _ _
+   |
+   +- Exp.Var x
+   |
+   `- Exp.App
+      |
+      +- Exp.App
+      |  |
+      |  +- Exp.Var (+)
+      |  |
+      |  `- Exp.Var a
+      |
+      `- Exp.Var b
+

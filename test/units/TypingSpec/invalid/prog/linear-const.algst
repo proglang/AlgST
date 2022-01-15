@@ -1,0 +1,5 @@
+const : ∀(a:TL). a -> ∀(b:TU). b -> a
+const [_] a [_] b = a
+
+-- Correct signature is:
+--   const : ∀(a:TL). a -> ∀(b:TU). b -o a

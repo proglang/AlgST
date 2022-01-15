@@ -1,0 +1,4 @@
+
+2:6: error:
+	 Binding of type variable t does not align with type
+	     Int

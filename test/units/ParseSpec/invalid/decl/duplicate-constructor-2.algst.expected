@@ -1,0 +1,5 @@
+
+1:21: error:
+	 Multiple declarations of Here
+	 Declared at: 1:14
+	              1:21

@@ -1,0 +1,4 @@
+
+1:1: error:
+	 Operator + is missing its left operand.
+	 Write it as ‘(+)’ to use it as a function value.

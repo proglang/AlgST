@@ -1,0 +1,3 @@
+data BTree a
+  = Branch (BTree a) (BTree a)
+  | Leaf a

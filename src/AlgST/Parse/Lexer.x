@@ -1,0 +1,326 @@
+{
+{-# LANGUAGE StrictData #-}
+
+module AlgST.Parse.Lexer
+( Token(..)
+, scanTokens
+, dropNewlines
+, getText
+) where
+
+import qualified AlgST.Syntax.Kind as K
+import           AlgST.Util.ErrorMessage
+import           Syntax.Base
+}
+
+%wrapper "posn"
+
+$greek = [\880-\1023] -- # λ  -- forall not in range ([λ ∀])
+
+$upperA  = [A-Z]
+$upper = [$upperA$greek]
+
+-- $lowerU  = \x02 -- Trick Alex into handling Unicode. See [Unicode in Alex].
+$lowerA = [a-z]
+$lower = [$lowerA$greek\_] --  $greek \_]
+
+$letter = [$lower$upper$greek]
+
+-- $unidigit  = \x03
+$ascdigit = 0-9
+$digit = [$ascdigit] -- $unidigit]
+
+$opsymbol = [\!\#\$\%\&\*\/\<\=\>\@\\\^\|\~\:≤≠≥∧∨]
+@operator = $opsymbol+
+
+$alphaNumeric = [$letter$digit\_\']
+
+$eol=[\n]
+
+@blockComment = "{-" (\-[^\}]|[^\-]|\n)* "-}"
+
+$greekId = [λ ∀]
+@lowerId = ($lower # $greekId) $alphaNumeric*
+@upperId = ($upper # $greekId) $alphaNumeric*
+
+-- Supported escape sequences:
+--
+--  \n \" \' \\
+@escape = \\ [\\ \" \' n]
+@char   = \' (@escape | [^ \\ \']) \'
+@string = \" (@escape | [^ \\ \"])* \"
+
+tokens :-
+  $white*$eol+                  { simpleToken TokenNL }
+  $white+                       ;
+  $white*"--".*                 ;
+  @blockComment                 ;
+  ("->"|→)                      { simpleToken TokenUnArrow }
+  ("-o"|⊸)                      { simpleToken TokenLinArrow }
+  [\\ λ]                        { simpleToken TokenLambda }
+  "("                           { simpleToken TokenLParen }
+  ")"                           { simpleToken TokenRParen }
+  "["                           { simpleToken TokenLBracket }
+  "]"                           { simpleToken TokenRBracket }
+  "{"                           { simpleToken TokenLBrace }
+  "}"                           { simpleToken TokenRBrace }
+  ","                           { simpleToken TokenComma }
+  ":"                           { simpleToken TokenColon }
+  "!"                           { simpleToken TokenMOut }
+  "?"                           { simpleToken TokenMIn }
+  "."                           { simpleToken TokenDot }
+  "="                           { simpleToken TokenEq }
+  "|"                           { simpleToken TokenPipe }
+  "_"                           { simpleToken TokenWild }
+-- Kinds
+  SU                            { simpleToken (TokenKind . K.SU) }
+  SL                            { simpleToken (TokenKind . K.SL) }
+  TU                            { simpleToken (TokenKind . K.TU) }
+  TL                            { simpleToken (TokenKind . K.TL) }
+  MU                            { simpleToken (TokenKind . K.MU) }
+  ML                            { simpleToken (TokenKind . K.ML) }
+  P                             { simpleToken (TokenKind . K.P) }
+-- Keywords
+  rec                           { simpleToken TokenRec }
+  let                           { simpleToken TokenLet }
+  in                            { simpleToken TokenIn }
+  data                          { simpleToken TokenData }
+  protocol                      { simpleToken TokenProtocol }
+  type                          { simpleToken TokenType }
+  if                            { simpleToken TokenIf }
+  then                          { simpleToken TokenThen }
+  else                          { simpleToken TokenElse }
+  new                           { simpleToken TokenNew }
+  select                        { simpleToken TokenSelect }
+  case                          { simpleToken TokenCase }
+  of                            { simpleToken TokenOf }
+  (forall|∀)                    { simpleToken TokenForall }
+  dual(of)?                     { simpleToken TokenDualof }
+  end                           { simpleToken TokenEnd }
+-- Values
+  \(\)                          { simpleToken TokenUnit }
+  (0+|[1-9]$digit*)             { textToken' read TokenInt }
+  @char                         { textToken' read TokenChar }
+  @string                       { textToken' read TokenString }
+-- Identifiers
+  "+"                           { simpleToken TokenPlus }
+  "-"                           { simpleToken TokenMinus }
+  @operator                     { textToken TokenOperator }
+  \( @operator \)               { textToken TokenLowerId }
+  @lowerId                      { textToken TokenLowerId }
+  @upperId                      { textToken TokenUpperId }
+  "(,)"                         { simpleToken TokenPairCon }
+
+{
+
+data Token =
+    TokenNL Pos
+  | TokenUnit Pos
+  | TokenLambda Pos
+  | TokenUnArrow Pos
+  | TokenLinArrow Pos
+  | TokenLParen Pos
+  | TokenRParen Pos
+  | TokenLBracket Pos
+  | TokenRBracket Pos
+  | TokenComma Pos
+  | TokenColon Pos
+  | TokenUpperId Pos String
+  | TokenPairCon Pos
+  | TokenMOut Pos
+  | TokenMIn Pos
+  | TokenLBrace Pos
+  | TokenRBrace Pos
+  | TokenDot Pos
+  | TokenLowerId Pos String
+  | TokenOperator Pos String
+  | TokenPlus Pos   -- Has to be seperate because it can appear in a non-operator context
+  | TokenMinus Pos  -- Has to be seperate because it can appear in a non-operator context
+  | TokenKind K.Kind
+  | TokenInt Pos Integer
+  | TokenChar Pos Char
+  | TokenString Pos String
+  | TokenBool Pos Bool
+  | TokenRec Pos
+  | TokenLet Pos
+  | TokenIn Pos
+  | TokenEq Pos
+  | TokenData Pos
+  | TokenProtocol Pos
+  | TokenType Pos
+  | TokenPipe Pos
+  | TokenIf Pos
+  | TokenThen Pos
+  | TokenElse Pos
+  | TokenNew Pos
+  | TokenSelect Pos
+  | TokenCase Pos
+  | TokenOf Pos
+  | TokenForall Pos
+  | TokenDualof Pos
+  | TokenEnd Pos
+  | TokenWild Pos
+
+instance Show Token where
+  show (TokenNL _) = "\\n"
+  show (TokenUnit _) = "()"
+  show (TokenLambda _) = "λ"
+  show (TokenUnArrow _) = "->"
+  show (TokenLinArrow _) = "-o"
+  show (TokenLParen _) = "("
+  show (TokenRParen _) = ")"
+  show (TokenLBracket _) = "["
+  show (TokenRBracket _) = "]"
+  show (TokenComma _) = ","
+  show (TokenColon _) = ":"
+  show (TokenUpperId _ c) = c
+  show (TokenPairCon _) = "(,)"
+  show (TokenMOut _) = "!"
+  show (TokenMIn _) = "?"
+  show (TokenLBrace _) = "{"
+  show (TokenRBrace _) = "}"
+  show (TokenDot _) = "."
+  show (TokenLowerId _ s) = s
+  show (TokenOperator _ s) = s
+  show (TokenPlus _) = "+"
+  show (TokenMinus _) = "-"
+  show (TokenKind k) = show k
+  show (TokenInt _ i) = show i
+  show (TokenChar _ c) = show c
+  show (TokenBool _ b) = show b
+  show (TokenString _ s) = s
+  show (TokenRec _) = "rec"
+  show (TokenLet _) = "let"
+  show (TokenIn _) = "in"
+  show (TokenEq _) = "="
+  show (TokenData _) = "data"
+  show (TokenProtocol _) = "protocol"
+  show (TokenType _) = "type"
+  show (TokenPipe _) = "|"
+  show (TokenIf _) = "if"
+  show (TokenThen _) = "then"
+  show (TokenElse _) = "else"
+  show (TokenNew _) = "new"
+  show (TokenSelect _) = "select"
+  show (TokenCase _) = "case"
+  show (TokenForall _) = "forall"
+  show (TokenWild _) = "_"
+  show (TokenOf _) = "of"
+  show (TokenDualof _) = "dualof"
+  show (TokenEnd _) = "end"
+
+scanTokens :: String -> Either PosError [Token]
+scanTokens str = trim <$> go (alexStartPos, '\n', [], str)
+  where
+    go inp@(pos,_,_,str) =
+      case alexScan inp 0 of
+        AlexEOF ->
+          Right []
+        AlexError _ ->
+          Left $ PosError (internalPos pos)
+            [ Error "Unexpected error on input"
+            , Error $ Unexpected $ head str
+            ]
+        AlexSkip  inp' _len ->
+          go inp'
+        AlexToken inp' len act ->
+          (act pos (take len str) :) <$> go inp'
+
+newtype Unexpected = Unexpected Char
+
+instance ErrorMsg Unexpected where
+  msg (Unexpected c) = show c
+  msgStyling _ = redFGStyling
+
+instance ErrorMsg Token where
+  msg = show
+  msgStyling _ = redFGStyling
+
+getLineNum :: AlexPosn -> Int
+getLineNum (AlexPn _offset lineNum _colNum) = lineNum
+
+getColumnNum :: AlexPosn -> Int
+getColumnNum (AlexPn _offset _lineNum colNum) = colNum
+
+-- Trim newlines
+trim :: [Token] -> [Token]
+trim = reverse . trim' . reverse . trim'
+  where
+    trim' :: [Token] -> [Token]
+    trim' [] = []
+    trim' (TokenNL _ : ts) = trim' ts
+    trim' ts = ts
+
+dropNewlines :: [Token] -> [Token]
+dropNewlines = filter \case
+  TokenNL _ -> False
+  _         -> True
+
+-- POSITIONS
+
+internalPos :: AlexPosn -> Pos
+internalPos (AlexPn _ l c) = Pos l c
+
+instance Position Token where
+  pos (TokenNL p) = p
+  pos (TokenUnit p) = p
+  pos (TokenLambda p) = p
+  pos (TokenUnArrow p) = p
+  pos (TokenLinArrow p) = p
+  pos (TokenLParen p) = p
+  pos (TokenRParen p) = p
+  pos (TokenLBracket p) = p
+  pos (TokenRBracket p) = p
+  pos (TokenComma p) = p
+  pos (TokenColon p) = p
+  pos (TokenUpperId p _) = p
+  pos (TokenPairCon p) = p
+  pos (TokenMOut p) = p
+  pos (TokenMIn p) = p
+  pos (TokenLBrace p) = p
+  pos (TokenRBrace p) = p
+  pos (TokenDot p) = p
+  pos (TokenLowerId p _) = p
+  pos (TokenOperator p _) = p
+  pos (TokenPlus p) = p
+  pos (TokenMinus p) = p
+  pos (TokenKind k) = pos k
+  pos (TokenInt p _) = p
+  pos (TokenChar p _) = p
+  pos (TokenBool p _) = p
+  pos (TokenString p _) = p
+  pos (TokenRec p) = p
+  pos (TokenLet p) = p
+  pos (TokenIn p) = p
+  pos (TokenEq p) = p
+  pos (TokenData p) = p
+  pos (TokenProtocol p) = p
+  pos (TokenType p) = p
+  pos (TokenPipe p) = p
+  pos (TokenNew p) = p
+  pos (TokenSelect p) = p
+  pos (TokenCase p) = p
+  pos (TokenForall p) = p
+  pos (TokenWild p) = p
+  pos (TokenIf p) = p
+  pos (TokenThen p) = p
+  pos (TokenElse p) = p
+  pos (TokenOf p) = p
+  pos (TokenDualof p) = p
+  pos (TokenEnd p) = p
+
+getText :: Token -> String
+getText (TokenUpperId _ x) = x
+getText (TokenLowerId _ x) = x
+getText (TokenOperator _ x) = x
+getText t = error $ "Token has no embedded text: " ++ show t
+
+simpleToken :: (Pos -> t) -> AlexPosn -> a -> t
+simpleToken t p _ = t (internalPos p)
+
+textToken :: (Pos -> String -> t) -> AlexPosn -> String -> t
+textToken = textToken' id
+
+textToken' :: (String -> a) -> (Pos -> a -> t) -> AlexPosn -> String -> t
+textToken' f t p s = t (internalPos p) (f s)
+}

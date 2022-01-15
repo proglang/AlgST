@@ -1,0 +1,66 @@
+pairId1
+|
++- type
+|  |
+|  `- Type.Forall 42#a:TU
+|     |
+|     `- Type.Forall 43#b:TU
+|        |
+|        `- Type.Arrow U
+|           |
+|           +- Type.Pair
+|           |  |
+|           |  +- Type.Var 42#a
+|           |  |  |
+|           |  |  `- TU
+|           |  |
+|           |  `- Type.Var 43#b
+|           |     |
+|           |     `- TU
+|           |
+|           `- Type.Pair
+|              |
+|              +- Type.Var 42#a
+|              |  |
+|              |  `- TU
+|              |
+|              `- Type.Var 43#b
+|                 |
+|                 `- TU
+|
++- params
+|  |
+|  `- 41#ab
+|
+`- definition
+   |
+   `- Exp.TypeAbs 56#_:TU
+      |
+      `- Exp.TypeAbs 57#_:TU
+         |
+         `- Exp.Abs U 41#ab
+            |
+            +- Type.Pair
+            |  |
+            |  +- Type.Var 56#_
+            |  |  |
+            |  |  `- TU
+            |  |
+            |  `- Type.Var 57#_
+            |     |
+            |     `- TU
+            |
+            `- Exp.Exp
+               |
+               `- TcExpX.ValueCase
+                  |
+                  +- Exp.Var 41#ab
+                  |
+                  `- (,) 45#b 44#a
+                     |
+                     `- Exp.Pair
+                        |
+                        +- Exp.Var 44#a
+                        |
+                        `- Exp.Var 45#b
+

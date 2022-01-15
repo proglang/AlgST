@@ -1,0 +1,3 @@
+data IntList
+  = Cons Int IntList
+  | Nil

@@ -1,0 +1,4 @@
+-- TODO: Don't talk about "case" in the error message.
+\(b : Bool) ->
+  let True = b in
+  ()

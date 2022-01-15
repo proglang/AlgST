@@ -1,0 +1,6 @@
+
+1:42: error:
+	 Linear variable a is used twice.
+	 Bound at: 1:28
+	  Used at: 1:40
+	           1:42

@@ -1,0 +1,68 @@
+Exp.App
+|
++- Exp.App
+|  |
+|  +- Exp.Var (||)
+|  |
+|  `- Exp.App
+|     |
+|     +- Exp.App
+|     |  |
+|     |  +- Exp.Var (||)
+|     |  |
+|     |  `- Exp.Lit
+|     |     |
+|     |     `- Lit.Int 2
+|     |
+|     `- Exp.App
+|        |
+|        +- Exp.App
+|        |  |
+|        |  +- Exp.Var (+)
+|        |  |
+|        |  `- Exp.App
+|        |     |
+|        |     +- Exp.App
+|        |     |  |
+|        |     |  +- Exp.Var (*)
+|        |     |  |
+|        |     |  `- Exp.App
+|        |     |     |
+|        |     |     +- Exp.App
+|        |     |     |  |
+|        |     |     |  +- Exp.Var (*)
+|        |     |     |  |
+|        |     |     |  `- Exp.Lit
+|        |     |     |     |
+|        |     |     |     `- Lit.Int 3
+|        |     |     |
+|        |     |     `- Exp.Lit
+|        |     |        |
+|        |     |        `- Lit.Int 4
+|        |     |
+|        |     `- Exp.App
+|        |        |
+|        |        +- Exp.Var inc
+|        |        |
+|        |        `- Exp.Lit
+|        |           |
+|        |           `- Lit.Int 2
+|        |
+|        `- Exp.App
+|           |
+|           +- Exp.App
+|           |  |
+|           |  +- Exp.App
+|           |  |  |
+|           |  |  +- Exp.Var sum
+|           |  |  |
+|           |  |  `- Exp.Var a
+|           |  |
+|           |  `- Exp.Var b
+|           |
+|           `- Exp.Var c
+|
+`- Exp.Lit
+   |
+   `- Lit.Int 1
+

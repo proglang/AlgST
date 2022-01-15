@@ -1,0 +1,12 @@
+-- The definitions by iteself are nonsensical, but this test verifies that
+-- checking a mutually recursive, erorrneous group of declarations still
+-- terminates with the expected error messages.
+
+data D1 = D1
+data D2 = D2
+
+foo : D1 -> D1
+foo x = bar x
+
+bar : D2 -> D2
+bar x = foo x

@@ -1,0 +1,1 @@
+type Service (x:P) = forall (s:SL). ?x.s -> s

@@ -1,0 +1,3 @@
+\[s:SL] (c : !P0.s) ->
+  let P0 c = c in
+  c

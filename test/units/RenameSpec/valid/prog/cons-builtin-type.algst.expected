@@ -1,0 +1,110 @@
+Literal
+|
+`- DataDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- TU
+   |
+   +- parameters
+   |
+   `- constructors
+      |
+      +- Bool
+      |  |
+      |  `- Type.Con Bool
+      |
+      +- Char
+      |  |
+      |  `- Type.Con Char
+      |
+      +- Int
+      |  |
+      |  `- Type.Con Int
+      |
+      +- String
+      |  |
+      |  `- Type.Con String
+      |
+      `- Unit
+
+Bool
+|
+`- Decl.DataCon (Literal)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      `- Type.Con Bool
+
+Char
+|
+`- Decl.DataCon (Literal)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      `- Type.Con Char
+
+Int
+|
+`- Decl.DataCon (Literal)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      `- Type.Con Int
+
+String
+|
+`- Decl.DataCon (Literal)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      `- Type.Con String
+
+Unit
+|
+`- Decl.DataCon (Literal)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+

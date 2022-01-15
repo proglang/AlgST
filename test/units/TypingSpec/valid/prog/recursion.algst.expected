@@ -1,0 +1,456 @@
+AltList
+|
+`- DataDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- TU
+   |
+   +- parameters
+   |  |
+   |  +- (a:TU)
+   |  |
+   |  `- (b:TU)
+   |
+   `- constructors
+      |
+      +- ACons
+      |  |
+      |  +- Type.Var 0#a
+      |  |  |
+      |  |  `- TU
+      |  |
+      |  `- Type.Type
+      |     |
+      |     `- TypeRef
+      |        |
+      |        +- AltList
+      |        |
+      |        +- Type.Var 1#b
+      |        |  |
+      |        |  `- TU
+      |        |
+      |        `- Type.Var 0#a
+      |           |
+      |           `- TU
+      |
+      `- ANil
+
+List
+|
+`- DataDecl
+   |
+   +- OriginUser
+   |
+   +- kind
+   |  |
+   |  `- TU
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   `- constructors
+      |
+      +- Cons
+      |  |
+      |  +- Type.Var 8#a
+      |  |  |
+      |  |  `- TU
+      |  |
+      |  `- Type.Type
+      |     |
+      |     `- TypeRef
+      |        |
+      |        +- List
+      |        |
+      |        `- Type.Var 8#a
+      |           |
+      |           `- TU
+      |
+      `- Nil
+
+ACons
+|
+`- Decl.DataCon (AltList)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  +- (a:TU)
+   |  |
+   |  `- (b:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      +- Type.Var 0#a
+      |  |
+      |  `- TU
+      |
+      `- Type.Type
+         |
+         `- TypeRef
+            |
+            +- AltList
+            |
+            +- Type.Var 1#b
+            |  |
+            |  `- TU
+            |
+            `- Type.Var 0#a
+               |
+               `- TU
+
+ANil
+|
+`- Decl.DataCon (AltList)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  +- (a:TU)
+   |  |
+   |  `- (b:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+
+Cons
+|
+`- Decl.DataCon (List)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+      |
+      +- Type.Var 8#a
+      |  |
+      |  `- TU
+      |
+      `- Type.Type
+         |
+         `- TypeRef
+            |
+            +- List
+            |
+            `- Type.Var 8#a
+               |
+               `- TU
+
+Nil
+|
+`- Decl.DataCon (List)
+   |
+   +- OriginUser
+   |
+   +- parameters
+   |  |
+   |  `- (a:TU)
+   |
+   +- multiplicity
+   |  |
+   |  `- U
+   |
+   `- items
+
+altLength
+|
++- type
+|  |
+|  `- Type.Forall 48#a:TU
+|     |
+|     `- Type.Forall 49#b:TU
+|        |
+|        `- Type.Arrow U
+|           |
+|           +- Type.Type
+|           |  |
+|           |  `- TypeRef
+|           |     |
+|           |     +- AltList
+|           |     |
+|           |     +- Type.Var 48#a
+|           |     |  |
+|           |     |  `- TU
+|           |     |
+|           |     `- Type.Var 49#b
+|           |        |
+|           |        `- TU
+|           |
+|           `- Type.Type
+|              |
+|              `- TypeRef
+|                 |
+|                 `- Int
+|
++- params
+|
+`- definition
+   |
+   `- Exp.Exp
+      |
+      `- TcExpX.ValueCase
+         |
+         +- Exp.Rec 52#go
+         |  |
+         |  +- Type.Forall 50#a:TU
+         |  |  |
+         |  |  `- Type.Forall 51#b:TU
+         |  |     |
+         |  |     `- Type.Arrow U
+         |  |        |
+         |  |        +- Type.Type
+         |  |        |  |
+         |  |        |  `- TypeRef
+         |  |        |     |
+         |  |        |     `- Int
+         |  |        |
+         |  |        `- Type.Arrow U
+         |  |           |
+         |  |           +- Type.Type
+         |  |           |  |
+         |  |           |  `- TypeRef
+         |  |           |     |
+         |  |           |     +- AltList
+         |  |           |     |
+         |  |           |     +- Type.Var 50#a
+         |  |           |     |  |
+         |  |           |     |  `- TU
+         |  |           |     |
+         |  |           |     `- Type.Var 51#b
+         |  |           |        |
+         |  |           |        `- TU
+         |  |           |
+         |  |           `- Type.Type
+         |  |              |
+         |  |              `- TypeRef
+         |  |                 |
+         |  |                 `- Int
+         |  |
+         |  `- Exp.TypeAbs 53#a:TU
+         |     |
+         |     `- Exp.TypeAbs 54#b:TU
+         |        |
+         |        `- Exp.Abs U 55#acc
+         |           |
+         |           +- Type.Type
+         |           |  |
+         |           |  `- TypeRef
+         |           |     |
+         |           |     `- Int
+         |           |
+         |           `- Exp.Abs U 56#xs
+         |              |
+         |              +- Type.Type
+         |              |  |
+         |              |  `- TypeRef
+         |              |     |
+         |              |     +- AltList
+         |              |     |
+         |              |     +- Type.Var 53#a
+         |              |     |  |
+         |              |     |  `- TU
+         |              |     |
+         |              |     `- Type.Var 54#b
+         |              |        |
+         |              |        `- TU
+         |              |
+         |              `- Exp.Exp
+         |                 |
+         |                 `- TcExpX.ValueCase
+         |                    |
+         |                    +- Exp.Var 56#xs
+         |                    |
+         |                    +- ACons 58#xs 57#_
+         |                    |  |
+         |                    |  `- Exp.App
+         |                    |     |
+         |                    |     +- Exp.App
+         |                    |     |  |
+         |                    |     |  +- Exp.TypeApp
+         |                    |     |  |  |
+         |                    |     |  |  +- Exp.TypeApp
+         |                    |     |  |  |  |
+         |                    |     |  |  |  +- Exp.Var 52#go
+         |                    |     |  |  |  |
+         |                    |     |  |  |  `- Type.Var 54#b
+         |                    |     |  |  |     |
+         |                    |     |  |  |     `- TU
+         |                    |     |  |  |
+         |                    |     |  |  `- Type.Var 53#a
+         |                    |     |  |     |
+         |                    |     |  |     `- TU
+         |                    |     |  |
+         |                    |     |  `- Exp.App
+         |                    |     |     |
+         |                    |     |     +- Exp.App
+         |                    |     |     |  |
+         |                    |     |     |  +- Exp.Var (+)
+         |                    |     |     |  |
+         |                    |     |     |  `- Exp.Var 55#acc
+         |                    |     |     |
+         |                    |     |     `- Exp.Lit
+         |                    |     |        |
+         |                    |     |        `- Lit.Int 1
+         |                    |     |
+         |                    |     `- Exp.Var 58#xs
+         |                    |
+         |                    `- ANil
+         |                       |
+         |                       `- Exp.Var 55#acc
+         |
+         `- 59#go
+            |
+            `- Exp.App
+               |
+               +- Exp.Var 59#go
+               |
+               `- Exp.Lit
+                  |
+                  `- Lit.Int 0
+
+length
+|
++- type
+|  |
+|  `- Type.Forall 61#a:TU
+|     |
+|     `- Type.Arrow U
+|        |
+|        +- Type.Type
+|        |  |
+|        |  `- TypeRef
+|        |     |
+|        |     +- List
+|        |     |
+|        |     `- Type.Var 61#a
+|        |        |
+|        |        `- TU
+|        |
+|        `- Type.Type
+|           |
+|           `- TypeRef
+|              |
+|              `- Int
+|
++- params
+|  |
+|  `- [60#a]
+|
+`- definition
+   |
+   `- Exp.TypeAbs 60#a:TU
+      |
+      `- Exp.Exp
+         |
+         `- TcExpX.ValueCase
+            |
+            +- Exp.Rec 62#go
+            |  |
+            |  +- Type.Arrow U
+            |  |  |
+            |  |  +- Type.Type
+            |  |  |  |
+            |  |  |  `- TypeRef
+            |  |  |     |
+            |  |  |     `- Int
+            |  |  |
+            |  |  `- Type.Arrow U
+            |  |     |
+            |  |     +- Type.Type
+            |  |     |  |
+            |  |     |  `- TypeRef
+            |  |     |     |
+            |  |     |     +- List
+            |  |     |     |
+            |  |     |     `- Type.Var 60#a
+            |  |     |        |
+            |  |     |        `- TU
+            |  |     |
+            |  |     `- Type.Type
+            |  |        |
+            |  |        `- TypeRef
+            |  |           |
+            |  |           `- Int
+            |  |
+            |  `- Exp.Abs U 63#acc
+            |     |
+            |     +- Type.Type
+            |     |  |
+            |     |  `- TypeRef
+            |     |     |
+            |     |     `- Int
+            |     |
+            |     `- Exp.Abs U 64#xs
+            |        |
+            |        +- Type.Type
+            |        |  |
+            |        |  `- TypeRef
+            |        |     |
+            |        |     +- List
+            |        |     |
+            |        |     `- Type.Var 60#a
+            |        |        |
+            |        |        `- TU
+            |        |
+            |        `- Exp.Exp
+            |           |
+            |           `- TcExpX.ValueCase
+            |              |
+            |              +- Exp.Var 64#xs
+            |              |
+            |              +- Cons 66#xs 65#_
+            |              |  |
+            |              |  `- Exp.App
+            |              |     |
+            |              |     +- Exp.App
+            |              |     |  |
+            |              |     |  +- Exp.Var 62#go
+            |              |     |  |
+            |              |     |  `- Exp.App
+            |              |     |     |
+            |              |     |     +- Exp.App
+            |              |     |     |  |
+            |              |     |     |  +- Exp.Var (+)
+            |              |     |     |  |
+            |              |     |     |  `- Exp.Var 63#acc
+            |              |     |     |
+            |              |     |     `- Exp.Lit
+            |              |     |        |
+            |              |     |        `- Lit.Int 1
+            |              |     |
+            |              |     `- Exp.Var 66#xs
+            |              |
+            |              `- Nil
+            |                 |
+            |                 `- Exp.Var 63#acc
+            |
+            `- 67#go
+               |
+               `- Exp.App
+                  |
+                  +- Exp.Var 67#go
+                  |
+                  `- Exp.Lit
+                     |
+                     `- Lit.Int 0
+

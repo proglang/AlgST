@@ -1,0 +1,96 @@
+name:                AlgST
+version:             0.0.1
+#github:              "githubuser/ContextFreeSession"
+license:             BSD3
+author:              "Janek Spaderna"
+copyright:           "2021 authors"
+
+#extra-source-files:
+#- README.md
+#data-dir: StandardLib
+#data-files: Prelude.fst
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+
+dependencies:
+- base >= 4.7 && < 5
+- ansi-terminal
+- array
+- call-stack
+- containers >=0.5.9
+- deepseq
+- directory >= 1.3.2.0
+- dlist
+- filepath >= 1.4.2
+- lens-family >= 2.1.0 && < 3
+- lens-family-th
+- monad-validate
+- mtl >= 2.2.1
+- optparse-applicative
+- template-haskell
+- th-lift-instances
+- these
+- transformers
+
+ghc-options:
+  - -j
+  - -Wall
+  # Orphans are used deliberately in multiple locations.
+  - -Wno-orphans
+  # Multiple warnings imported from the FreeST code. Unclear if a fixes should be applied.
+  - -Wno-name-shadowing
+  # Ticking promoted constructors is mostly visual clutter.
+  - -Wno-unticked-promoted-constructors
+  - -Wincomplete-uni-patterns
+  - -Wincomplete-record-updates
+  - -Wredundant-constraints
+  - -Wcompat
+
+default-extensions:
+  - BlockArguments
+  - LambdaCase
+
+library:
+  source-dirs: src
+  build-tools:
+    - alex
+    - happy
+
+executables:
+  algst:
+    main:                Main.hs
+    source-dirs:         exe
+    dependencies:
+      - AlgST
+    build-tools:
+      - alex
+      - happy
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+
+tests:
+  units:
+    main: Spec.hs
+    source-dirs: test/units
+
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      # Disabling idle collection and parallel collection improves prductivity
+      # (as reported by `+RTS -s`) significantly, this reduces test duration.
+      - '"-with-rtsopts=-N -qg -I0"'
+
+    dependencies:
+      - AlgST
+      - hspec
+      - hspec-core
+      - hspec-discover
+      - raw-strings-qq
+      - reflection
