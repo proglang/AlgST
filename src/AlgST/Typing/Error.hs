@@ -403,6 +403,43 @@ builtinMissingApp e expected =
     ]
 {-# NOINLINE builtinMissingApp #-}
 
+unboundVar :: forall v. (Variable v, ErrorMsg v) => v -> PosError
+unboundVar v =
+  PosError
+    (pos v)
+    [ Error "Unbound",
+      Error $ chooseVar @v @String "variable" "type variable",
+      Error v
+    ]
+{-# SPECIALIZE unboundVar :: ProgVar -> PosError #-}
+{-# SPECIALIZE unboundVar :: TypeVar -> PosError #-}
+
+undeclaredCon :: forall v. (Variable v, ErrorMsg v) => v -> PosError
+undeclaredCon v =
+  PosError
+    (pos v)
+    [ Error "Undeclared",
+      Error $ chooseVar @v @String "constructor" "type",
+      Error v
+    ]
+{-# SPECIALIZE undeclaredCon :: ProgVar -> PosError #-}
+{-# SPECIALIZE undeclaredCon :: TypeVar -> PosError #-}
+
+nameBoundTwice :: ErrorMsg v => v -> Pos -> Pos -> PosError
+nameBoundTwice name p1 p2 =
+  PosError
+    (min p1 p2)
+    [ Error "Conflicting bindings for",
+      Error name,
+      ErrLine,
+      Error "Bound at:",
+      Error (min p1 p2),
+      ErrLine,
+      Error "         ",
+      Error (max p1 p2)
+    ]
+{-# NOINLINE nameBoundTwice #-}
+
 showType :: TcType -> Maybe TcType -> [ErrorMessage]
 showType t mNF
   | Just tNF <- mNF,

@@ -79,7 +79,6 @@ import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.Trans.Maybe
 import Control.Monad.Validate
-import Data.CallStack
 import Data.DList.DNonEmpty (DNonEmpty)
 import qualified Data.DList.DNonEmpty as DL
 import Data.Either
@@ -391,7 +390,8 @@ typeAppBase = flip go
     err us t = Error.typeConstructorNParams (pos t) (t <| us) (length us) 0
 
 kisynthTypeCon :: Pos -> TypeVar -> [RnType] -> KindM (TcType, K.Kind)
-kisynthTypeCon loc name args = runMaybeT alias >>= maybe decl pure
+kisynthTypeCon loc name args =
+  runMaybeT (alias <|> decl) >>= maybeError (Error.undeclaredCon name)
   where
     alias = do
       (alias, k) <- lookupTypeAlias name
@@ -399,8 +399,13 @@ kisynthTypeCon loc name args = runMaybeT alias >>= maybe decl pure
       pure (substituteType (Map.fromList subs) (aliasType alias), k)
 
     decl = do
-      decl <- asks $ view kiEnvL >>> tcContext >>> programTypes >>> lookup name
-      subs <- zipTypeParams loc name (declParams decl) args
+      decl <-
+        MaybeT . asks $
+          view kiEnvL
+            >>> tcContext
+            >>> programTypes
+            >>> Map.lookup name
+      subs <- lift $ zipTypeParams loc name (declParams decl) args
       let kind = case decl of
             AliasDecl {} -> error "unexpected AliasDecl"
             DataDecl _ tn -> nominalKind tn
@@ -458,7 +463,8 @@ kisynth =
     T.Unit p -> do
       pure (T.Unit p, K.MU p)
     T.Var p v -> do
-      k <- asks $ view kiEnvL >>> tcKindEnv >>> lookup v >>> flip K.relocate p
+      mk <- asks $ view kiEnvL >>> tcKindEnv >>> Map.lookup v
+      k <- flip K.relocate p <$> maybeError (Error.unboundVar v) mk
       pure (T.Var k v, k)
     T.Con p v -> do
       kisynthTypeCon p v []
@@ -544,11 +550,11 @@ tysynth =
 
     --
     E.Var p v -> do
-      synthVariable p v
+      synthVariable p v >>= maybeError (Error.unboundVar v)
 
     --
     E.Con p v -> do
-      synthVariable p v
+      synthVariable p v >>= maybeError (Error.undeclaredCon v)
 
     --
     E.Abs p bnd -> do
@@ -695,11 +701,11 @@ tysynth =
 
     --
     E.Select p con -> do
-      conValue <- asks $ tcCheckedValues >>> Map.lookup con
-      let conDecl = case conValue of
-            Just (ValueCon decl) -> decl
-            _ -> error $ "internal error: ‘" ++ show con ++ "’ is not a known constructor."
-      parentDecl <- asks $ tcCheckedTypes >>> lookup (conParent conDecl)
+      let findConDecl = runMaybeT do
+            ValueCon conDecl <- MaybeT $ asks $ tcCheckedValues >>> Map.lookup con
+            parentDecl <- MaybeT $ asks $ tcCheckedTypes >>> Map.lookup (conParent conDecl)
+            pure (conDecl, parentDecl)
+      (conDecl, parentDecl) <- maybeError (Error.undeclaredCon con) =<< findConDecl
       instantiateDeclRef defaultPos (conParent conDecl) parentDecl \params ref -> do
         let sub = applySubstitutions (typeRefSubstitutions parentDecl ref)
         ty <- buildSelectType p params (T.Type ref) (sub <$> conItems conDecl)
@@ -737,11 +743,8 @@ patternBranches :: PatternType -> TypeM (Map.Map ProgVar [TcType])
 patternBranches = \case
   PatternRef ref -> do
     let subst d = substituteTypeConstructors (typeRefSubstitutions d ref) d
-    asks $
-      tcCheckedTypes
-        >>> lookup (typeRefName ref)
-        >>> subst
-        >>> fmap snd
+    mdecl <- asks $ tcCheckedTypes >>> Map.lookup (typeRefName ref)
+    fmap snd . subst <$> maybeError (Error.undeclaredCon (typeRefName ref)) mdecl
   PatternPair _ t1 t2 ->
     pure $ Map.singleton (pairConId defaultPos) [t1, t2]
 
@@ -790,10 +793,9 @@ isBoolType ty env
     False
 
 -- | Looks up the type for the given 'ProgVar'. This function works correctly
--- for local variables, globals and constructors. In case the variable is
--- unknown 'error' will be called.
-synthVariable :: Pos -> ProgVar -> TypeM (TcExp, TcType)
-synthVariable p name = fromMaybe internalError <$> runMaybeT (useLocal <|> useGlobal)
+-- for local variables, globals and constructors.
+synthVariable :: Pos -> ProgVar -> TypeM (Maybe (TcExp, TcType))
+synthVariable p name = runMaybeT (useLocal <|> useGlobal)
   where
     useLocal = do
       info <- MaybeT $ use $ tcTypeEnvL . at' name
@@ -806,22 +808,14 @@ synthVariable p name = fromMaybe internalError <$> runMaybeT (useLocal <|> useGl
         ValueGlobal _ ty ->
           pure (E.Var p name, ty)
         ValueCon (DataCon _ parent _ mul items) -> do
-          decl <- asks $ tcCheckedTypes >>> lookup parent
+          decl <- MaybeT $ asks $ tcCheckedTypes >>> Map.lookup parent
           ty <- lift $ buildDataConType p parent decl mul items
           pure (E.Con p name, ty)
         ValueCon (ProtocolCon _ parent _ _) ->
           addFatalError $ Error.protocolConAsValue p name parent
 
-    internalError =
-      error $
-        unwords
-          [ "internal error: variable/constructor",
-            show name,
-            "not bound at",
-            show p
-          ]
-
-instantiateDeclRef :: Pos -> TypeVar -> TypeDecl Tc -> (Params -> TypeRef -> RnM a) -> TcM env s a
+instantiateDeclRef ::
+  Pos -> TypeVar -> TypeDecl Tc -> (Params -> TypeRef -> RnM a) -> TcM env s a
 instantiateDeclRef p name decl f =
   liftRn $ bindingParamsUnchecked (declParams decl) \params ->
     f
@@ -1213,16 +1207,6 @@ normalize :: MonadValidate Errors m => TcType -> m TcType
 normalize t = case nf t of
   Just t' -> pure t'
   Nothing -> addFatalError (Error.noNormalform t)
-
--- | @lookup v m@ returns the value associated with variable @v@ in the map
--- @m@.
---
--- This function is inteded for use with maps coming from the renamer which has
--- made sure that all variables are correctly in scope.
-lookup :: (HasCallStack, Variable v) => v -> Map.Map v a -> a
-lookup v =
-  Map.lookup v
-    >>> fromMaybe (error $ "internal error: unbound variable " ++ intern v)
 
 bindTyVar :: HasKiEnv env => TypeVar -> K.Kind -> env -> env
 bindTyVar v k = bindParams [(v, k)]
