@@ -94,6 +94,7 @@ import Data.Proxy
 import qualified Data.Sequence as Seq
 import qualified Data.Set as Set
 import Data.These
+import Data.Traversable.WithIndex
 import qualified Data.Tuple as Tuple
 import Data.Void
 import Lens.Family2
@@ -951,7 +952,7 @@ checkCaseExpr loc allowWild cmap patTy typedBinds = etaTcM do
         -- types.
         binds <- typedBinds con fields branch
         -- Check the branch expression in the context of the typed bindings.
-        (e, eTy) <- withProgVarBinds Nothing binds do
+        (e, eTy) <- withProgVarBinds Nothing (toList binds) do
           checkOrSynth (E.branchExp branch) mty
         pure (branch {E.branchExp = e, E.branchBinds = fst <$> binds}, eTy)
 
@@ -960,7 +961,7 @@ checkCaseExpr loc allowWild cmap patTy typedBinds = etaTcM do
         errorIf (not hasMissingBranches) $ Error.unnecessaryWildcard (pos branch)
         errorIf (not allowWild) $ Error.wildcardNotAllowed (pos branch) loc
         let binds = (,originalPatternType patTy) <$> E.branchBinds branch
-        (e, eTy) <- withProgVarBinds Nothing binds do
+        (e, eTy) <- withProgVarBinds Nothing (toList binds) do
           checkOrSynth (E.branchExp branch) mty
         pure (branch {E.branchExp = e, E.branchBinds = fst <$> binds}, eTy)
 
@@ -1142,9 +1143,9 @@ unrestrictedLoc _ Lin = Nothing
 -- introduces the /unrestricted/ context. 'unrestrictedLoc' can be used as a
 -- helper function.
 withProgVarBinds ::
-  Traversable f => Maybe Pos -> f (ProgVar, TcType) -> TypeM a -> TypeM a
+  Maybe Pos -> [(ProgVar, TcType)] -> TypeM a -> TypeM a
 withProgVarBinds !mUnArrLoc vtys action = etaTcM do
-  let mkVar (v, ty) = etaTcM do
+  let mkVar i (v, ty) = etaTcM do
         let ki = typeKind ty
         usage <- case K.multiplicity ki of
           Just Lin -> pure LinUnunsed
@@ -1156,10 +1157,22 @@ withProgVarBinds !mUnArrLoc vtys action = etaTcM do
                   varType = ty,
                   varLocation = pos v
                 }
-        pure (v, var)
+        -- Prefix wildcards in the same set of var bindings with a unique id.
+        -- This makes sure that in case of multiple wildcards there is no
+        -- shadowing which would allow linear variables to be ignored.
+        --
+        -- We can't prefix all variables since then it becomes impossible to
+        -- refer to them without some additional bookkeeping on our part.
+        --
+        -- We assume that the parser already verified that other variable names
+        -- are not duplicated.
+        let name
+              | isWild v = mkNewVar i v
+              | otherwise = v
+        pure (name, var)
 
   outerVars <- gets tcTypeEnv
-  newVars <- Map.fromList . toList <$> traverse mkVar vtys
+  newVars <- Map.fromList <$> itraverse mkVar vtys
   tcTypeEnvL <>= newVars
   a <- action
   resultVars <- gets tcTypeEnv
@@ -1186,7 +1199,7 @@ withProgVarBinds !mUnArrLoc vtys action = etaTcM do
 
 -- | Like 'withProgVarBinds' but for a single binding.
 withProgVarBind :: Maybe Pos -> ProgVar -> TcType -> TypeM a -> TypeM a
-withProgVarBind mp pv ty = withProgVarBinds mp (Identity (pv, ty))
+withProgVarBind mp pv ty = withProgVarBinds mp [(pv, ty)]
 
 tycheck :: RnExp -> TcType -> TypeM TcExp
 tycheck e u = do

@@ -22,6 +22,7 @@ module AlgST.Parse.ParseUtils
     errorRecNoTermLambda,
     errorMultipleWildcards,
     errorMisplacedPairCon,
+    errorDuplicateBind,
 
     -- * Operators
     resolveOpSeq,
@@ -165,7 +166,8 @@ programTypeDecl v tydecl = Kleisli \p -> do
 -- | Inserts the value under the given key into the map. If there is already a
 -- value under that key an error as with 'errorMultipleDeclarations' is added
 -- and the value is not changed.
-insertNoDuplicates :: (Ord k, DuplicateError k v) => k -> v -> Map.Map k v -> ParseM (Map.Map k v)
+insertNoDuplicates ::
+  (Ord k, DuplicateError k v) => k -> v -> Map.Map k v -> ParseM (Map.Map k v)
 insertNoDuplicates k v m = mergeNoDuplicates m (Map.singleton k v)
 
 -- | Merges two maps, if any keys overlap an error as with
@@ -180,17 +182,33 @@ mergeNoDuplicates =
 class DuplicateError k a where
   duplicateError :: k -> a -> a -> PosError
 
+-- | Message for duplicate type declarations.
 instance DuplicateError TypeVar (TypeDecl Parse) where
   duplicateError = errorMultipleDeclarations
 
+-- | Message for a duplicated top-level value declaration. This includes both
+-- constrcutor names between two declarations, and top-level functions.
 instance DuplicateError ProgVar (Either (ConstructorDecl Parse) (ValueDecl Parse)) where
   duplicateError = errorMultipleDeclarations
 
+-- | Message for a duplicated constructor inside a type declaration.
 instance DuplicateError ProgVar (Pos, [PType]) where
   duplicateError v (p1, _) (p2, _) = errorMultipleDeclarations v p1 p2
 
+-- | Message for a duplicate branch in a case expression:
+--
+-- > case … of { A -> …, A -> … }
 instance DuplicateError ProgVar (E.CaseBranch f Parse) where
   duplicateError = errorDuplicateBranch
+
+-- | Messages for any form of duplicate binding:
+--
+-- * patterns
+-- * lambda abstractions (not yet implemented)
+-- * type parameters
+-- * top-level function parameters
+instance ErrorMsg a => DuplicateError a Pos where
+  duplicateError = errorDuplicateBind
 
 errorMultipleDeclarations :: (ErrorMsg a, Position p1, Position p2) => a -> p1 -> p2 -> PosError
 errorMultipleDeclarations a (pos -> p1) (pos -> p2) =
@@ -205,6 +223,21 @@ errorMultipleDeclarations a (pos -> p1) (pos -> p2) =
       Error "            ",
       Error (max p1 p2)
     ]
+
+errorDuplicateBind :: ErrorMsg v => v -> Pos -> Pos -> PosError
+errorDuplicateBind name p1 p2 =
+   PosError
+    (min p1 p2)
+    [ Error "Conflicting bindings for",
+      Error name,
+      ErrLine,
+      Error "Bound at:",
+      Error (min p1 p2),
+      ErrLine,
+      Error "         ",
+      Error (max p1 p2)
+    ]
+{-# NOINLINE errorDuplicateBind #-}
 
 errorDuplicateBranch :: ProgVar -> E.CaseBranch f x -> E.CaseBranch f x -> PosError
 errorDuplicateBranch name (pos -> p1) (pos -> p2) =

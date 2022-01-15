@@ -1,0 +1,3 @@
+-- Duplicate binding is OK because it appears on two different levels.
+id : ∀(a:TU). a -> a
+id [a] a = a

@@ -1,0 +1,10 @@
+Exp.TypeAbs a:TU
+|
+`- Exp.Abs U a
+   |
+   +- Type.Var a
+   |
+   `- Exp.Lit
+      |
+      `- Lit.Unit
+

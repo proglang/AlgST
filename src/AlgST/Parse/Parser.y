@@ -1,4 +1,5 @@
 {
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE RankNTypes #-}
@@ -26,6 +27,7 @@ import           Data.Bifunctor
 import qualified Data.DList                    as DL
 import           Data.Foldable
 import           Data.Functor.Identity
+import           Data.List.NonEmpty            (NonEmpty(..))
 import qualified Data.Map.Strict               as Map
 import           Data.Maybe
 import           Data.Monoid
@@ -131,7 +133,7 @@ Decl :: { ProgBuilder }
     }
   -- Function declaration
   | ProgVar ValueParams '=' Exp {
-      programValueBinding $1 (DL.toList $2) $4
+      programValueBinding $1 $2 $4
     }
   -- Type abbreviation
   | type KindedTVarM TypeParams '=' Type {% do
@@ -175,9 +177,8 @@ Decl :: { ProgBuilder }
 TySig :: { PType }
   : ':' Type     { $2 }
 
-TypeParams :: { DL.DList (TypeVar, K.Kind) }
-  : {- empty -}           { mempty }
-  | TypeParams KindBind   { $1 <> DL.singleton $2 }
+TypeParams :: { [(TypeVar, K.Kind)] }
+  : bindings(KindBind)  {% $1 \(tv, _) -> Identity tv }
 
 DataCons :: { Constructors PType }
   : DataCon              {  uncurry Map.singleton $1 }
@@ -186,10 +187,15 @@ DataCons :: { Constructors PType }
 DataCon :: { (ProgVar, (Pos, [PType])) }
   : Constructor TypeSeq { ($1, (pos $1, DL.toList $2)) }
 
-ValueParams :: { DL.DList PTVar }
-  : {- empty -}                             { mempty }
-  | ValueParams ProgVarWild                 { $1 `DL.snoc` Left $2 }
-  | ValueParams '[' TyVarList ']'           { $1 <> $3 }
+ValueParams :: { [PTVar] }
+  : bindings(ValueParam) {%
+      let isPTWild = either isWild isWild
+       in concat `fmap` $1 (filter (not . isPTWild))
+    }
+
+ValueParam :: { [PTVar] }
+  : ProgVarWild         { [Left $1] }
+  | '[' TyVarList ']'   { DL.toList $2 }
 
 TyVarList :: { DL.DList PTVar }
   : wildcard(TypeVar)                       { DL.singleton (Right $1) }
@@ -267,20 +273,31 @@ LamExp :: { PExp }
       let (arrPos, arrMul) = $3
       when (arrMul == Lin && not anyTermAbs) do
         addErrors [errorNoTermLinLambda (pos $1) arrPos]
-      pure $ appEndo (build $3) $4
+      pure $ appEndo (build arrMul) $4
     }
 
-Abs :: { ((Pos, Multiplicity) -> Endo PExp, Any) }
-  : optional(Abs) '(' wildcard(ProgVar) ':' Type ')' { do
-      let (outer, _) = fold $1
-      let build (p, m) = Endo $ E.Abs @Parse (pos $2) . E.Bind p m $3 $5
-      (outer <> build, Any True)
+Abs :: { (Multiplicity -> Endo PExp, Any) }
+  : bindings1(Abs1) {% do
+      binds <- $1 $ snd >>> \case
+            Left (v, _) | not (isWild v) -> Just (Left v)
+            Right (v, _) | not (isWild v) -> Just (Right v)
+            _ -> Nothing
+      let termAbs loc (v, t) =
+            ( \m -> Endo $ E.Abs @Parse loc . E.Bind loc m v t
+            , Any True
+            )
+      let typeAbs loc (v, k) =
+            ( \_ -> Endo $ E.TypeAbs @Parse loc . K.Bind loc v k
+            , Any False
+            )
+      let build (loc, abs) =
+            either (termAbs loc) (typeAbs loc) abs
+      pure $ foldMap build (binds :: NonEmpty (Pos, Either (ProgVar, PType) (TypeVar, K.Kind)))
     }
-  | optional(Abs) '[' wildcard(TypeVar) ':' Kind ']' { do
-      let (outer, anyTermAbs) = fold $1
-      let build _ = Endo $ E.TypeAbs @Parse (pos $2) . K.Bind (pos $5) $3 $5
-      (outer <> build, anyTermAbs)
-    }
+
+Abs1 :: { (Pos, Either (ProgVar, PType) (TypeVar, K.Kind)) } 
+  : '(' wildcard(ProgVar) ':' Type ')' { (pos $1, Left ($2, $4)) }
+  | '[' wildcard(TypeVar) ':' Kind ']' { (pos $1, Right ($2, $4)) }
 
 Cases :: { PCaseMap }
   : -- An empty case is not allowed. Accepting it here allows us to provide
@@ -294,7 +311,6 @@ CaseMap :: { PCaseMap }
   : Case             {% $1 emptyCaseMap }
   | CaseMap ',' Case {% $3 $1 }
 
--- Case :: { (ProgVar, CaseBranch [] Parse) }
 Case :: { PCaseMap -> ParseM PCaseMap }
   : Pattern '->' Exp { \pcm -> do
       let (con, binds) = $1
@@ -318,9 +334,21 @@ Case :: { PCaseMap -> ParseM PCaseMap }
     }
 
 Pattern :: { (ProgVar, [ProgVar]) }
-  : Constructor ProgVarWildSeq            { ($1, DL.toList $2) }
-  | '(,)' ProgVarWildSeq                  { (pairConId (pos $1), DL.toList $2) }
-  | '(' ProgVarWild ',' ProgVarWild ')'   { (pairConId (pos $1), [$2, $4]) }
+  : Constructor ProgVarWildSeq            { ($1, $2) }
+  | '(,)' ProgVarWildSeq                  { (pairConId (pos $1), $2) }
+  | '(' ProgVarWild ',' ProgVarWild ')'   {% do
+      when ($2 == $4 && not (isWild $2)) do
+        addErrors [errorDuplicateBind $2 (pos $2) (pos $4)]
+      pure $ (pairConId (pos $1), [$2, $4])
+    }
+
+ProgVarWildSeq :: { [ProgVar] }
+  : bindings(ProgVarWild)   {% $1 \v ->
+      -- Only check for duplicates if it is not a wildcard.
+      if isWild v
+      then Nothing
+      else Just v
+    }
 
 Op :: { ProgVar }
   : OPERATOR  { mkVar (pos $1) (getText $1) }
@@ -425,6 +453,37 @@ Constructor :: { ProgVar }
 ProgVarWild :: { ProgVar }
   : wildcard(ProgVar)   { $1 }
 
+-- bindings(p) :
+--   (Foldable f, Ord a, Position a, ErrorMsg a) => (p -> f a) -> ParseM [p]
+--
+-- Parses a sequence of `p` and ensures that the extracted `a`s are different.
+bindings(p)
+  : bindings_(p) { fmap DL.toList . $1 Map.empty }
+
+-- bindings1(p) :
+--   (Foldable f, Ord a, Position a, ErrorMsg a) => (p -> f a) -> ParseM (NonEmpty p)
+--
+-- Like `bindings` but for a non-empty sequence.
+bindings1(p)
+  : p bindings_(p) { \extractAs -> do
+      bound <- foldM
+        (flip \a -> insertNoDuplicates a (pos a))
+        Map.empty
+        (extractAs $1)
+      ps <- $2 bound extractAs
+      pure $ $1 :| DL.toList ps
+    }
+
+bindings_(p)
+  : {- empty -} { \_ _ ->
+      pure $ DL.empty
+    }
+  | bindings_(p) p { \bound extractAs -> do
+      bound' <- foldM (flip \a -> insertNoDuplicates a (pos a)) bound (extractAs $2)
+      ps <- $1 bound' extractAs
+      pure $ ps `DL.snoc` $2
+    }
+
 -- wildcard(v) : Variable v => v
 wildcard(v)
   : v     { $1 }
@@ -434,10 +493,6 @@ wildcard(v)
 optional(t)
   : {- empty -}  { Nothing }
   | t            { Just $1 }
-
-ProgVarWildSeq :: { DL.DList ProgVar }
-  :                            { DL.empty }
-  | ProgVarWildSeq ProgVarWild { $1 `DL.snoc` $2 }
 
 -- TYPE VARIABLE
 

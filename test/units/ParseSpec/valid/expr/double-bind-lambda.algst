@@ -1,0 +1,2 @@
+-- Duplicate binding is OK because it appears on two different levels.
+\[a:TU] (a:a) -> ()

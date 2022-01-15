@@ -1,5 +1,5 @@
 
 2:6: error:
-	 Conflicting definitions for x
+	 Conflicting bindings for x
 	 Bound at: 2:6
 	           2:8

@@ -11,6 +11,7 @@ module AlgST.Syntax.Variable
   ( ProgVar,
     TypeVar,
     pattern UserNamed,
+    isWild,
     PTVar,
     Variable (..),
     liftVar,
@@ -70,3 +71,7 @@ showVar = dropWhile (\c -> C.isDigit c || c == '#') . Base.intern
 
 pattern UserNamed :: Variable a => String -> a
 pattern UserNamed s <- (showVar -> s)
+
+isWild :: Variable v => v -> Bool
+isWild (UserNamed "_") = True
+isWild _ = False

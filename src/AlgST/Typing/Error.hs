@@ -425,21 +425,6 @@ undeclaredCon v =
 {-# SPECIALIZE undeclaredCon :: ProgVar -> PosError #-}
 {-# SPECIALIZE undeclaredCon :: TypeVar -> PosError #-}
 
-nameBoundTwice :: ErrorMsg v => v -> Pos -> Pos -> PosError
-nameBoundTwice name p1 p2 =
-  PosError
-    (min p1 p2)
-    [ Error "Conflicting bindings for",
-      Error name,
-      ErrLine,
-      Error "Bound at:",
-      Error (min p1 p2),
-      ErrLine,
-      Error "         ",
-      Error (max p1 p2)
-    ]
-{-# NOINLINE nameBoundTwice #-}
-
 showType :: TcType -> Maybe TcType -> [ErrorMessage]
 showType t mNF
   | Just tNF <- mNF,
