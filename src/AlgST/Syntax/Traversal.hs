@@ -11,7 +11,8 @@
 {-# LANGUAGE ViewPatterns #-}
 
 -- | This module defines an extensible way to traverse the variables in syntax
--- constructs.
+-- constructs. It is based upon the ideas described in
+-- [Writing efficient free variable traversals](https://www.haskell.org/ghc/blog/20190728-free-variable-traversals.html).
 module AlgST.Syntax.Traversal
   ( -- * Classes
     VarTraversal (..),
@@ -50,6 +51,7 @@ import qualified AlgST.Syntax.Kind as K
 import qualified AlgST.Syntax.Type as T
 import AlgST.Syntax.Variable
 import Control.Applicative
+import Control.Category ((>>>))
 import Control.Monad.Eta
 import Control.Monad.Trans.Reader
 import Data.Bitraversable
@@ -102,9 +104,11 @@ instance VarTraversal (Const CollectFree) x where
     let bound' = foldl' (\b v -> Set.insert (liftVar v) b) bound vs
      in runCollect (getConst $ f vs) bound' acc
 
+-- Inserts the given variable into the set of free variables.
 varCollectFree :: Variable v => v -> Const CollectFree b
-varCollectFree (liftVar -> v) = Const $ CollectFree \bound acc ->
-  if v `Set.member` bound
+varCollectFree (liftVar -> v) = Const . CollectFree $ oneShot \bound -> oneShot \acc ->
+  -- Don't include it if it is either bound or already recorded.
+  if v `Set.member` bound || v `Set.member` acc
     then acc
     else Set.insert v acc
 
@@ -123,23 +127,26 @@ instance VarTraversal (Const Any) x where
   constructor _ = pure
   programVariable = anyVariable
   typeVariable = anyVariable
-  bind _ vs f = f vs
+
+  -- When a variable is bound it will be removed from the set of intresting
+  -- variables. If the set becomes empty we will short-circuit to False.
+  bind _ vs f = Const . Any $ oneShot \intresting -> do
+    let intresting' = foldl' (flip (Set.delete . liftVar)) intresting vs
+     in not (Set.null intresting') && runAny (getConst (f vs)) intresting'
 
 anyVariable :: Variable v => v -> Const Any b
 anyVariable = Const . Any . Set.member . liftVar
 
--- | Checks if any of the variables in the given set are free in @a@.
---
--- /Note:/ This correctness is only guaranteed if all variables in @a@ have
--- distinct names. This is achieved by the renaming step.
+-- | Checks if any of the variables in the given set are free in the given
+-- piece of syntax.
 anyFree :: forall s x. VarTraversable (s x) x => Set.Set PTVar -> s x -> Bool
 anyFree vars a
   | Set.null vars = False
   | otherwise = runAny (getConst (traverseVars @_ @x Proxy a)) vars
 
 data Substitutions x = Substitutions
-  { progVarSubs :: Map.Map ProgVar (E.Exp x),
-    typeVarSubs :: Map.Map TypeVar (T.Type x)
+  { progVarSubs :: !(Map.Map ProgVar (E.Exp x)),
+    typeVarSubs :: !(Map.Map TypeVar (T.Type x))
   }
 
 instance
@@ -167,7 +174,15 @@ instance Monad m => VarTraversal (ReaderT (Substitutions x) m) x where
   programVariable = etaReaderT . asks . subVar progVarSubs
   typeVariable = etaReaderT . asks . subVar typeVarSubs
   constructor _ = pure
-  bind _ vs f = f vs
+
+  -- Remove the bound variables from the maps.
+  bind _ vs f = etaReaderT do
+    let removeVar subs =
+          liftVar >>> \case
+            Left pv -> subs {progVarSubs = Map.delete pv (progVarSubs subs)}
+            Right tv -> subs {typeVarSubs = Map.delete tv (typeVarSubs subs)}
+    local (\s -> foldl' removeVar s vs) do
+      f vs
 
 subVar :: Variable v => (Substitutions x -> Map.Map v a) -> v -> Substitutions x -> Either a v
 subVar f v = maybe (Right v) Left . Map.lookup v . f
