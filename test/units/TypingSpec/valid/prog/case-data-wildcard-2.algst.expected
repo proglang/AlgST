@@ -82,7 +82,7 @@ unsafe_head
 |
 +- type
 |  |
-|  `- Type.Forall 48#a:TU
+|  `- Type.Forall 56#a:TU
 |     |
 |     `- Type.Arrow U
 |        |
@@ -92,25 +92,25 @@ unsafe_head
 |        |     |
 |        |     +- List
 |        |     |
-|        |     `- Type.Var 48#a
+|        |     `- Type.Var 56#a
 |        |        |
 |        |        `- TU
 |        |
-|        `- Type.Var 48#a
+|        `- Type.Var 56#a
 |           |
 |           `- TU
 |
 +- params
 |  |
-|  +- [46#a]
+|  +- [54#a]
 |  |
-|  `- 47#xs
+|  `- 55#xs
 |
 `- definition
    |
-   `- Exp.TypeAbs 46#a:TU
+   `- Exp.TypeAbs 54#a:TU
       |
-      `- Exp.Abs U 47#xs
+      `- Exp.Abs U 55#xs
          |
          +- Type.Type
          |  |
@@ -118,7 +118,7 @@ unsafe_head
          |     |
          |     +- List
          |     |
-         |     `- Type.Var 46#a
+         |     `- Type.Var 54#a
          |        |
          |        `- TU
          |
@@ -126,13 +126,13 @@ unsafe_head
             |
             `- TcExpX.ValueCase
                |
-               +- Exp.Var 47#xs
+               +- Exp.Var 55#xs
                |
-               +- Cons 50#_ 49#a
+               +- Cons 58#_ 57#a
                |  |
-               |  `- Exp.Var 49#a
+               |  `- Exp.Var 57#a
                |
-               `- 51#xs'
+               `- 59#xs'
                   |
                   `- Exp.App
                      |
@@ -140,9 +140,9 @@ unsafe_head
                      |  |
                      |  +- Exp.Var unsafe_head
                      |  |
-                     |  `- Type.Var 46#a
+                     |  `- Type.Var 54#a
                      |     |
                      |     `- TU
                      |
-                     `- Exp.Var 51#xs'
+                     `- Exp.Var 59#xs'
 

@@ -56,11 +56,11 @@ matchD0
 |
 +- params
 |  |
-|  `- 41#d0
+|  `- 46#d0
 |
 `- definition
    |
-   `- Exp.Abs U 41#d0
+   `- Exp.Abs U 46#d0
       |
       +- Type.Type
       |  |
@@ -72,7 +72,7 @@ matchD0
          |
          `- TcExpX.ValueCase
             |
-            +- Exp.Var 41#d0
+            +- Exp.Var 46#d0
             |
             `- D0
                |
@@ -84,7 +84,7 @@ runIdentity
 |
 +- type
 |  |
-|  `- Type.Forall 47#a:TU
+|  `- Type.Forall 50#a:TU
 |     |
 |     `- Type.Arrow U
 |        |
@@ -94,23 +94,23 @@ runIdentity
 |        |     |
 |        |     +- Identity
 |        |     |
-|        |     `- Type.Var 47#a
+|        |     `- Type.Var 50#a
 |        |        |
 |        |        `- TU
 |        |
-|        `- Type.Var 47#a
+|        `- Type.Var 50#a
 |           |
 |           `- TU
 |
 +- params
 |  |
-|  `- 46#id
+|  `- 49#id
 |
 `- definition
    |
-   `- Exp.TypeAbs 57#_:TU
+   `- Exp.TypeAbs 67#_:TU
       |
-      `- Exp.Abs U 46#id
+      `- Exp.Abs U 49#id
          |
          +- Type.Type
          |  |
@@ -118,7 +118,7 @@ runIdentity
          |     |
          |     +- Identity
          |     |
-         |     `- Type.Var 57#_
+         |     `- Type.Var 67#_
          |        |
          |        `- TU
          |
@@ -126,9 +126,9 @@ runIdentity
             |
             `- TcExpX.ValueCase
                |
-               +- Exp.Var 46#id
+               +- Exp.Var 49#id
                |
-               `- Identity 48#a
+               `- Identity 51#a
                   |
-                  `- Exp.Var 48#a
+                  `- Exp.Var 51#a
 

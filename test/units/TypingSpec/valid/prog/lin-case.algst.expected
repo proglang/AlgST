@@ -98,7 +98,7 @@ fromMaybe
 |
 `- definition
    |
-   `- Exp.TypeAbs 58#_:TL
+   `- Exp.TypeAbs 66#_:TL
       |
       `- Exp.Abs U 42#makeA
          |
@@ -106,7 +106,7 @@ fromMaybe
          |  |
          |  +- Type.Unit
          |  |
-         |  `- Type.Var 58#_
+         |  `- Type.Var 66#_
          |     |
          |     `- TL
          |
@@ -118,7 +118,7 @@ fromMaybe
             |     |
             |     +- Maybe
             |     |
-            |     `- Type.Var 58#_
+            |     `- Type.Var 66#_
             |        |
             |        `- TL
             |

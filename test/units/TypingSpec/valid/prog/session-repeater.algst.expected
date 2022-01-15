@@ -74,7 +74,7 @@ repeater
 |
 +- type
 |  |
-|  `- Type.Forall 51#p:P
+|  `- Type.Forall 54#p:P
 |     |
 |     `- Type.Arrow U
 |        |
@@ -84,7 +84,7 @@ repeater
 |        |     |
 |        |     +- Type.Session (?)
 |        |     |  |
-|        |     |  +- Type.Var 51#p
+|        |     |  +- Type.Var 54#p
 |        |     |  |  |
 |        |     |  |  `- P
 |        |     |  |
@@ -108,7 +108,7 @@ repeater
 |              |  |     |
 |              |  |     +- Repeat
 |              |  |     |
-|              |  |     `- Type.Var 51#p
+|              |  |     `- Type.Var 54#p
 |              |  |        |
 |              |  |        `- P
 |              |  |
@@ -122,17 +122,17 @@ repeater
 |
 +- params
 |  |
-|  +- [48#p]
+|  +- [51#p]
 |  |
-|  +- 49#handleOne
+|  +- 52#handleOne
 |  |
-|  `- [50#s]
+|  `- [53#s]
 |
 `- definition
    |
-   `- Exp.TypeAbs 48#p:P
+   `- Exp.TypeAbs 51#p:P
       |
-      `- Exp.Abs U 49#handleOne
+      `- Exp.Abs U 52#handleOne
          |
          +- Type.Forall 11#s:SL
          |  |
@@ -140,7 +140,7 @@ repeater
          |     |
          |     +- Type.Session (?)
          |     |  |
-         |     |  +- Type.Var 48#p
+         |     |  +- Type.Var 51#p
          |     |  |  |
          |     |  |  `- P
          |     |  |
@@ -152,9 +152,9 @@ repeater
          |        |
          |        `- SL
          |
-         `- Exp.TypeAbs 50#s:SL
+         `- Exp.TypeAbs 53#s:SL
             |
-            `- Exp.Rec 52#go
+            `- Exp.Rec 55#go
                |
                +- Type.Arrow U
                |  |
@@ -166,19 +166,19 @@ repeater
                |  |  |     |
                |  |  |     +- Repeat
                |  |  |     |
-               |  |  |     `- Type.Var 48#p
+               |  |  |     `- Type.Var 51#p
                |  |  |        |
                |  |  |        `- P
                |  |  |
-               |  |  `- Type.Var 50#s
+               |  |  `- Type.Var 53#s
                |  |     |
                |  |     `- SL
                |  |
-               |  `- Type.Var 50#s
+               |  `- Type.Var 53#s
                |     |
                |     `- SL
                |
-               `- Exp.Abs U 53#c
+               `- Exp.Abs U 56#c
                   |
                   +- Type.Session (?)
                   |  |
@@ -188,11 +188,11 @@ repeater
                   |  |     |
                   |  |     +- Repeat
                   |  |     |
-                  |  |     `- Type.Var 48#p
+                  |  |     `- Type.Var 51#p
                   |  |        |
                   |  |        `- P
                   |  |
-                  |  `- Type.Var 50#s
+                  |  `- Type.Var 53#s
                   |     |
                   |     `- SL
                   |
@@ -200,19 +200,19 @@ repeater
                      |
                      `- TcExpX.RecvCase
                         |
-                        +- Exp.Var 53#c
+                        +- Exp.Var 56#c
                         |
-                        +- More 54#c
+                        +- More 57#c
                         |  |
                         |  `- Exp.App
                         |     |
-                        |     +- Exp.Var 52#go
+                        |     +- Exp.Var 55#go
                         |     |
                         |     `- Exp.App
                         |        |
                         |        +- Exp.TypeApp
                         |        |  |
-                        |        |  +- Exp.Var 49#handleOne
+                        |        |  +- Exp.Var 52#handleOne
                         |        |  |
                         |        |  `- Type.Session (?)
                         |        |     |
@@ -222,17 +222,17 @@ repeater
                         |        |     |     |
                         |        |     |     +- Repeat
                         |        |     |     |
-                        |        |     |     `- Type.Var 48#p
+                        |        |     |     `- Type.Var 51#p
                         |        |     |        |
                         |        |     |        `- P
                         |        |     |
-                        |        |     `- Type.Var 50#s
+                        |        |     `- Type.Var 53#s
                         |        |        |
                         |        |        `- SL
                         |        |
-                        |        `- Exp.Var 54#c
+                        |        `- Exp.Var 57#c
                         |
-                        `- Quit 55#c
+                        `- Quit 58#c
                            |
-                           `- Exp.Var 55#c
+                           `- Exp.Var 58#c
 

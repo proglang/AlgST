@@ -44,9 +44,9 @@ runIdentity
 |
 +- type
 |  |
-|  `- Type.Forall 46#a:TU
+|  `- Type.Forall 49#a:TU
 |     |
-|     `- Type.Forall 47#s:SL
+|     `- Type.Forall 50#s:SL
 |        |
 |        `- Type.Arrow U
 |           |
@@ -58,35 +58,35 @@ runIdentity
 |           |  |     |
 |           |  |     +- Identity
 |           |  |     |
-|           |  |     `- Type.Var 46#a
+|           |  |     `- Type.Var 49#a
 |           |  |        |
 |           |  |        `- TU
 |           |  |
-|           |  `- Type.Var 47#s
+|           |  `- Type.Var 50#s
 |           |     |
 |           |     `- SL
 |           |
 |           `- Type.Session (?)
 |              |
-|              +- Type.Var 46#a
+|              +- Type.Var 49#a
 |              |  |
 |              |  `- TU
 |              |
-|              `- Type.Var 47#s
+|              `- Type.Var 50#s
 |                 |
 |                 `- SL
 |
 +- params
 |  |
-|  `- 45#c
+|  `- 48#c
 |
 `- definition
    |
-   `- Exp.TypeAbs 60#_:TU
+   `- Exp.TypeAbs 70#_:TU
       |
-      `- Exp.TypeAbs 61#_:SL
+      `- Exp.TypeAbs 71#_:SL
          |
-         `- Exp.Abs U 45#c
+         `- Exp.Abs U 48#c
             |
             +- Type.Session (?)
             |  |
@@ -96,11 +96,11 @@ runIdentity
             |  |     |
             |  |     +- Identity
             |  |     |
-            |  |     `- Type.Var 60#_
+            |  |     `- Type.Var 70#_
             |  |        |
             |  |        `- TU
             |  |
-            |  `- Type.Var 61#_
+            |  `- Type.Var 71#_
             |     |
             |     `- SL
             |
@@ -108,17 +108,17 @@ runIdentity
                |
                `- TcExpX.RecvCase
                   |
-                  +- Exp.Var 45#c
+                  +- Exp.Var 48#c
                   |
-                  `- Identity 48#c
+                  `- Identity 51#c
                      |
-                     `- Exp.Var 48#c
+                     `- Exp.Var 51#c
 
 skipD0
 |
 +- type
 |  |
-|  `- Type.Forall 50#s:SL
+|  `- Type.Forall 53#s:SL
 |     |
 |     `- Type.Arrow U
 |        |
@@ -130,23 +130,23 @@ skipD0
 |        |  |     |
 |        |  |     `- D0
 |        |  |
-|        |  `- Type.Var 50#s
+|        |  `- Type.Var 53#s
 |        |     |
 |        |     `- SL
 |        |
-|        `- Type.Var 50#s
+|        `- Type.Var 53#s
 |           |
 |           `- SL
 |
 +- params
 |  |
-|  `- 49#c
+|  `- 52#c
 |
 `- definition
    |
-   `- Exp.TypeAbs 62#_:SL
+   `- Exp.TypeAbs 72#_:SL
       |
-      `- Exp.Abs U 49#c
+      `- Exp.Abs U 52#c
          |
          +- Type.Session (?)
          |  |
@@ -156,7 +156,7 @@ skipD0
          |  |     |
          |  |     `- D0
          |  |
-         |  `- Type.Var 62#_
+         |  `- Type.Var 72#_
          |     |
          |     `- SL
          |
@@ -164,9 +164,9 @@ skipD0
             |
             `- TcExpX.RecvCase
                |
-               +- Exp.Var 49#c
+               +- Exp.Var 52#c
                |
-               `- D0 51#c
+               `- D0 54#c
                   |
-                  `- Exp.Var 51#c
+                  `- Exp.Var 54#c
 

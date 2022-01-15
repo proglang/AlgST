@@ -306,7 +306,7 @@ sum
       |
       `- TcExpX.ValueCase
          |
-         +- Exp.Rec 49#go
+         +- Exp.Rec 57#go
          |  |
          |  +- Type.Arrow U
          |  |  |
@@ -354,7 +354,7 @@ sum
          |  |              |
          |  |              `- Int
          |  |
-         |  `- Exp.Abs U 50#acc
+         |  `- Exp.Abs U 58#acc
          |     |
          |     +- Type.Type
          |     |  |
@@ -362,7 +362,7 @@ sum
          |     |     |
          |     |     `- Int
          |     |
-         |     `- Exp.Abs U 51#xs
+         |     `- Exp.Abs U 59#xs
          |        |
          |        +- Type.Type
          |        |  |
@@ -376,7 +376,7 @@ sum
          |        |           |
          |        |           `- Int
          |        |
-         |        `- Exp.Abs U 52#c
+         |        `- Exp.Abs U 60#c
          |           |
          |           +- Type.Session (!)
          |           |  |
@@ -398,9 +398,9 @@ sum
          |              |
          |              `- TcExpX.ValueCase
          |                 |
-         |                 +- Exp.Var 51#xs
+         |                 +- Exp.Var 59#xs
          |                 |
-         |                 +- Cons 54#xs 53#x
+         |                 +- Cons 62#xs 61#x
          |                 |  |
          |                 |  `- Exp.Exp
          |                 |     |
@@ -422,9 +422,9 @@ sum
          |                 |        |  |  |
          |                 |        |  |  `- Type.End
          |                 |        |  |
-         |                 |        |  `- Exp.Var 52#c
+         |                 |        |  `- Exp.Var 60#c
          |                 |        |
-         |                 |        `- 55#c
+         |                 |        `- 63#c
          |                 |           |
          |                 |           `- Exp.Exp
          |                 |              |
@@ -452,9 +452,9 @@ sum
          |                 |                 |  |     |
          |                 |                 |  |     `- Type.End
          |                 |                 |  |
-         |                 |                 |  `- Exp.Var 55#c
+         |                 |                 |  `- Exp.Var 63#c
          |                 |                 |
-         |                 |                 `- 56#c
+         |                 |                 `- 64#c
          |                 |                    |
          |                 |                    `- Exp.Exp
          |                 |                       |
@@ -508,11 +508,11 @@ sum
          |                 |                          |  |  |           |
          |                 |                          |  |  |           `- Type.End
          |                 |                          |  |  |
-         |                 |                          |  |  `- Exp.Var 53#x
+         |                 |                          |  |  `- Exp.Var 61#x
          |                 |                          |  |
-         |                 |                          |  `- Exp.Var 56#c
+         |                 |                          |  `- Exp.Var 64#c
          |                 |                          |
-         |                 |                          `- 57#c
+         |                 |                          `- 65#c
          |                 |                             |
          |                 |                             `- Exp.Exp
          |                 |                                |
@@ -558,11 +558,11 @@ sum
          |                 |                                   |  |  |        |
          |                 |                                   |  |  |        `- Type.End
          |                 |                                   |  |  |
-         |                 |                                   |  |  `- Exp.Var 50#acc
+         |                 |                                   |  |  `- Exp.Var 58#acc
          |                 |                                   |  |
-         |                 |                                   |  `- Exp.Var 57#c
+         |                 |                                   |  `- Exp.Var 65#c
          |                 |                                   |
-         |                 |                                   `- 58#c
+         |                 |                                   `- 66#c
          |                 |                                      |
          |                 |                                      `- Exp.Exp
          |                 |                                         |
@@ -598,9 +598,9 @@ sum
          |                 |                                            |  |     |
          |                 |                                            |  |     `- Type.End
          |                 |                                            |  |
-         |                 |                                            |  `- Exp.Var 58#c
+         |                 |                                            |  `- Exp.Var 66#c
          |                 |                                            |
-         |                 |                                            `- (,) 60#c 59#acc'
+         |                 |                                            `- (,) 68#c 67#acc'
          |                 |                                               |
          |                 |                                               `- Exp.App
          |                 |                                                  |
@@ -608,13 +608,13 @@ sum
          |                 |                                                  |  |
          |                 |                                                  |  +- Exp.App
          |                 |                                                  |  |  |
-         |                 |                                                  |  |  +- Exp.Var 49#go
+         |                 |                                                  |  |  +- Exp.Var 57#go
          |                 |                                                  |  |  |
-         |                 |                                                  |  |  `- Exp.Var 59#acc'
+         |                 |                                                  |  |  `- Exp.Var 67#acc'
          |                 |                                                  |  |
-         |                 |                                                  |  `- Exp.Var 54#xs
+         |                 |                                                  |  `- Exp.Var 62#xs
          |                 |                                                  |
-         |                 |                                                  `- Exp.Var 60#c
+         |                 |                                                  `- Exp.Var 68#c
          |                 |
          |                 `- Nil
          |                    |
@@ -638,17 +638,17 @@ sum
          |                          |  |  |
          |                          |  |  `- Type.End
          |                          |  |
-         |                          |  `- Exp.Var 52#c
+         |                          |  `- Exp.Var 60#c
          |                          |
-         |                          `- 61#_
+         |                          `- 69#_
          |                             |
-         |                             `- Exp.Var 50#acc
+         |                             `- Exp.Var 58#acc
          |
-         `- 62#go
+         `- 70#go
             |
             `- Exp.App
                |
-               +- Exp.Var 62#go
+               +- Exp.Var 70#go
                |
                `- Exp.Lit
                   |

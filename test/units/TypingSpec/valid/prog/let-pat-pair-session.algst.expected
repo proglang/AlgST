@@ -2,11 +2,11 @@ recvPair
 |
 +- type
 |  |
-|  `- Type.Forall 44#a:TU
+|  `- Type.Forall 47#a:TU
 |     |
-|     `- Type.Forall 45#b:TU
+|     `- Type.Forall 48#b:TU
 |        |
-|        `- Type.Forall 46#s:SL
+|        `- Type.Forall 49#s:SL
 |           |
 |           `- Type.Arrow U
 |              |
@@ -14,61 +14,61 @@ recvPair
 |              |  |
 |              |  +- Type.Pair
 |              |  |  |
-|              |  |  +- Type.Var 44#a
+|              |  |  +- Type.Var 47#a
 |              |  |  |  |
 |              |  |  |  `- TU
 |              |  |  |
-|              |  |  `- Type.Var 45#b
+|              |  |  `- Type.Var 48#b
 |              |  |     |
 |              |  |     `- TU
 |              |  |
-|              |  `- Type.Var 46#s
+|              |  `- Type.Var 49#s
 |              |     |
 |              |     `- SL
 |              |
 |              `- Type.Session (?)
 |                 |
-|                 +- Type.Var 44#a
+|                 +- Type.Var 47#a
 |                 |  |
 |                 |  `- TU
 |                 |
 |                 `- Type.Session (?)
 |                    |
-|                    +- Type.Var 45#b
+|                    +- Type.Var 48#b
 |                    |  |
 |                    |  `- TU
 |                    |
-|                    `- Type.Var 46#s
+|                    `- Type.Var 49#s
 |                       |
 |                       `- SL
 |
 +- params
 |  |
-|  `- 43#c
+|  `- 46#c
 |
 `- definition
    |
-   `- Exp.TypeAbs 56#_:TU
+   `- Exp.TypeAbs 66#_:TU
       |
-      `- Exp.TypeAbs 57#_:TU
+      `- Exp.TypeAbs 67#_:TU
          |
-         `- Exp.TypeAbs 58#_:SL
+         `- Exp.TypeAbs 68#_:SL
             |
-            `- Exp.Abs U 43#c
+            `- Exp.Abs U 46#c
                |
                +- Type.Session (?)
                |  |
                |  +- Type.Pair
                |  |  |
-               |  |  +- Type.Var 56#_
+               |  |  +- Type.Var 66#_
                |  |  |  |
                |  |  |  `- TU
                |  |  |
-               |  |  `- Type.Var 57#_
+               |  |  `- Type.Var 67#_
                |  |     |
                |  |     `- TU
                |  |
-               |  `- Type.Var 58#_
+               |  `- Type.Var 68#_
                |     |
                |     `- SL
                |
@@ -76,9 +76,9 @@ recvPair
                   |
                   `- TcExpX.RecvCase
                      |
-                     +- Exp.Var 43#c
+                     +- Exp.Var 46#c
                      |
-                     `- (,) 47#c
+                     `- (,) 50#c
                         |
-                        `- Exp.Var 47#c
+                        `- Exp.Var 50#c
 

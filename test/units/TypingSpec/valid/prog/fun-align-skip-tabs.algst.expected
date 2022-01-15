@@ -20,11 +20,11 @@ foo
 |
 `- definition
    |
-   `- Exp.TypeAbs 53#_:TU
+   `- Exp.TypeAbs 61#_:TU
       |
       `- Exp.Abs U 39#a
          |
-         +- Type.Var 53#_
+         +- Type.Var 61#_
          |  |
          |  `- TU
          |

@@ -74,21 +74,21 @@ id
 |
 +- type
 |  |
-|  `- Type.Forall 36#a:TL
+|  `- Type.Forall 41#a:TL
 |     |
 |     `- Type.Arrow U
 |        |
-|        +- Type.Var 36#a
+|        +- Type.Var 41#a
 |        |
-|        `- Type.Var 36#a
+|        `- Type.Var 41#a
 |
 +- params
 |  |
-|  +- [34#_]
+|  +- [39#_]
 |  |
-|  `- 35#a
+|  `- 40#a
 |
 `- definition
    |
-   `- Exp.Var 35#a
+   `- Exp.Var 40#a
 

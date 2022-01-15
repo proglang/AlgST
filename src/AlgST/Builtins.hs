@@ -50,7 +50,7 @@ values = [conTrue, conFalse]
 
 importSend, importRecv :: ProgVar
 importSend = mkVar defaultPos "send"
-importRecv = mkVar defaultPos "recv"
+importRecv = mkVar defaultPos "receive"
 
 imports :: [ProgVar]
 imports = [importSend, importRecv]
@@ -60,12 +60,13 @@ builtins =
   $$( let sigs =
             [ -- Session operations.
               (,) "send" "∀(a : ML). ∀(s : SL). a -> !a.s -o s",
-              (,) "recv" "∀(a : ML). ∀(s : SL). ?a.s -> (a, s)",
+              (,) "receive" "∀(a : ML). ∀(s : SL). ?a.s -> (a, s)",
               -- Arithmetic operations.
               (,) "(+)" "Int -> Int -> Int",
               (,) "(-)" "Int -> Int -> Int",
               (,) "(*)" "Int -> Int -> Int",
               (,) "(/)" "Int -> Int -> Int",
+              (,) "(%)" "Int -> Int -> Int",
               -- Base comparison function. All other comparison functions are
               -- defined through this function.
               (,) "(<=)" "Int -> Int -> Bool"
@@ -75,9 +76,6 @@ builtins =
               "data Char : MU",
               "data Int : MU",
               "data Bool = True | False",
-              --
-              "receive : ∀(a : ML). ∀(s : SL). ?a.s -> (a, s)",
-              "receive = recv",
               --
               "negate : Int -> Int",
               "negate n = 0 - n",
@@ -89,19 +87,13 @@ builtins =
               "(<|) f x = f x",
               --
               "not : Bool -> Bool",
-              "not b = case b of { True -> False, False -> True }",
+              "not b = if b then False else True",
               --
               "(&&) : Bool -> Bool -> Bool",
-              "(&&) a b = case a of { True -> b, False -> False }",
-              --
-              "(∧) : Bool -> Bool -> Bool",
-              "(∧) = (&&)",
+              "(&&) a b = if a then b else False",
               --
               "(||) : Bool -> Bool -> Bool",
-              "(||) a b = not (not a && not b)",
-              --
-              "(∨) : Bool -> Bool -> Bool",
-              "(∨) = (||)",
+              "(||) a b = if a then True else b",
               --
               "(==) : Int -> Int -> Bool",
               "(==) a b = a <= b && b <= a",
@@ -109,14 +101,8 @@ builtins =
               "(/=) : Int -> Int -> Bool",
               "(/=) a b = not (a == b)",
               --
-              "(≠) : Int -> Int -> Bool",
-              "(≠) = (/=)",
-              --
               "(<) : Int -> Int -> Bool",
               "(<) a b = a <= b && a /= b",
-              --
-              "(≤) : Int -> Int -> Bool",
-              "(≤) = (<=)",
               --
               "(>) : Int -> Int -> Bool",
               "(>) a b = a >= b && a /= b",
@@ -124,8 +110,11 @@ builtins =
               "(>=) : Int -> Int -> Bool",
               "(>=) a b = b <= a",
               --
-              "(≥) : Int -> Int -> Bool",
-              "(≥) = (>=)"
+              "fst : ∀(a:TL). ∀(b:TU). (a, b) -> a",
+              "fst ab = let (a, _) = ab in a",
+              --
+              "snd : ∀(a:TU). ∀(b:TL). (a, b) -> b",
+              "snd ab = let (_, b) = ab in b"
             ]
        in [||
           let p = $$(parseStatic sigs defs)

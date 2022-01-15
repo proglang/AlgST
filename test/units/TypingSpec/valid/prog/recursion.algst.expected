@@ -332,7 +332,7 @@ length
 |
 +- type
 |  |
-|  `- Type.Forall 61#a:TU
+|  `- Type.Forall 66#a:TU
 |     |
 |     `- Type.Arrow U
 |        |
@@ -342,7 +342,7 @@ length
 |        |     |
 |        |     +- List
 |        |     |
-|        |     `- Type.Var 61#a
+|        |     `- Type.Var 66#a
 |        |        |
 |        |        `- TU
 |        |
@@ -354,17 +354,17 @@ length
 |
 +- params
 |  |
-|  `- [60#a]
+|  `- [65#a]
 |
 `- definition
    |
-   `- Exp.TypeAbs 60#a:TU
+   `- Exp.TypeAbs 65#a:TU
       |
       `- Exp.Exp
          |
          `- TcExpX.ValueCase
             |
-            +- Exp.Rec 62#go
+            +- Exp.Rec 67#go
             |  |
             |  +- Type.Arrow U
             |  |  |
@@ -382,7 +382,7 @@ length
             |  |     |     |
             |  |     |     +- List
             |  |     |     |
-            |  |     |     `- Type.Var 60#a
+            |  |     |     `- Type.Var 65#a
             |  |     |        |
             |  |     |        `- TU
             |  |     |
@@ -392,7 +392,7 @@ length
             |  |           |
             |  |           `- Int
             |  |
-            |  `- Exp.Abs U 63#acc
+            |  `- Exp.Abs U 68#acc
             |     |
             |     +- Type.Type
             |     |  |
@@ -400,7 +400,7 @@ length
             |     |     |
             |     |     `- Int
             |     |
-            |     `- Exp.Abs U 64#xs
+            |     `- Exp.Abs U 69#xs
             |        |
             |        +- Type.Type
             |        |  |
@@ -408,7 +408,7 @@ length
             |        |     |
             |        |     +- List
             |        |     |
-            |        |     `- Type.Var 60#a
+            |        |     `- Type.Var 65#a
             |        |        |
             |        |        `- TU
             |        |
@@ -416,15 +416,15 @@ length
             |           |
             |           `- TcExpX.ValueCase
             |              |
-            |              +- Exp.Var 64#xs
+            |              +- Exp.Var 69#xs
             |              |
-            |              +- Cons 66#xs 65#_
+            |              +- Cons 71#xs 70#_
             |              |  |
             |              |  `- Exp.App
             |              |     |
             |              |     +- Exp.App
             |              |     |  |
-            |              |     |  +- Exp.Var 62#go
+            |              |     |  +- Exp.Var 67#go
             |              |     |  |
             |              |     |  `- Exp.App
             |              |     |     |
@@ -432,23 +432,23 @@ length
             |              |     |     |  |
             |              |     |     |  +- Exp.Var (+)
             |              |     |     |  |
-            |              |     |     |  `- Exp.Var 63#acc
+            |              |     |     |  `- Exp.Var 68#acc
             |              |     |     |
             |              |     |     `- Exp.Lit
             |              |     |        |
             |              |     |        `- Lit.Int 1
             |              |     |
-            |              |     `- Exp.Var 66#xs
+            |              |     `- Exp.Var 71#xs
             |              |
             |              `- Nil
             |                 |
-            |                 `- Exp.Var 63#acc
+            |                 `- Exp.Var 68#acc
             |
-            `- 67#go
+            `- 72#go
                |
                `- Exp.App
                   |
-                  +- Exp.Var 67#go
+                  +- Exp.Var 72#go
                   |
                   `- Exp.Lit
                      |

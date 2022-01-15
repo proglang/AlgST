@@ -44,7 +44,7 @@ getId
 |
 +- type
 |  |
-|  `- Type.Forall 43#a:TU
+|  `- Type.Forall 48#a:TU
 |     |
 |     `- Type.Arrow U
 |        |
@@ -54,25 +54,25 @@ getId
 |        |     |
 |        |     +- Id
 |        |     |
-|        |     `- Type.Var 43#a
+|        |     `- Type.Var 48#a
 |        |        |
 |        |        `- TU
 |        |
-|        `- Type.Var 43#a
+|        `- Type.Var 48#a
 |           |
 |           `- TU
 |
 +- params
 |  |
-|  +- [41#_]
+|  +- [46#_]
 |  |
-|  `- 42#id
+|  `- 47#id
 |
 `- definition
    |
-   `- Exp.TypeAbs 41#_:TU
+   `- Exp.TypeAbs 46#_:TU
       |
-      `- Exp.Abs U 42#id
+      `- Exp.Abs U 47#id
          |
          +- Type.Type
          |  |
@@ -80,7 +80,7 @@ getId
          |     |
          |     +- Id
          |     |
-         |     `- Type.Var 41#_
+         |     `- Type.Var 46#_
          |        |
          |        `- TU
          |
@@ -88,9 +88,9 @@ getId
             |
             `- TcExpX.ValueCase
                |
-               +- Exp.Var 42#id
+               +- Exp.Var 47#id
                |
-               `- Id 44#a
+               `- Id 49#a
                   |
-                  `- Exp.Var 44#a
+                  `- Exp.Var 49#a
 

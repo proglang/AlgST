@@ -2,7 +2,7 @@ sendInt1
 |
 +- type
 |  |
-|  `- Type.Forall 45#s:SL
+|  `- Type.Forall 48#s:SL
 |     |
 |     `- Type.Arrow U
 |        |
@@ -14,25 +14,25 @@ sendInt1
 |        |  |     |
 |        |  |     `- Int
 |        |  |
-|        |  `- Type.Var 45#s
+|        |  `- Type.Var 48#s
 |        |     |
 |        |     `- SL
 |        |
-|        `- Type.Var 45#s
+|        `- Type.Var 48#s
 |           |
 |           `- SL
 |
 +- params
 |  |
-|  +- [43#s]
+|  +- [46#s]
 |  |
-|  `- 44#c
+|  `- 47#c
 |
 `- definition
    |
-   `- Exp.TypeAbs 43#s:SL
+   `- Exp.TypeAbs 46#s:SL
       |
-      `- Exp.Abs U 44#c
+      `- Exp.Abs U 47#c
          |
          +- Type.Session (!)
          |  |
@@ -42,7 +42,7 @@ sendInt1
          |  |     |
          |  |     `- Int
          |  |
-         |  `- Type.Var 43#s
+         |  `- Type.Var 46#s
          |     |
          |     `- SL
          |
@@ -62,7 +62,7 @@ sendInt1
             |  |  |        |
             |  |  |        `- Int
             |  |  |
-            |  |  `- Type.Var 43#s
+            |  |  `- Type.Var 46#s
             |  |     |
             |  |     `- SL
             |  |
@@ -70,5 +70,5 @@ sendInt1
             |     |
             |     `- Lit.Int 1
             |
-            `- Exp.Var 44#c
+            `- Exp.Var 47#c
 

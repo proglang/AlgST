@@ -1,13 +1,11 @@
-{-# LANGUAGE TypeApplications #-}
-
 module BuiltinsSpec where
 
-import Data.Foldable
-import qualified Data.Map.Strict as Map
 import AlgST.Builtins
 import AlgST.Rename
 import AlgST.Syntax.Program
 import AlgST.Typing
+import Data.Foldable
+import qualified Data.Map.Strict as Map
 import Test.Golden
 import Test.Hspec
 
