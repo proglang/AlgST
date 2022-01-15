@@ -6,6 +6,7 @@
 
 module AlgST.Typing.Error where
 
+import AlgST.Parse.Phase
 import AlgST.Parse.Unparser
 import AlgST.Rename
 import AlgST.Syntax.Decl
@@ -46,7 +47,7 @@ unexpectedKind t kind hintKinds = PosError (pos t) (message ++ hint)
         []
 {-# NOINLINE unexpectedKind #-}
 
-typeMismatch :: TcExp -> TcType -> TcType -> TcType -> TcType -> PosError
+typeMismatch :: PExp -> TcType -> TcType -> TcType -> TcType -> PosError
 typeMismatch expr tyActual tyActualNF tyExpected tyExpectedNF =
   PosError (pos expr) $
     errUnline

@@ -599,7 +599,7 @@ tysynth =
       ty' <- kicheck ty (K.TU p)
       withProgVarBind Nothing v ty' do
         (r', rTy) <- tysynthRecLam r
-        requireEqual (E.RecAbs r') ty' rTy
+        requireEqual (E.RecAbs r) ty' rTy
         pure (E.Rec p v ty' r', ty')
 
     -- 'let' __without__ a type signature.
@@ -1204,10 +1204,10 @@ withProgVarBind mp pv ty = withProgVarBinds mp [(pv, ty)]
 tycheck :: RnExp -> TcType -> TypeM TcExp
 tycheck e u = do
   (e', t) <- tysynth e
-  requireEqual e' t u
+  requireEqual e t u
   pure e'
 
-requireEqual :: TcExp -> TcType -> TcType -> TypeM ()
+requireEqual :: PExp -> TcType -> TcType -> TypeM ()
 requireEqual e t1 t2 = do
   nf1 <- normalize t1
   nf2 <- normalize t2
