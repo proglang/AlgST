@@ -75,11 +75,12 @@ import AlgST.Util
 import AlgST.Util.ErrorMessage
 import Control.Applicative
 import Control.Category ((>>>))
+import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.Trans.Maybe
 import Control.Monad.Validate
-import Data.DList.DNonEmpty (DNonEmpty)
+import Data.Bifunctor
 import qualified Data.DList.DNonEmpty as DL
 import Data.Either
 import Data.Foldable
@@ -103,77 +104,131 @@ import Lens.Family2.Stock
 import Syntax.Base hiding (Variable)
 import Prelude hiding (lookup, truncate)
 
-toRnErrors :: Errors -> DNonEmpty PosError
-toRnErrors = mergeTheseWith id recursiveErrs (<>)
+-- | Translates the typechecker specific error set representation into a simple
+-- list.
+runErrors :: Errors -> NonEmpty PosError
+runErrors = DL.toNonEmpty . mergeTheseWith id recursiveErrs (<>)
   where
     recursiveErrs (RecursiveSets oneKeys oneRec recs) =
       DL.fromNonEmpty $
         Error.cyclicAliases oneRec
           :| fmap Error.cyclicAliases (Map.elems (Map.delete oneKeys recs))
 
-embedErrors :: MonadValidate (DNonEmpty PosError) m => ValidateT Errors m a -> m a
-embedErrors = embedValidateT . mapErrors toRnErrors
-
-runKindM :: (HasKiEnv env, HasKiSt s) => env -> s -> KindM a -> RnM (s, a)
+runKindM :: (HasKiEnv env, HasKiSt s) => env -> s -> KindM a -> RnM (s, Either Errors a)
 runKindM = runTcM
 
-runTypeM :: TyTypingEnv -> TySt -> TypeM a -> RnM (TySt, a)
+runTypeM :: TyTypingEnv -> TySt -> TypeM a -> RnM (TySt, Either Errors a)
 runTypeM = runTcM
 
-runTcM :: env -> s -> TcM env s a -> RnM (s, a)
+runTcM :: env -> s -> TcM env s a -> RnM (s, Either Errors a)
 runTcM typesEnv s m =
-  Tuple.swap <$> runReaderT (runStateT (embedErrors m) s) typesEnv
+  Tuple.swap <$> runReaderT (runStateT (runValidateT m) s) typesEnv
 
-checkProgram :: Program Rn -> RnM TcProgram
-checkProgram p = fst <$> checkWithProgram p \_ _ -> pure ()
+type RunTyM = forall x. TypeM x -> KindM x
+
+type RunKiM = forall a. TcM KiTypingEnv KiSt a -> RnM (Either (NonEmpty PosError) a)
 
 checkWithProgram ::
   Program Rn ->
-  ((forall x. TypeM x -> KindM x) -> TcProgram -> TcM KiTypingEnv KiSt a) ->
-  RnM (TcProgram, a)
-checkWithProgram prog action = do
-  let kiEnv =
-        KiTypingEnv
-          { tcKindEnv = mempty,
-            tcExpansionStack = mempty,
-            tcContext = prog
-          }
-  let st =
-        KiSt
-          { tcAliases =
-              let getAlias _ decl = Identity do
-                    AliasDecl origin alias <- pure decl
-                    pure $ UncheckedAlias (pos origin) alias
-               in runIdentity $ Map.traverseMaybeWithKey getAlias $ programTypes prog
-          }
-
-  (st, (tcTypes, tcValues, tcImports)) <- runTcM kiEnv st do
-    checkAliases (Map.keys (programTypes prog))
-    tcTypes <- checkTypeDecls (programTypes prog)
-    checkedDefs <- checkValueSignatures (programValues prog)
-    tcImports <- traverse checkSignature (programImports prog)
-    pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcImports)
-
+  (RunTyM -> RunKiM -> TcProgram -> RnM (Either (NonEmpty PosError) r)) ->
+  RnM (Either (NonEmpty PosError) r)
+checkWithProgram prog k = runExceptT $ do
+  let runWrapExcept st m = ExceptT . fmap (first runErrors . sequence) $ runTcM kiEnv st m
+  (st, (tcTypes, tcValues, tcImports)) <- runWrapExcept st0 checkGlobals
   let tyEnv =
         TyTypingEnv
-          { tcCheckedTypes =
-              tcTypes,
-            tcCheckedValues =
-              tcValues <> Map.map (ValueGlobal Nothing . signatureType) tcImports,
-            tcKiTypingEnv =
-              kiEnv
+          { tcCheckedTypes = tcTypes,
+            tcCheckedValues = tcValues <> Map.map (ValueGlobal Nothing . signatureType) tcImports,
+            tcKiTypingEnv = kiEnv
           }
   let embed m = embedTypeM tyEnv m
-  snd <$> runTcM kiEnv st do
-    values <- checkValueBodies embed tcValues
-    let prog =
-          Program
-            { programTypes = tcTypes,
-              programValues = values,
-              programImports = tcImports
-            }
-    a <- action embed prog
-    pure (prog, a)
+  let mkProg values =
+        Program
+          { programTypes = tcTypes,
+            programValues = values,
+            programImports = tcImports
+          }
+  (st', prog) <- runWrapExcept st $ mkProg <$> checkValueBodies embed tcValues
+  ExceptT $ k embed (fmap (first runErrors . snd) . runTcM kiEnv st') prog
+  where
+    kiEnv =
+      KiTypingEnv
+        { tcKindEnv = mempty,
+          tcExpansionStack = mempty,
+          tcContext = prog
+        }
+    st0 =
+      KiSt
+        { tcAliases =
+            let getAlias _ decl = Identity do
+                  AliasDecl origin alias <- pure decl
+                  pure $ UncheckedAlias (pos origin) alias
+             in runIdentity $ Map.traverseMaybeWithKey getAlias $ programTypes prog
+        }
+    checkGlobals = do
+      checkAliases (Map.keys (programTypes prog))
+      tcTypes <- checkTypeDecls (programTypes prog)
+      checkedDefs <- checkValueSignatures (programValues prog)
+      tcImports <- traverse checkSignature (programImports prog)
+      pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcImports)
+
+checkProgram :: Program Rn -> RnM (Either (NonEmpty PosError) TcProgram)
+checkProgram p = checkWithProgram p \_ _ -> pure . Right
+
+{-
+checkWithProgram ::
+  Program Rn ->
+  ((forall x. TypeM x -> KindM x) -> TcProgram -> TcM KiTypingEnv KiSt a) ->
+  RnM (Either (NonEmpty PosError) (TcProgram, a))
+checkWithProgram prog action = fmap (first runErrors) . runExceptT $ do
+  (st, (tcTypes, tcValues, tcImports)) <-
+    ExceptT
+      . fmap sequence
+      $ runTcM kiEnv st0 checkGlobals
+  let tyEnv =
+        TyTypingEnv
+          { tcCheckedTypes = tcTypes,
+            tcCheckedValues = tcValues <> Map.map (ValueGlobal Nothing . signatureType) tcImports,
+            tcKiTypingEnv = kiEnv
+          }
+  let embed m = embedTypeM tyEnv m
+  let mkProg values =
+        Program
+          { programTypes = tcTypes,
+            programValues = values,
+            programImports = tcImports
+          }
+  let checkBodies = do
+        prog <- mkProg <$> checkValueBodies embed tcValues
+        a <- action embed prog
+        pure (prog, a)
+  (_st, res) <-
+    ExceptT
+      . fmap sequence
+      $ runTcM kiEnv st checkBodies
+  pure res
+  where
+    kiEnv =
+      KiTypingEnv
+        { tcKindEnv = mempty,
+          tcExpansionStack = mempty,
+          tcContext = prog
+        }
+    st0 =
+      KiSt
+        { tcAliases =
+            let getAlias _ decl = Identity do
+                  AliasDecl origin alias <- pure decl
+                  pure $ UncheckedAlias (pos origin) alias
+             in runIdentity $ Map.traverseMaybeWithKey getAlias $ programTypes prog
+        }
+    checkGlobals = do
+      checkAliases (Map.keys (programTypes prog))
+      tcTypes <- checkTypeDecls (programTypes prog)
+      checkedDefs <- checkValueSignatures (programValues prog)
+      tcImports <- traverse checkSignature (programImports prog)
+      pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcImports)
+-}
 
 addError :: MonadValidate Errors m => PosError -> m ()
 addError !e = dispute $ This $ DL.singleton e
@@ -285,9 +340,11 @@ embedTypeM env m = do
           { tcKindSt = kist,
             tcTypeEnv = mempty
           }
-  (st, a) <- liftRn $ runTypeM env tyst m
+  (st, res) <- liftRn $ runTypeM env tyst m
   kiStL .= view kiStL st
-  pure a
+  case res of
+    Left errs -> refute errs
+    Right a -> pure a
 
 checkAlignedBinds :: TcType -> [PTVar] -> RnExp -> TypeM TcExp
 checkAlignedBinds fullTy allVs e = go fullTy fullTy allVs

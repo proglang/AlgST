@@ -12,7 +12,7 @@ import Test.Hspec
 spec :: Spec
 spec = do
   it "kind checks" do
-    let res = runRename builtins $ renameProgram builtins >>= checkProgram
+    let res = runRename $ renameProgram builtins >>= checkProgram
     case res of
       Left errs -> expectationFailure (plainErrors errs)
       Right _ -> pure ()

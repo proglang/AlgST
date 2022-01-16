@@ -165,9 +165,9 @@ nfShouldBe t1 t2 = do
     withRenamedProgram declarations \rnDecls -> do
       t1Rn <- renameSyntax t1'
       t2Rn <- renameSyntax t2'
-      snd <$> checkWithProgram rnDecls \_ _ -> do
-        ~(t1Tc, _) <- kisynth t1Rn
-        ~(t2Tc, _) <- kisynth t2Rn
+      checkWithProgram rnDecls \_ runTc _ -> runTc do
+        (t1Tc, _) <- kisynth t1Rn
+        (t2Tc, _) <- kisynth t2Rn
         t1NF <- normalize t1Tc
         pure (t1NF, t2Tc)
   when (Eq.Alpha t1NF /= Eq.Alpha t2Tc) do
@@ -196,7 +196,7 @@ runKiAction p m src = first plainErrors do
   parsed <- runParser p src
   withRenamedProgram declarations \rnDecls -> do
     renamed <- renameSyntax parsed
-    snd <$> checkWithProgram rnDecls \embed _ -> m embed renamed
+    checkWithProgram rnDecls \embed runTc _ -> runTc $ m embed renamed
 
 -- | Parses and typecheks a program in the context of 'declarations'.
 parseAndCheckProgram :: String -> Either (NonEmpty PosError) (Program Tc)

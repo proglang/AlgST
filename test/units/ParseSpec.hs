@@ -3,6 +3,7 @@
 
 module ParseSpec (spec) where
 
+import AlgST.Builtins
 import AlgST.Parse.Parser
 import AlgST.Syntax.Program
 import AlgST.Syntax.Tree
@@ -38,6 +39,11 @@ spec = do
       goldenTests
         (dir "invalid/decl")
         (swap . parseTree (parseProg emptyProgram))
+
+    describe "declarations + builtins" do
+      goldenTests
+        (dir "invalid/decl+builtins")
+        (swap . parseTree (parseProg builtins))
 
   describe "associativity" do
     specify "type application" do

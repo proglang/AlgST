@@ -38,19 +38,13 @@ import AlgST.Syntax.Program
 import AlgST.Syntax.Traversal
 import qualified AlgST.Syntax.Type as T
 import AlgST.Syntax.Variable
-import AlgST.Util.ErrorMessage
 import Control.Applicative
 import Control.Category ((>>>))
 import Control.Monad.Cont
 import Control.Monad.Eta
 import Control.Monad.Reader
 import Control.Monad.State.Strict
-import Control.Monad.Validate
-import Data.Bifunctor
 import Data.Bitraversable
-import Data.DList.DNonEmpty (DNonEmpty)
-import qualified Data.DList.DNonEmpty as DL
-import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import Data.Proxy
@@ -93,8 +87,6 @@ rnProgVarsL :: Lens' RenameEnv (Bindings ProgVar)
 rnProgVarsL = lens rnProgVars \env vs -> env {rnProgVars = vs}
 {-# INLINE rnProgVarsL #-}
 
-type Errors = DNonEmpty PosError
-
 type RnSt = Int
 
 -- | The monad stack used during renaming.
@@ -104,7 +96,7 @@ type RnSt = Int
 -- [the documentation of @monad-validate@](https://hackage.haskell.org/package/monad-validate-1.2.0.0/docs/Control-Monad-Validate.html#t:ValidateT)
 -- for more info.
 type RnM =
-  ValidateT Errors (ReaderT RenameEnv (State RnSt))
+  ReaderT RenameEnv (State RnSt)
 
 instance VarTraversal RnM Parse where
   typeVariable = fmap Right . lookup
@@ -113,15 +105,11 @@ instance VarTraversal RnM Parse where
   bind :: (Traversable t, Variable v) => proxy Parse -> t v -> (t v -> RnM a) -> RnM a
   bind _ = bindingAll
 
-runRename :: PProgram -> RnM a -> Either (NonEmpty PosError) a
-runRename prog =
-  runValidateT
-    >>> flip runReaderT emptyEnv
-    >>> flip evalState 0
-    >>> first DL.toNonEmpty
+runRename :: RnM a -> a
+runRename = flip runReaderT emptyEnv >>> flip evalState 0
 
-withRenamedProgram :: PProgram -> (RnProgram -> RnM a) -> Either (NonEmpty PosError) a
-withRenamedProgram p f = runRename p $ renameProgram p >>= f
+withRenamedProgram :: PProgram -> (RnProgram -> RnM a) -> a
+withRenamedProgram p f = runRename $ renameProgram p >>= f
 
 -- | Binds all variables traversed over in @f@. If there are duplicate names an
 -- error will be emitted at the provided location.
@@ -242,5 +230,5 @@ renameTypeDecl =
       D.ProtoDecl x <$> renameNominal renameSyntax decl
 
 etaRnM :: RnM a -> RnM a
-etaRnM = etaValidateT . mapValidateT (etaReaderT . mapReaderT (etaStateT . seqStateT))
+etaRnM = etaReaderT . mapReaderT (etaStateT . seqStateT)
 {-# INLINE etaRnM #-}
