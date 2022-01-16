@@ -36,22 +36,18 @@ knownOperators = Map.unions (opMap <$> ops)
   where
     ops =
       [ Info "||" L POr,
-        Info "∨" L POr,
         Info "&&" L PAnd,
-        Info "∧" L PAnd,
         Info "<" NA PCmp,
         Info ">" NA PCmp,
         Info "<=" NA PCmp,
         Info ">=" NA PCmp,
         Info "==" NA PCmp,
         Info "/=" NA PCmp,
-        Info "≤" NA PCmp,
-        Info "≥" NA PCmp,
-        Info "≠" NA PCmp,
         Info "+" L PAddSub,
         Info "-" L PAddSub,
         Info "*" L PMulDiv,
         Info "/" L PMulDiv,
+        Info "%" L PMulDiv,
         Info "|>" L PForward,
         Info "<|" R PBackward
       ]
