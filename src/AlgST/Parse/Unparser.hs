@@ -133,7 +133,7 @@ instance Unparse (T.XType x) => Unparse (T.Type x) where
   unparse (T.Negate _ t) = (dualofRator, "-" ++ s)
     where
       s = bracket (unparse t) R dualofRator
-  unparse (T.Dualof _ t) = (dualofRator, "dualof " ++ s)
+  unparse (T.Dualof _ t) = (dualofRator, "dual " ++ s)
     where
       s = bracket (unparse t) R dualofRator
   unparse (T.App _ a b) = (appRator, l ++ " " ++ r)

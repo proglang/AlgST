@@ -106,7 +106,7 @@ spec = do
           f s k
 
         for_ checks \(s, f, k) -> do
-          f ("dualof (" ++ s ++ ")") k
+          f ("dual (" ++ s ++ ")") k
 
     context "type application" do
       specify "same kind application" do

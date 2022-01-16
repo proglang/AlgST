@@ -95,7 +95,7 @@ tokens :-
   case                          { simpleToken TokenCase }
   of                            { simpleToken TokenOf }
   (forall|∀)                    { simpleToken TokenForall }
-  dual(of)?                     { simpleToken TokenDualof }
+  dual                          { simpleToken TokenDualof }
   end                           { simpleToken TokenEnd }
 -- Values
   \(\)                          { simpleToken TokenUnit }
