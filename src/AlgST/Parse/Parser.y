@@ -234,7 +234,7 @@ ETail :: { PExp }
 EApp :: { PExp }
   : EAtom                          { $1 }
   | EApp EAtom                     { E.App (pos $1) $1 $2 }
-  | EApp '[' TypeApps ']'          { $3 (pos $2) $1 }
+  | EApp '[' TypeApps ']'          { E.foldTypeApps (const pos) $1 $3 }
   | select Constructor             { E.Select (pos $1) $2 }
   | select '(,)'                   { E.Select (pos $1) (pairConId (pos $2)) }
 
@@ -256,10 +256,10 @@ ExpInner :: { Parenthesized -> ParseM PExp }
 Exp :: { PExp }
   : ExpInner                       {% $1 TopLevel }
 
-TypeApps :: { Pos -> PExp -> PExp }
-  : Type                           { \p e -> E.TypeApp p e $1 }
-  | TypeApps ',' Type              { \p e -> E.TypeApp p ($1 p e) $3 }
-
+TypeApps :: { DL.DList PType }
+  : Type                           { DL.singleton $1 }
+  | TypeApps ',' Type              { $1 `DL.snoc` $3 }
+  
 RecExp :: { forall a. (Pos -> ProgVar -> PType -> E.RecLam Parse -> a) -> ParseM a }
   : rec ProgVar TySig '=' Exp {
       \f -> case $5 of
@@ -359,11 +359,14 @@ Op :: { ProgVar }
   | '+'       { mkVar (pos $1) "+" }
   | '-'       { mkVar (pos $1) "-" }
 
-OpTys :: { (ProgVar, PExp -> PExp) }
-  : Op                        { ($1, id) }
-  | OpTys '[' TypeApps ']'    { second ($3 (pos $2) .) $1 }
+OpTys :: { (ProgVar, [PType]) }
+  : OpTys_                    { DL.toList `fmap` $1 }
 
-OpsExp :: { OpSeq OpsExp (ProgVar, PExp -> PExp) }
+OpTys_ :: { (ProgVar, DL.DList PType) }
+  : Op                        { ($1, DL.empty) }
+  | OpTys_ '[' TypeApps ']'   { let (op, tys) = $1 in (op, tys <> $3) }
+
+OpsExp :: { OpSeq OpsExp (ProgVar, [PType]) }
   : EApp OpTys           { Operand $1 $ Operator $2 Nil }
   | EApp OpTys EAppTail  { Operand $1 $ Operator $2 $ Operand $3 Nil }
   | EApp OpTys OpsExp    { Operand $1 $ Operator $2 $3 }

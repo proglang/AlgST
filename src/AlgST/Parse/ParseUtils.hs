@@ -78,7 +78,7 @@ addErrors (e : es) = dispute $ DL.fromNonEmpty $ e :| es
 fatalError :: PosError -> ParseM a
 fatalError = refute . DL.singleton
 
-resolveOpSeq :: Parenthesized -> OpSeq first (ProgVar, PExp -> PExp) -> ParseM PExp
+resolveOpSeq :: Parenthesized -> OpSeq first (ProgVar, [PType]) -> ParseM PExp
 resolveOpSeq ps = mapErrors DL.fromList . parseOperators ps
 
 pairConId :: Pos -> ProgVar

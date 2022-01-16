@@ -20,6 +20,7 @@ where
 import AlgST.Parse.Phase
 import qualified AlgST.Syntax.Expression as E
 import AlgST.Syntax.Operators
+import AlgST.Syntax.Variable
 import AlgST.Util.ErrorMessage
 import Control.Category ((>>>))
 import Control.Monad
@@ -28,7 +29,6 @@ import qualified Data.DList as DL
 import Data.Foldable
 import qualified Data.Map.Strict as Map
 import Syntax.Base
-import Syntax.ProgramVariable
 
 data OpsHead
   = OpsExp
@@ -48,7 +48,7 @@ deriving instance Traversable (OpSeq first)
 parseOperators ::
   MonadValidate [PosError] m =>
   Parenthesized ->
-  OpSeq first (ProgVar, PExp -> PExp) ->
+  OpSeq first (ProgVar, [PType]) ->
   m PExp
 parseOperators ps = resolveOperators >=> (groupOperators >>> foldGroupedOperators ps)
 
@@ -64,9 +64,10 @@ data OpGrouping = OpGrouping
   }
 
 data ResolvedOp = ResolvedOp
-  { operatorName :: ProgVar,
-    operatorInfo :: Info,
-    operatorApTys :: PExp -> PExp
+  { -- | unparenthesized name
+    operatorName :: ProgVar,
+    operatorTyArgs :: [PType],
+    operatorInfo :: Info
   }
 
 instance Position ResolvedOp where
@@ -136,8 +137,8 @@ foldOperators e0 ops0 = \case
     --
     --    (*) (3+4)
     --
-    -- this breaks very easily when applying the second `x` argument for (*)
-    -- directly, leaving us with
+    -- this breaks very easily when adding the second argument for (*),
+    -- leaving us with
     --
     --    (+) 3 ((*) 4 x)
     --
@@ -146,7 +147,7 @@ foldOperators e0 ops0 = \case
     case remainingOps of
       [] ->
         -- All fine. Construct the final partial application.
-        pure $ mkApp (pos secOp) secOp e
+        pure $ buildOpApplication secOp e Nothing
       (op, _) : _ ->
         refute . pure $
           PosError
@@ -177,9 +178,6 @@ foldOperators e0 ops0 = \case
       | otherwise =
         Prec $ prec op
 
-    mkApp loc op =
-      E.App loc $ operatorApTys op $ E.Var loc $ mkVar loc $ opName $ operatorInfo op
-
     prec =
       operatorInfo >>> opPrec
     assoc =
@@ -193,11 +191,28 @@ foldOperators e0 ops0 = \case
         refute [errorNonAssocOperators prevOp op]
       | minPrec <= Prec (prec op) = do
         (rhs', ops') <- go rhs (nextPrec Right op) (Just op) ops
-        let loc = pos op
-        let res = E.App loc (mkApp loc op lhs) rhs'
+        let res = buildOpApplication op lhs (Just rhs')
         go res minPrec (Just op) ops'
     go lhs _ _ ops =
       pure (lhs, ops)
+
+buildOpApplication :: ResolvedOp -> PExp -> Maybe PExp -> PExp
+buildOpApplication op lhs mrhs
+  | UserNamed "<|" <- operatorName op,
+    null (operatorTyArgs op),
+    Just rhs <- mrhs =
+    -- Desugar operator to direct function application.
+    E.App (pos op) lhs rhs
+  | UserNamed "|>" <- operatorName op,
+    null (operatorTyArgs op),
+    Just rhs <- mrhs =
+    -- Desugar operator to (flipped) direct function application.
+    E.App (pos op) rhs lhs
+  | otherwise = do
+    let opVar = E.Var (pos op) $ mkVar (pos op) $ opName $ operatorInfo op
+    let opExp = E.foldTypeApps (const pos) opVar (operatorTyArgs op)
+    let appLhs = E.App (pos lhs) opExp lhs
+    maybe appLhs (E.App <$> pos <*> pure appLhs <*> id) mrhs
 
 -- | Annotates all 'ProgVar's with their operator 'Info' or returns a list of
 -- errors about unknown operators.
@@ -205,7 +220,7 @@ resolveOperators ::
   ( MonadValidate [PosError] m,
     Traversable f
   ) =>
-  f (ProgVar, PExp -> PExp) ->
+  f (ProgVar, [PType]) ->
   m (f ResolvedOp)
 resolveOperators = traverse \(v, tys) ->
   case Map.lookup (intern v) knownOperators of
@@ -215,8 +230,8 @@ resolveOperators = traverse \(v, tys) ->
       pure
         ResolvedOp
           { operatorName = v,
-            operatorInfo = i,
-            operatorApTys = tys
+            operatorTyArgs = tys,
+            operatorInfo = i
           }
 
 groupOperators :: forall first. OpSeq first ResolvedOp -> OpGrouping

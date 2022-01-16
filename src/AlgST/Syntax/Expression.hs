@@ -19,6 +19,7 @@ module AlgST.Syntax.Expression
     CaseMap' (..),
     emptyCaseMap,
     CaseBranch (..),
+    foldTypeApps,
 
     -- ** Extension families
     XLit,
@@ -57,6 +58,7 @@ import Instances.TH.Lift ()
 import Language.Haskell.TH.Syntax (Lift)
 import Syntax.Base
 import Syntax.ProgramVariable
+import Data.Foldable
 
 {- ORMOLU_DISABLE -}
 type family XLit x
@@ -181,6 +183,9 @@ viewRecLam (TypeAbs x (K.Bind p v t e)) =
   RecTypeAbs x . K.Bind p v t <$> viewRecLam e
 viewRecLam _ =
   Nothing
+
+foldTypeApps :: Foldable f => (Exp x -> T.Type x -> XTApp x) -> Exp x -> f (T.Type x) -> Exp x
+foldTypeApps f = foldl' \e ty -> TypeApp (f e ty) e ty
 
 type CaseMap x = CaseMap' [] Maybe x
 
