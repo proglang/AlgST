@@ -178,6 +178,9 @@ instance Originated (SignatureDecl x) where
       (\(SignatureDecl origin _) -> origin)
       (\(SignatureDecl _ ty) origin -> SignatureDecl origin ty)
 
+instance Position (SignatureDecl x) where
+  pos = pos . view originL
+
 data ValueDecl x = ValueDecl
   { valueOrigin :: Origin,
     valueType :: T.Type x,

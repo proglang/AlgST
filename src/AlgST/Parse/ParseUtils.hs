@@ -50,7 +50,6 @@ import AlgST.Syntax.Decl
 import qualified AlgST.Syntax.Expression as E
 import AlgST.Syntax.Program
 import AlgST.Syntax.Variable
-import AlgST.Util
 import AlgST.Util.ErrorMessage
 import Control.Arrow
 import Control.Monad.State
@@ -98,33 +97,34 @@ type ProgBuilder =
 
 runProgBuilder :: PProgram -> ProgBuilder -> ParseM PProgram
 runProgBuilder base builder =
-  evalStateT (runKleisli builder base <* validateNotIncomplete) Nothing
+  evalStateT (runKleisli (builder >>> completePrevious) base) Nothing
 
-validateNotIncomplete :: StateT IncompleteValueDecl ParseM ()
-validateNotIncomplete =
-  get >>= flip whenJust \(v, _) -> do
-    lift $
-      addError
-        (pos v)
-        [ Error "Declaration of",
-          Error v,
-          Error "should be followed by its binding."
-        ]
-    put Nothing
+completePrevious :: ProgBuilder
+completePrevious = Kleisli \p -> do
+  msig <- get
+  case msig of
+    Nothing ->
+      pure p
+    Just (name, sig) -> do
+      put Nothing
+      let decl = SignatureDecl (OriginUser (pos name)) sig
+      imports <- lift $ insertNoDuplicates name decl (programImports p)
+      pure p { programImports = imports }
 
 programValueDecl :: ProgVar -> PType -> ProgBuilder
-programValueDecl v ty = Kleisli \p -> do
-  validateNotIncomplete
+programValueDecl v ty = completePrevious >>> Kleisli \p -> do
   put $ Just (v, ty)
   pure p
 
 programValueBinding :: ProgVar -> [PTVar] -> PExp -> ProgBuilder
-programValueBinding v params e = Kleisli \p -> do
+programValueBinding v params e = Kleisli \p0 -> do
   mincomplete <- get
-  when (fmap fst mincomplete /= Just v) do
+  p <-
     -- If there is an incomplete definition which does not match the current
-    -- variable, this call will emit the error about a missing binding.
-    validateNotIncomplete
+    -- variable, we have to add it to the "imported" signatures.
+    if fmap fst mincomplete == Just v
+       then pure p0
+       else runKleisli completePrevious p0
 
   -- Re-read the incomplete binding, might be changed by the call to
   -- 'validateNotIncomplete' and remember that there is no incomplete binding
@@ -153,8 +153,7 @@ programValueBinding v params e = Kleisli \p -> do
       pure p {programValues = parsedValues'}
 
 programTypeDecl :: TypeVar -> TypeDecl Parse -> ProgBuilder
-programTypeDecl v tydecl = Kleisli \p -> do
-  validateNotIncomplete
+programTypeDecl v tydecl = completePrevious >>> Kleisli \p -> do
   parsedTypes' <- lift $ insertNoDuplicates v tydecl (programTypes p)
   let constructors = Left <$> typeConstructors v tydecl
   parsedValues' <- lift $ mergeNoDuplicates (programValues p) constructors
@@ -186,6 +185,9 @@ instance DuplicateError TypeVar (TypeDecl Parse) where
 -- | Message for a duplicated top-level value declaration. This includes both
 -- constrcutor names between two declarations, and top-level functions.
 instance DuplicateError ProgVar (Either (ConstructorDecl Parse) (ValueDecl Parse)) where
+  duplicateError = errorMultipleDeclarations
+
+instance DuplicateError ProgVar (SignatureDecl Parse) where
   duplicateError = errorMultipleDeclarations
 
 -- | Message for a duplicated constructor inside a type declaration.
