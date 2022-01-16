@@ -26,6 +26,7 @@ import Control.Exception
 import Control.Monad
 import Data.Bifunctor
 import Data.Foldable
+import Data.List.NonEmpty (NonEmpty)
 import Syntax.Base
 import System.FilePath
 import Test.Golden
@@ -140,7 +141,7 @@ spec = do
 
 infix 1 `nfShouldBe`, `kindShouldBe`
 
-shouldNotError :: HasCallStack => Either [PosError] a -> IO a
+shouldNotError :: (HasCallStack, Foldable f) => Either (f PosError) a -> IO a
 shouldNotError = \case
   Left errs -> expectationFailure (plainErrors errs) >> mzero
   Right a -> pure a
@@ -198,7 +199,7 @@ runKiAction p m src = first plainErrors do
     snd <$> checkWithProgram rnDecls \embed _ -> m embed renamed
 
 -- | Parses and typecheks a program in the context of 'declarations'.
-parseAndCheckProgram :: String -> Either [PosError] (Program Tc)
+parseAndCheckProgram :: String -> Either (NonEmpty PosError) (Program Tc)
 parseAndCheckProgram src = do
   parsed <- runParser (parseProg declarations) src
   withRenamedProgram parsed checkProgram

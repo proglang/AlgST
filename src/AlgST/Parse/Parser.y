@@ -210,7 +210,7 @@ EAtom :: { PExp }
   | CHAR                           { let (TokenChar p x) = $1   in E.Lit p $ E.Char   x }
   | STR                            { let (TokenString p x) = $1 in E.Lit p $ E.String x }
   | '()'                           { E.Lit (pos $1) E.Unit }
-  | '(,)'                          {% fatalErrors [errorMisplacedPairCon @ProgVar (pos $1) Proxy] }
+  | '(,)'                          {% fatalError $ errorMisplacedPairCon @ProgVar (pos $1) Proxy }
   | ProgVar                        { E.Var (pos $1) $1 }
   | Constructor                    { E.Con (pos $1) $1 }
   | '(' ExpInner ')'               {% $2 InParens }
@@ -260,7 +260,7 @@ RecExp :: { forall a. (Pos -> ProgVar -> PType -> E.RecLam Parse -> a) -> ParseM
   : rec ProgVar TySig '=' Exp {
       \f -> case $5 of
         E.RecAbs r -> pure $ f (pos $1) $2 $3 r
-        _ -> fatalErrors [errorRecNoTermLambda (pos $5)]
+        _ -> fatalError $ errorRecNoTermLambda (pos $5)
     }
 
 LetBind :: { Pos -> PExp -> PExp -> PExp }
@@ -377,7 +377,7 @@ polarised(t)
 
 TypeAtom :: { PType }
   : '()'                          { T.Unit (pos $1) }
-  | '(,)'                         {% fatalErrors [errorMisplacedPairCon @TypeVar (pos $1) Proxy] }
+  | '(,)'                         {% fatalError $ errorMisplacedPairCon @TypeVar (pos $1) Proxy }
   | '(' Type ',' TupleType ')'    { T.Pair (pos $1) $2 $4 }
   | end                           { T.End (pos $1) }
   | TypeVar                       { T.Var (pos $1) $1 }
@@ -536,29 +536,24 @@ parseExpr = Parser $ parseExpr_ . dropNewlines
 feedParser :: Parser a -> String -> ParseM a
 feedParser = flip lexer
 
-runParser :: Parser a -> String -> Either [PosError] a
+runParser :: Parser a -> String -> Either (NonEmpty PosError) a
 runParser parser = runParseM . feedParser parser
 
 -- | Runs a parser with the contents of the provided file. This function may
 -- throw for all of the reasons 'readFile' may throw.
-runParserIO :: Parser a -> FilePath -> IO (Either [PosError] a)
+runParserIO :: Parser a -> FilePath -> IO (Either (NonEmpty PosError) a)
 runParserIO parser file = runParser parser <$> readFile file
 
 -- | Runs a parser from on the given input string, returning either the
 -- rendered errors (mode 'Plain') or the successfull result.
 runParserSimple :: Parser a -> String -> Either String a
-runParserSimple p = first (renderErrors Plain "") . runParser p
+runParserSimple p = first (renderErrors Plain "" . toList) . runParser p
 
 lexer :: String -> Parser a -> ParseM a
-lexer str (Parser f) =
-  case scanTokens str of
-    Right toks ->
-      f toks
-    Left (PosError p err) ->
-      fatalError p err
+lexer str (Parser f) = either fatalError f $ scanTokens str
 
 parseError :: [Token] -> ParseM a
-parseError = uncurry fatalError <<< \case
-  [] -> (defaultPos, [Error "Unexpected end of file."])
-  t:_ -> (pos t, [Error "Unexpected token", Error t])
+parseError = fatalError <<< \case
+  [] -> PosError defaultPos [Error "Unexpected end of file."]
+  t:_ -> PosError (pos t) [Error "Unexpected token", Error t]
 }

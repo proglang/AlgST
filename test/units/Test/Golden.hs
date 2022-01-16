@@ -86,8 +86,8 @@ fileSpec run fp = specify (takeFileName fp) do
   expectation <- normalize <$> readFile fpExpected
   actual `Hspec.shouldBe` expectation
 
-plainErrors :: [PosError] -> String
-plainErrors = show
+plainErrors :: Foldable f => f PosError -> String
+plainErrors = show . toList
 
 -- | Utilty function mostly used when defining negative
 -- tests.

@@ -51,7 +51,7 @@ import Data.Bifunctor
 import Data.Bitraversable
 import Data.DList.DNonEmpty (DNonEmpty)
 import qualified Data.DList.DNonEmpty as DL
-import Data.Foldable
+import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map.Strict as Map
 import Data.Proxy
 import Data.Traversable
@@ -116,14 +116,14 @@ instance VarTraversal RnM Parse where
   bind :: (Traversable t, Variable v) => proxy Parse -> t v -> (t v -> RnM a) -> RnM a
   bind _ = bindingAll
 
-runRename :: PProgram -> RnM a -> Either [PosError] a
+runRename :: PProgram -> RnM a -> Either (NonEmpty PosError) a
 runRename prog =
   runValidateT
     >>> flip runReaderT (emptyEnv prog)
     >>> flip evalState 0
-    >>> first toList
+    >>> first DL.toNonEmpty
 
-withRenamedProgram :: PProgram -> (RnProgram -> RnM a) -> Either [PosError] a
+withRenamedProgram :: PProgram -> (RnProgram -> RnM a) -> Either (NonEmpty PosError) a
 withRenamedProgram p f = runRename p $ renameProgram p >>= f
 
 addError :: MonadValidate Errors m => PosError -> m ()

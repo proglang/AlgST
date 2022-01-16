@@ -15,7 +15,6 @@ module AlgST.Parse.ParseUtils
     addError,
     addErrors,
     fatalError,
-    fatalErrors,
 
     -- ** Error messages
     errorNoTermLinLambda,
@@ -56,31 +55,29 @@ import AlgST.Util.ErrorMessage
 import Control.Arrow
 import Control.Monad.State
 import Control.Monad.Validate
-import Data.DList (DList)
-import qualified Data.DList as DL
-import Data.Foldable
+import Data.DList.DNonEmpty (DNonEmpty)
+import qualified Data.DList.DNonEmpty as DL
 import Data.Functor.Identity
+import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.Map.Merge.Strict as Map
 import qualified Data.Map.Strict as Map
 
-type ParseM = Validate (DList PosError)
+type ParseM = Validate (DNonEmpty PosError)
 
 -- | Evaluates a value in the 'ParseM' monad producing a list of errors and
 -- maybe a result.
-runParseM :: ParseM a -> Either [PosError] a
-runParseM = mapErrors toList >>> runValidate
+runParseM :: ParseM a -> Either (NonEmpty PosError) a
+runParseM = mapErrors DL.toNonEmpty >>> runValidate
 
 addError :: Pos -> [ErrorMessage] -> ParseM ()
 addError !p err = addErrors [PosError p err]
 
 addErrors :: [PosError] -> ParseM ()
-addErrors = dispute . DL.fromList
+addErrors [] = pure ()
+addErrors (e : es) = dispute $ DL.fromNonEmpty $ e :| es
 
-fatalError :: Pos -> [ErrorMessage] -> ParseM a
-fatalError !p err = fatalErrors [PosError p err]
-
-fatalErrors :: [PosError] -> ParseM a
-fatalErrors = refute . DL.fromList
+fatalError :: PosError -> ParseM a
+fatalError = refute . DL.singleton
 
 resolveOpSeq :: Parenthesized -> OpSeq first (ProgVar, PExp -> PExp) -> ParseM PExp
 resolveOpSeq ps = mapErrors DL.fromList . parseOperators ps
@@ -226,7 +223,7 @@ errorMultipleDeclarations a (pos -> p1) (pos -> p2) =
 
 errorDuplicateBind :: ErrorMsg v => v -> Pos -> Pos -> PosError
 errorDuplicateBind name p1 p2 =
-   PosError
+  PosError
     (min p1 p2)
     [ Error "Conflicting bindings for",
       Error name,

@@ -52,7 +52,7 @@ main = do
   _checked <- runStage opts "Checking" $ withRenamedProgram parsed checkProgram
   pure ()
 
-runStage :: Options -> String -> Either [PosError] a -> IO a
+runStage :: Foldable f => Options -> String -> Either (f PosError) a -> IO a
 runStage opts stage res = do
   let info = style [SetColor Foreground Vivid Cyan]
   let success = style [SetColor Foreground Dull Green]
@@ -73,7 +73,7 @@ runStage opts stage res = do
         renderErrors
           (stderrMode opts)
           (fold $ sourcePrettyName $ optsSource $ runOpts opts)
-          errs
+          (toList errs)
       exitFailure
     Right a -> do
       putStatus success "ok\n"
