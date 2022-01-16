@@ -1,0 +1,12 @@
+data List a
+  = Cons a (List a)
+  | Nil
+
+length : ∀(a:TU). List a -> Int
+length [a] =
+  let rec go : Int -> List a -> Int = \(acc:Int) (xs:List a) ->
+    case xs of {
+      Cons _ xs -> go (acc + 1) xs,
+      Nil -> acc
+    }
+  in go 0

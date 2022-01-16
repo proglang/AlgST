@@ -1,0 +1,15 @@
+-- Polymorphic recursion.
+
+data AltList a b
+  = ACons a (AltList b a)
+  | ANil
+
+altLength : ∀(a:TU) (b:TU). AltList a b -> Int
+altLength =
+  let rec go : ∀(a:TU) (b:TU). Int -> AltList a b -> Int =
+    \[a:TU] [b:TU] (acc:Int) (xs:AltList a b) ->
+      case xs of {
+        ACons _ xs -> go [b, a] (acc + 1) xs,
+        ANil -> acc
+      }
+  in go 0
