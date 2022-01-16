@@ -9,12 +9,13 @@ module AlgST.CommandLine
     sourceIsTerm,
     sourcePrettyName,
     readSource,
+    Action (..),
+    actionSource,
   )
 where
 
 import AlgST.Util.Output
 import Control.Applicative
-import Data.Foldable
 import qualified Options.Applicative as O
 import System.FilePath
 
@@ -45,13 +46,6 @@ readSource = \case
   SourceStdin -> getContents
   SourceFile fp -> readFile fp
   SourceLiteral s -> pure s
-
-data RunOpts = RunOpts
-  { optsSource :: !Source,
-    optsOutputMode :: !(Maybe OutputMode),
-    optsQuiet :: !Bool
-  }
-  deriving (Show)
 
 -- No arguments: STDIN
 -- One argument: FILE       (can be forced with --file)
@@ -90,37 +84,83 @@ sourceParser = sourceFile <|> sourceLiteral <|> sourceImplicit
       "If a FILE is given input will be read from this file. Otherwise it \
       \will be read from STDIN."
 
-optsParser :: O.Parser RunOpts
-optsParser = do
-  optsOutputMode <-
-    optional $
-      asum
-        [ O.flag' Plain $
-            mconcat
-              [ O.long "plain",
-                O.short 'p',
-                O.help "Output messages without colors."
-              ],
-          O.flag' Colorized $
-            mconcat
-              [ O.long "colors",
-                O.help
-                  "Output messages with colors even when the output device is \
-                  \not a terminal."
-              ]
+data Action
+  = ActionTySynth !String
+  | ActionKiSynth !String
+  | ActionNF !String
+  deriving (Show)
+
+actionSource :: Action -> String
+actionSource = \case
+  ActionTySynth s -> s
+  ActionKiSynth s -> s
+  ActionNF s -> s
+
+actionParser :: O.Parser Action
+actionParser = tysynth <|> kisynth <|> nf
+  where
+    synthHelp x y =
+      unwords
+        [ "Synthesize the",
+          x,
+          "for the given",
+          y,
+          "in the context of the parsed program.",
+          "May be repeated."
+        ]
+    tysynth =
+      fmap ActionTySynth . O.strOption . mconcat $
+        [ O.long "type",
+          O.short 'T',
+          O.metavar "EXPR",
+          O.help $ synthHelp "type" "expression"
+        ]
+    kisynth =
+      fmap ActionKiSynth . O.strOption . mconcat $
+        [ O.long "kind",
+          O.short 'K',
+          O.metavar "TYPE",
+          O.help $ synthHelp "kind" "type"
+        ]
+    nf =
+      fmap ActionNF . O.strOption . mconcat $
+        [ O.long "nf",
+          O.metavar "TYPE",
+          O.help "Calculate the normal form of the given type. May be repeated."
         ]
 
-  optsQuiet <-
-    O.flag False True . mconcat $
-      [ O.long "quiet",
-        O.short 'q',
-        O.help "Suppress status messages."
-      ]
+data RunOpts = RunOpts
+  { optsSource :: !Source,
+    optsOutputMode :: !(Maybe OutputMode),
+    optsActions :: ![Action]
+  }
+  deriving (Show)
 
-  optsSource <-
-    sourceParser
-
+optsParser :: O.Parser RunOpts
+optsParser = do
+  optsOutputMode <- optional modeParser
+  optsSource <- sourceParser
+  optsActions <- many actionParser
   pure RunOpts {..}
+
+modeParser :: O.Parser OutputMode
+modeParser = plain <|> colorized
+  where
+    plain =
+      O.flag' Plain $
+        mconcat
+          [ O.long "plain",
+            O.short 'p',
+            O.help "Output messages without colors."
+          ]
+    colorized =
+      O.flag' Colorized $
+        mconcat
+          [ O.long "colors",
+            O.help
+              "Output messages with colors even when the output device is \
+              \not a terminal."
+          ]
 
 getOptions :: IO RunOpts
 getOptions = O.execParser $ O.info (optsParser <**> O.helper) mempty

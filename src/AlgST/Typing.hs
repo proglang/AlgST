@@ -40,6 +40,8 @@ module AlgST.Typing
     normalize,
 
     -- * Programs
+    RunTyM,
+    RunKiM,
     checkProgram,
     checkWithProgram,
     checkSignature,

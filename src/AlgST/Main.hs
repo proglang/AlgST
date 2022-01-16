@@ -1,8 +1,11 @@
+{-# LANGUAGE RankNTypes #-}
+
 module AlgST.Main (main) where
 
 import AlgST.Builtins (builtins)
 import AlgST.CommandLine
 import AlgST.Parse.Parser
+import AlgST.Parse.Phase
 import AlgST.Rename
 import AlgST.Typing
 import AlgST.Util.Error
@@ -14,6 +17,7 @@ import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Data.Foldable
+import Data.Traversable.WithIndex
 import System.Console.ANSI
 import System.Exit
 import System.IO
@@ -48,11 +52,55 @@ main = do
           lift $ hPutChar h '\n'
     checkOut stdout <|> checkOut stderr
 
-  parsed <- runStage opts "Parsing" $ runParser (parseProg builtins) src
-  _checked <- runStage opts "Checking" $ withRenamedProgram parsed checkProgram
+  mparsed <- runStage opts "Parsing" $ runParser (parseProg builtins) src
+  runChecks opts =<< maybe exitFailure pure mparsed
   pure ()
 
-runStage :: Foldable f => Options -> String -> Either (f PosError) a -> IO a
+runChecks :: Options -> PProgram -> IO ()
+runChecks opts pprogram = do
+  actions <- runStage opts "Checking" $
+    withRenamedProgram pprogram \rnProgram ->
+      checkWithProgram rnProgram \runTy runKi _ -> do
+        Right <$> itraverse (evalAction opts runTy runKi) (optsActions (runOpts opts))
+  oks <- sequence =<< maybe exitFailure pure actions
+  when (not (and oks)) do
+    exitFailure
+
+evalAction :: Options -> RunTyM -> RunKiM -> Int -> Action -> RnM (IO Bool)
+evalAction opts runTy runKi i = \case
+  ActionNF src -> do
+    let ptype = runParser parseType src
+    rnty <- traverse renameSyntax ptype
+    nfty <- join <$> traverse (runKi . (normalize . fst <=< kisynth)) rnty
+    buildIO i "normal form" ((,) <$> ptype <*> nfty) \(ty, tynf) -> do
+      print ty
+      putStrLn $ "  => " ++ show tynf
+  ActionKiSynth src -> do
+    let ptype = runParser parseType src
+    rnty <- traverse renameSyntax ptype
+    kind <- join <$> traverse (runKi . fmap snd . kisynth) rnty
+    buildIO i "kind synthesis" ((,) <$> ptype <*> kind) \(ty, k) -> do
+      print ty
+      putStrLn $ "  => " ++ show k
+  ActionTySynth src -> do
+    let pexp = runParser parseExpr src
+    rnexp <- traverse renameSyntax pexp
+    expty <- join <$> traverse (runKi . runTy . fmap snd . tysynth) rnexp
+    buildIO i "type synthesis" ((,) <$> pexp <*> expty) \(e, ty) -> do
+      print e
+      putStrLn $ "  => " ++ show ty
+  where
+    -- Reset the source file. Otherwise the main source gets blamed for errors
+    -- in the action sources.
+    modifyOpts o =
+      o {runOpts = (runOpts o) {optsSource = SourceStdin}}
+    buildIO i desc errsOrA f = pure do
+      ma <- runStage (modifyOpts opts) ("\n[" ++ show (i + 1) ++ "] " ++ desc) errsOrA
+      case ma of
+        Just a -> True <$ f a
+        Nothing -> pure False
+
+runStage :: Foldable f => Options -> String -> Either (f PosError) a -> IO (Maybe a)
 runStage opts stage res = do
   let info = style [SetColor Foreground Vivid Cyan]
   let success = style [SetColor Foreground Dull Green]
@@ -60,9 +108,7 @@ runStage opts stage res = do
 
   let styled selector f s = applyStyle (selector opts) f (showString s) ""
   let putStatus style msg =
-        if optsQuiet (runOpts opts)
-          then pure ()
-          else putStr $ styled stdoutMode style msg
+        putStr $ styled stdoutMode style msg
   putStatus info $ stage ++ " ... "
   hFlush stdout
 
@@ -74,7 +120,7 @@ runStage opts stage res = do
           (stderrMode opts)
           (fold $ sourcePrettyName $ optsSource $ runOpts opts)
           (toList errs)
-      exitFailure
+      pure Nothing
     Right a -> do
       putStatus success "ok\n"
-      pure a
+      pure $ Just a
