@@ -818,7 +818,7 @@ synthVariable p name = runMaybeT (useLocal <|> useGlobal)
 instantiateDeclRef ::
   Pos -> TypeVar -> TypeDecl Tc -> (Params -> TypeRef -> RnM a) -> TcM env s a
 instantiateDeclRef p name decl f =
-  liftRn $ bindingParamsUnchecked (declParams decl) \params ->
+  liftRn $ bindingParams (declParams decl) \params ->
     f
       params
       TypeRef

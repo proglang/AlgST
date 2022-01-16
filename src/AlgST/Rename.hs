@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
@@ -25,7 +24,7 @@ module AlgST.Rename
     RnType,
     renameSyntax,
     renameProgram,
-    bindingParamsUnchecked,
+    bindingParams,
 
     -- * Internals
     etaRnM,
@@ -57,6 +56,7 @@ import Data.Maybe
 import Data.Proxy
 import Data.Traversable
 import Lens.Family2
+import Lens.Family2.State.Strict
 import Lens.Family2.Stock
 import Lens.Family2.Unchecked (lens)
 import Syntax.Base hiding (Variable)
@@ -123,9 +123,6 @@ runRename prog =
 withRenamedProgram :: PProgram -> (RnProgram -> RnM a) -> Either (NonEmpty PosError) a
 withRenamedProgram p f = runRename p $ renameProgram p >>= f
 
-addError :: MonadValidate Errors m => PosError -> m ()
-addError = dispute . DL.singleton
-
 -- | Binds all variables traversed over in @f@. If there are duplicate names an
 -- error will be emitted at the provided location.
 bindingAll :: (Traversable f, Variable v) => f v -> (f v -> RnM a) -> RnM a
@@ -148,22 +145,10 @@ withBindings ::
 withBindings f k = etaRnM do
   let bind :: Variable v => v -> StateT RenameEnv RnM v
       bind v = do
-        env <- get
-        if
-            -- Error when a name is bound twice, except for holes "_", which
-            -- may appear as often as one wants.
-            | show v /= "_",
-              Just sameV <- env ^. varMapL . at' v -> do
-              addError $ nameBoundTwice v (pos sameV) (pos v)
-              pure sameV
-
-            -- Bind v and assign it a new unique.
-            | otherwise -> do
-              n <- lift $ get <* modify' (+ 1)
-              let v' = mkNewVar n v
-              modify' $ varMapL . at' v .~ Just v'
-              pure v'
-
+        n <- lift $ get <* modify' (+ 1)
+        let v' = mkNewVar n v
+        varMapL . at' v .= Just v'
+        pure v'
   (a, binds) <- runStateT (f bind) emptyEnv
 
   -- Don't use (<>~) here! (<>)/union on Data.Map prefers values from the left
@@ -212,11 +197,11 @@ renameConDecl :: D.ConstructorDecl Parse -> RnM (D.ConstructorDecl Rn)
 renameConDecl =
   etaRnM . \case
     D.DataCon x parent params mul items -> do
-      (params', items') <- bindingParamsUnchecked params \params' ->
+      (params', items') <- bindingParams params \params' ->
         (params',) <$> traverse renameSyntax items
       pure $ D.DataCon x parent params' mul items'
     D.ProtocolCon x parent params items -> do
-      (params', items') <- bindingParamsUnchecked params \params' ->
+      (params', items') <- bindingParams params \params' ->
         (params',) <$> traverse renameSyntax items
       pure $ D.ProtocolCon x parent params' items'
 
@@ -246,17 +231,6 @@ bindingParams params f =
     let (ps, ks) = unzip params
      in bindingAll ps \ps' -> f (zip ps' ks)
 
--- | Like 'bindingParams' but does not generate any errors should there be
--- duplicate names.
---
--- This is used when renaming the items of constructors. Every constructor has
--- to bind the type's parameters but we don't want to generate the same errors
--- for each constructor. The errors are generated when renaming the declaration
--- as a whole.
-bindingParamsUnchecked :: D.Params -> (D.Params -> RnM a) -> RnM a
-bindingParamsUnchecked =
-  runContT . traverse \(tv, k) -> fmap (,k) $ ContT $ bindOne @Rn Proxy tv
-
 renameTypeDecl :: D.TypeDecl Parse -> RnM (D.TypeDecl Rn)
 renameTypeDecl =
   etaRnM . \case
@@ -266,20 +240,6 @@ renameTypeDecl =
       D.DataDecl x <$> renameNominal renameSyntax decl
     D.ProtoDecl x decl ->
       D.ProtoDecl x <$> renameNominal renameSyntax decl
-
-nameBoundTwice :: forall v. Variable v => v -> Pos -> Pos -> PosError
-nameBoundTwice name p1 p2 =
-  PosError
-    (min p1 p2)
-    [ Error "Conflicting definitions for",
-      chooseVar @v Error Error name,
-      ErrLine,
-      Error "Bound at:",
-      Error (min p1 p2),
-      ErrLine,
-      Error "         ",
-      Error (max p1 p2)
-    ]
 
 etaRnM :: RnM a -> RnM a
 etaRnM = etaValidateT . mapValidateT (etaReaderT . mapReaderT (etaStateT . seqStateT))
