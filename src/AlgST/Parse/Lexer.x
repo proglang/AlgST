@@ -92,6 +92,8 @@ tokens :-
   else                          { simpleToken TokenElse }
   new                           { simpleToken TokenNew }
   select                        { simpleToken TokenSelect }
+  fork                          { simpleToken TokenFork }
+  fork_                         { simpleToken TokenFork_ }
   case                          { simpleToken TokenCase }
   of                            { simpleToken TokenOf }
   (forall|∀)                    { simpleToken TokenForall }
@@ -154,6 +156,8 @@ data Token =
   | TokenElse Pos
   | TokenNew Pos
   | TokenSelect Pos
+  | TokenFork Pos
+  | TokenFork_ Pos
   | TokenCase Pos
   | TokenOf Pos
   | TokenForall Pos
@@ -202,6 +206,8 @@ instance Show Token where
   show (TokenElse _) = "else"
   show (TokenNew _) = "new"
   show (TokenSelect _) = "select"
+  show (TokenFork _) = "fork"
+  show (TokenFork_ _) = "fork_"
   show (TokenCase _) = "case"
   show (TokenForall _) = "forall"
   show (TokenWild _) = "_"
@@ -299,6 +305,8 @@ instance Position Token where
   pos (TokenPipe p) = p
   pos (TokenNew p) = p
   pos (TokenSelect p) = p
+  pos (TokenFork p) = p
+  pos (TokenFork_ p) = p
   pos (TokenCase p) = p
   pos (TokenForall p) = p
   pos (TokenWild p) = p

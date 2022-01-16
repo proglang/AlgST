@@ -203,6 +203,9 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Exp x) where
   -- Session expressions
   unparse (E.New _ t) = (appRator, "new [" ++ show t ++ "]")
   unparse (E.Select _ con) = (appRator, "select " ++ show con)
+  -- Forking
+  unparse (E.Fork _ e) = unparseApp "fork" [e]
+  unparse (E.Fork_ _ e) = unparseApp "fork_" [e]
   -- Extensions
   unparse (E.Exp x) = unparse x
 

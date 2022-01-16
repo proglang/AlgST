@@ -127,6 +127,10 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (E.Ex
         tree "Exp.New" [labeledTree x, labeledTree t]
       E.Select x c ->
         tree ("Exp.Select " ++ show c) [labeledTree x]
+      E.Fork x e ->
+        tree "Exp.Fork" [labeledTree x, labeledTree e]
+      E.Fork_ x e ->
+        tree "Exp.Fork_" [labeledTree x, labeledTree e]
       E.Exp x ->
         tree "Exp.Exp" [labeledTree x]
 

@@ -18,20 +18,30 @@ import Syntax.Base
 
 data Parse
 
-newtype BuiltinNew = BuiltinNew Pos
+data ParsedBuiltin
+  = BuiltinNew Pos
+  | BuiltinFork Pos
+  | BuiltinFork_ Pos
   deriving (Lift)
 
-instance Position BuiltinNew where
+instance Position ParsedBuiltin where
   pos (BuiltinNew p) = p
+  pos (BuiltinFork p) = p
+  pos (BuiltinFork_ p) = p
 
-instance Unparse BuiltinNew where
-  unparse _ = unparseApp "new" ([] @Void)
+instance Unparse ParsedBuiltin where
+  unparse b = unparseApp x ([] @Void)
+    where
+      x = case b of
+        BuiltinNew _ -> "new"
+        BuiltinFork _ -> "fork"
+        BuiltinFork_ _ -> "fork_"
 
-instance VarTraversable BuiltinNew Parse where
+instance VarTraversable ParsedBuiltin Parse where
   -- Builtin is a leaf type, there is nothing to traverse.
   traverseVars _proxy = pure
 
-instance LabeledTree BuiltinNew where
+instance LabeledTree ParsedBuiltin where
   labeledTree _ = [leaf "BuiltinNew"]
 
 {- ORMOLU_DISABLE -}
@@ -56,9 +66,11 @@ type instance E.XTApp   Parse = Pos
 type instance E.XUnLet  Parse = Pos
 type instance E.XPatLet Parse = Pos
 type instance E.XRec    Parse = Pos
-type instance E.XNew    Parse = Void
+type instance E.XNew    Parse = Void  -- BuiltinNew
 type instance E.XSelect Parse = Pos
-type instance E.XExp    Parse = BuiltinNew
+type instance E.XFork   Parse = Void  -- BuiltinFork
+type instance E.XFork_  Parse = Void  -- BuiltinFork_
+type instance E.XExp    Parse = ParsedBuiltin
 
 type instance E.XBind Parse = Pos
 

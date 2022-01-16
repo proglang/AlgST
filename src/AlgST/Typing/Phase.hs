@@ -89,9 +89,9 @@ instance VarTraversable TypeRef Tc where
     args <- traverse (traverseVars proxy) (typeRefArgs ref)
     pure
       TypeRef
-        -- We are explicit in the fields so that an error is generated if there
-        -- are fields added which might require traversing.
-        { typeRefName = typeRefName ref,
+        { -- We are explicit in the fields so that an error is generated if there
+          -- are fields added which might require traversing.
+          typeRefName = typeRefName ref,
           typeRefArgs = args,
           typeRefKind = typeRefKind ref,
           typeRefPos = typeRefPos ref
@@ -160,6 +160,8 @@ type instance E.XPatLet Tc = Void     -- Desugared to 'Case'.
 type instance E.XRec    Tc = Pos
 type instance E.XNew    Tc = Pos
 type instance E.XSelect Tc = Pos
+type instance E.XFork   Tc = Pos      -- TODO: Could be desugared to 'New' + 'Fork_' + ...
+type instance E.XFork_  Tc = Pos
 type instance E.XExp    Tc = TcExpX
 
 type instance E.XBind Tc = Pos

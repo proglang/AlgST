@@ -627,6 +627,26 @@ tysynth =
       pure (E.TypeAbs p bnd', ty)
 
     --
+    E.App p (E.Exp (BuiltinFork _)) e -> do
+      -- TODO: Desugar to `fork_`. The hard part is getting the reference to
+      -- `send` correct since it is not more than a "imported" signature which
+      -- might be shadowed.
+      (e', ty) <- tysynth e
+      let k = typeKind ty
+      when (not (k <=? K.ML defaultPos)) do
+        addError $ Error.unexpectedForkKind "fork" e ty k $ K.ML defaultPos
+      let resultTy = buildSessionType p T.In [ty] $ T.End p
+      pure (E.Fork p e', resultTy)
+
+    --
+    E.App p (E.Exp (BuiltinFork_ _)) e -> do
+      (e', ty) <- tysynth e
+      let k = typeKind ty
+      when (not (k <=? K.TU defaultPos)) do
+        addError $ Error.unexpectedForkKind "fork_" e ty k $ K.TU defaultPos
+      pure (E.Fork_ p e', T.Unit p)
+
+    --
     E.App p e1 e2 -> do
       (e1', t1) <- tysynth e1
       (t, u) <-
@@ -773,11 +793,16 @@ tysynth =
 
     --
     e@(E.Exp (BuiltinNew _)) -> do
-      addFatalError $ Error.builtinMissingApp e "type application"
+      addFatalError $ Error.builtinMissingApp e "a type application"
+    e@(E.Exp (BuiltinFork _)) -> do
+      addFatalError $ Error.builtinMissingApp e "an expression"
+    e@(E.Exp (BuiltinFork_ _)) -> do
+      addFatalError $ Error.builtinMissingApp e "an expression"
 
     --
-    E.New x _ ->
-      absurd x
+    E.New x _ -> absurd x
+    E.Fork x _ -> absurd x
+    E.Fork_ x _ -> absurd x
 
 buildSelectType :: Pos -> Params -> TcType -> [TcType] -> RnM TcType
 buildSelectType p params t us = bindOne @Rn Proxy (mkVar defaultPos "s") \varS -> do

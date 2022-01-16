@@ -102,6 +102,8 @@ import           Syntax.Base
   else     {TokenElse _}
   new      {TokenNew _}
   select   {TokenSelect _}
+  fork     {TokenFork _}
+  fork_    {TokenFork_ _}
   case     {TokenCase _}
   of       {TokenOf _}
   forall   {TokenForall _}
@@ -215,10 +217,10 @@ EAtom :: { PExp }
   | Constructor                    { E.Con (pos $1) $1 }
   | '(' ExpInner ')'               {% $2 InParens }
   | '(' Exp ',' Exp ')'            { E.Pair (pos $1) $2 $4 }
-  | new                            { E.Exp $ BuiltinNew (pos $1) }
-  | select Constructor             { E.Select (pos $1) $2 }
-  | select '(,)'                   { E.Select (pos $1) (pairConId (pos $2)) }
   | case Exp of Cases              { E.Case (pos $1) $2 $4 }
+  | new                            { E.Exp $ BuiltinNew (pos $1) }
+  | fork                           { E.Exp $ BuiltinFork (pos $1) }
+  | fork_                          { E.Exp $ BuiltinFork_ (pos $1) }
 
 ETail :: { PExp }
   : LamExp                         { $1 }
@@ -233,6 +235,8 @@ EApp :: { PExp }
   : EAtom                          { $1 }
   | EApp EAtom                     { E.App (pos $1) $1 $2 }
   | EApp '[' TypeApps ']'          { $3 (pos $2) $1 }
+  | select Constructor             { E.Select (pos $1) $2 }
+  | select '(,)'                   { E.Select (pos $1) (pairConId (pos $2)) }
 
 EAppTail :: { PExp }
   : EApp                           { $1 }
@@ -389,8 +393,7 @@ Type1 :: { PType }
   | Type1 TypeAtom                { T.App (pos $1) $1 $2 }
 
 Type2 :: { PType }
-  : Type1
-  | polarised(Type2)              { $1 }
+  : polarised(Type1)              { $1 }
 
 Type3 :: { PType }
   : Type2                         { $1 }

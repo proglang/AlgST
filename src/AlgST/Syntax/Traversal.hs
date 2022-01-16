@@ -279,6 +279,12 @@ instance
         <$> traverseVars proxy t
     E.Select x c ->
       pure (E.Select x c)
+    E.Fork x e ->
+      E.Fork x
+        <$> traverseVars proxy e
+    E.Fork_ x e ->
+      E.Fork_ x
+        <$> traverseVars proxy e
     E.Exp x ->
       E.Exp
         <$> traverseVars proxy x

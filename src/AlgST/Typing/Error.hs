@@ -39,13 +39,28 @@ unexpectedKind t kind hintKinds = PosError (pos t) (message ++ hint)
         Error "for type",
         Error t
       ]
-
     hint = case nonEmpty hintKinds of
       Just hints ->
         [ErrLine, Error $ "Expected a subkind of " ++ joinOr (show <$> hints)]
       Nothing ->
         []
 {-# NOINLINE unexpectedKind #-}
+
+unexpectedForkKind :: String -> RnExp -> TcType -> K.Kind -> K.Kind -> PosError
+unexpectedForkKind forkKind e ty kiActual kiExpected =
+  PosError (pos e) $
+    errUnline
+      [ [Error $ "Forked expression (" ++ forkKind ++ ")"],
+        [indent, Error e],
+        [Error "has type"],
+        showType ty Nothing,
+        [ Error "which has kind",
+          Error kiActual,
+          Error "but should have kind",
+          Error kiExpected
+        ]
+      ]
+{-# NOINLINE unexpectedForkKind #-}
 
 typeMismatch :: PExp -> TcType -> TcType -> TcType -> TcType -> PosError
 typeMismatch expr tyActual tyActualNF tyExpected tyExpectedNF =
@@ -397,9 +412,9 @@ builtinMissingApp :: RnExp -> String -> PosError
 builtinMissingApp e expected =
   PosError
     (pos e)
-    [ Error "Operator",
+    [ Error "Builtin",
       Error e,
-      Error "must be followed by a",
+      Error "must be followed by",
       Error expected
     ]
 {-# NOINLINE builtinMissingApp #-}

@@ -36,6 +36,8 @@ module AlgST.Syntax.Expression
     XRec,
     XNew,
     XSelect,
+    XFork,
+    XFork_,
     XExp,
     ForallX,
 
@@ -72,6 +74,8 @@ type family XUnLet x
 type family XPatLet x
 type family XNew x
 type family XSelect x
+type family XFork x
+type family XFork_ x
 type family XExp x
 {- ORMOLU_ENABLE -}
 
@@ -91,6 +95,8 @@ type ForallX (c :: HS.Type -> HS.Constraint) x =
     c (XPatLet x),
     c (XNew x),
     c (XSelect x),
+    c (XFork x),
+    c (XFork_ x),
     c (XExp x),
     c (XBind x)
   )
@@ -137,6 +143,10 @@ data Exp x
     New (XNew x) (T.Type x)
   | -- | > Select _ c                 ~ select c
     Select (XSelect x) !ProgVar
+  | -- | > Fork _ e                   ~ fork e
+    Fork (XFork x) (Exp x)
+  | -- | > Fork_ _ e                  ~ fork_ e
+    Fork_ (XFork_ x) (Exp x)
   | -- | Constructor extension. Depends on the instantiation of the 'XExp' type
     -- family.
     Exp (XExp x)
@@ -217,6 +227,8 @@ instance ForallX Position x => Position (Exp x) where
   pos (Case x _ _) = pos x
   pos (New x _) = pos x
   pos (Select x _) = pos x
+  pos (Fork x _) = pos x
+  pos (Fork_ x _) = pos x
   pos (Exp x) = pos x
 
 -- Bind
