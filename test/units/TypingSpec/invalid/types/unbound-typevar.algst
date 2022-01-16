@@ -1,0 +1,2 @@
+-- `a` may not appear in type contexts.
+\(a:Int) -> fst [a]

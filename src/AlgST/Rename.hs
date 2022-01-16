@@ -53,6 +53,7 @@ import Data.DList.DNonEmpty (DNonEmpty)
 import qualified Data.DList.DNonEmpty as DL
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map.Strict as Map
+import Data.Maybe
 import Data.Proxy
 import Data.Traversable
 import Lens.Family2
@@ -78,11 +79,10 @@ type Bindings v = Map.Map v v
 
 data RenameEnv = RenameEnv
   { rnTyVars :: !(Bindings TypeVar),
-    rnProgVars :: !(Bindings ProgVar),
-    rnContext :: !PProgram
+    rnProgVars :: !(Bindings ProgVar)
   }
 
-emptyEnv :: PProgram -> RenameEnv
+emptyEnv :: RenameEnv
 emptyEnv = RenameEnv mempty mempty
 
 rnTyVarsL :: Lens' RenameEnv (Bindings TypeVar)
@@ -107,8 +107,8 @@ type RnM =
   ValidateT Errors (ReaderT RenameEnv (State RnSt))
 
 instance VarTraversal RnM Parse where
-  typeVariable = fmap Right <$> lookup unboundTypeVarError
-  programVariable = fmap Right <$> lookup unboundProgVarError
+  typeVariable = fmap Right . lookup
+  programVariable = fmap Right . lookup
 
   bind :: (Traversable t, Variable v) => proxy Parse -> t v -> (t v -> RnM a) -> RnM a
   bind _ = bindingAll
@@ -116,7 +116,7 @@ instance VarTraversal RnM Parse where
 runRename :: PProgram -> RnM a -> Either (NonEmpty PosError) a
 runRename prog =
   runValidateT
-    >>> flip runReaderT (emptyEnv prog)
+    >>> flip runReaderT emptyEnv
     >>> flip evalState 0
     >>> first DL.toNonEmpty
 
@@ -125,9 +125,6 @@ withRenamedProgram p f = runRename p $ renameProgram p >>= f
 
 addError :: MonadValidate Errors m => PosError -> m ()
 addError = dispute . DL.singleton
-
-addFatalError :: MonadValidate Errors m => PosError -> m a
-addFatalError = refute . DL.singleton
 
 -- | Binds all variables traversed over in @f@. If there are duplicate names an
 -- error will be emitted at the provided location.
@@ -167,8 +164,7 @@ withBindings f k = etaRnM do
               modify' $ varMapL . at' v .~ Just v'
               pure v'
 
-  ctxt <- asks rnContext
-  (a, binds) <- runStateT (f bind) (emptyEnv ctxt)
+  (a, binds) <- runStateT (f bind) emptyEnv
 
   -- Don't use (<>~) here! (<>)/union on Data.Map prefers values from the left
   -- operand on duplicate keys. But the values from `binds` have to replace
@@ -181,38 +177,12 @@ withBindings f k = etaRnM do
 {-# INLINE withBindings #-}
 
 -- | @lookup mkErr v@ looks for a binding for @v@ and returns the renamed
--- variable. In case the variable is unbound @mkErr v@ is added to the list of
--- errors.
-lookup :: Variable v => (v -> PosError) -> v -> RnM v
-lookup unboundError v = etaRnM do
+-- variable. In case the variable is unbound it is assumed to be a global
+-- definition. In case it is not the typechecker will emit an error.
+lookup :: Variable v => v -> RnM v
+lookup v = etaRnM do
   env <- ask
-  case env ^. varMapL . at v of
-    Nothing -> do
-      when (not (boundInContext v (rnContext env))) do
-        -- See [Note: unbound variables and non-fatal errors].
-        addFatalError $ unboundError v
-      pure v
-    Just v' -> do
-      pure v'
-
-{-
-[Note: unbound variables and non-fatal errors]
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Producing a non-fatal error on unbound variables can lead to 'error' calls in
-the typechecker. A non-fatal error means that monadic pipelines will continue
-processing which is incorrect: the typechecker must only run when we can be
-sure that the referenced variables exist.
-
-Still, by way of the 'Validate' monad processing of the other branches of the
-program will continue even if some variables are not bound.
--}
-
-boundInContext :: forall v. Variable v => v -> PProgram -> Bool
-boundInContext v =
-  chooseVar @v
-    (liftA2 (||) (Map.member v . programValues) (Map.member v . programImports))
-    (Map.member v . programTypes)
+  pure $ fromMaybe v $ env ^. varMapL . at v
 
 renameProgram :: Program Parse -> RnM (Program Rn)
 renameProgram p = do
@@ -296,22 +266,6 @@ renameTypeDecl =
       D.DataDecl x <$> renameNominal renameSyntax decl
     D.ProtoDecl x decl ->
       D.ProtoDecl x <$> renameNominal renameSyntax decl
-
-unboundProgVarError :: ProgVar -> PosError
-unboundProgVarError pv =
-  PosError
-    (pos pv)
-    [ Error "Unbound variable",
-      Error pv
-    ]
-
-unboundTypeVarError :: TypeVar -> PosError
-unboundTypeVarError tv =
-  PosError
-    (pos tv)
-    [ Error "Unbound type variable",
-      Error tv
-    ]
 
 nameBoundTwice :: forall v. Variable v => v -> Pos -> Pos -> PosError
 nameBoundTwice name p1 p2 =

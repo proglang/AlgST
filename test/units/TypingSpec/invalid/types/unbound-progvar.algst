@@ -1,0 +1,2 @@
+-- `a` can only appear in type context.
+\[a:TU] -> negate a
