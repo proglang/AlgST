@@ -110,9 +110,6 @@ instance VarTraversal RnM Parse where
   typeVariable = fmap Right <$> lookup unboundTypeVarError
   programVariable = fmap Right <$> lookup unboundProgVarError
 
-  constructor :: forall proxy v. Variable v => proxy Parse -> v -> RnM v
-  constructor _ = lookup (chooseVar @v undeclaredConError undeclaredTypeError)
-
   bind :: (Traversable t, Variable v) => proxy Parse -> t v -> (t v -> RnM a) -> RnM a
   bind _ = bindingAll
 
@@ -308,27 +305,11 @@ unboundProgVarError pv =
       Error pv
     ]
 
-undeclaredConError :: ProgVar -> PosError
-undeclaredConError pv =
-  PosError
-    (pos pv)
-    [ Error "Undeclared constructor",
-      Error pv
-    ]
-
 unboundTypeVarError :: TypeVar -> PosError
 unboundTypeVarError tv =
   PosError
     (pos tv)
     [ Error "Unbound type variable",
-      Error tv
-    ]
-
-undeclaredTypeError :: TypeVar -> PosError
-undeclaredTypeError tv =
-  PosError
-    (pos tv)
-    [ Error "Undeclared type",
       Error tv
     ]
 

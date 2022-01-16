@@ -86,11 +86,12 @@ instance Equivalence TypeRef where
 
 instance VarTraversable TypeRef Tc where
   traverseVars proxy ref = do
-    name <- constructor proxy (typeRefName ref)
     args <- traverse (traverseVars proxy) (typeRefArgs ref)
     pure
       TypeRef
-        { typeRefName = name,
+        -- We are explicit in the fields so that an error is generated if there
+        -- are fields added which might require traversing.
+        { typeRefName = typeRefName ref,
           typeRefArgs = args,
           typeRefKind = typeRefKind ref,
           typeRefPos = typeRefPos ref

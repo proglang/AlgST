@@ -68,10 +68,6 @@ class Applicative f => VarTraversal f x where
   programVariable :: ProgVar -> f (Either (E.Exp x) ProgVar)
   typeVariable :: TypeVar -> f (Either (T.Type x) TypeVar)
 
-  -- | A type constructor/data constructor. Note that this does not visit data
-  -- constructors in the patterns of @case@ expressions.
-  constructor :: Variable v => proxy x -> v -> f v
-
   -- | Binds a set of variables for the given computation.
   bind :: (Traversable t, Variable v) => proxy x -> t v -> (t v -> f a) -> f a
 
@@ -95,8 +91,6 @@ instance Semigroup CollectFree where
     runCollect fv1 bound (runCollect fv2 bound acc)
 
 instance VarTraversal (Const CollectFree) x where
-  constructor _ = pure
-
   typeVariable = varCollectFree
   programVariable = varCollectFree
 
@@ -124,7 +118,6 @@ instance Semigroup Any where
     runAny fv1 intresting || runAny fv2 intresting
 
 instance VarTraversal (Const Any) x where
-  constructor _ = pure
   programVariable = anyVariable
   typeVariable = anyVariable
 
@@ -173,7 +166,6 @@ termSubstitions s = emptySubstitutions {progVarSubs = s}
 instance Monad m => VarTraversal (ReaderT (Substitutions x) m) x where
   programVariable = etaReaderT . asks . subVar progVarSubs
   typeVariable = etaReaderT . asks . subVar typeVarSubs
-  constructor _ = pure
 
   -- Remove the bound variables from the maps.
   bind _ vs f = etaReaderT do
@@ -235,8 +227,7 @@ instance
       either id (E.Var x)
         <$> programVariable v
     E.Con x v ->
-      E.Con x
-        <$> constructor proxy v
+      pure (E.Con x v)
     E.Abs x b ->
       E.Abs x
         <$> traverseVars proxy b
@@ -287,8 +278,7 @@ instance
       E.New x
         <$> traverseVars proxy t
     E.Select x c ->
-      E.Select x
-        <$> constructor proxy c
+      pure (E.Select x c)
     E.Exp x ->
       E.Exp
         <$> traverseVars proxy x
@@ -358,8 +348,7 @@ instance VarTraversable (T.XType x) x => VarTraversable (T.Type x) x where
       either id (T.Var x)
         <$> typeVariable v
     T.Con x v ->
-      T.Con x
-        <$> constructor proxy v
+      pure (T.Con x v)
     T.App x t u ->
       T.App x
         <$> traverseVars proxy t
