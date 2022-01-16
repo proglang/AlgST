@@ -84,7 +84,7 @@ tests:
     ghc-options:
       - -threaded
       - -rtsopts
-      # Disabling idle collection and parallel collection improves prductivity
+      # Disabling idle collection and parallel collection improves productivity
       # (as reported by `+RTS -s`) significantly, this reduces test duration.
       - '"-with-rtsopts=-N -qg -I0"'
 
