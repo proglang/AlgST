@@ -1,0 +1,38 @@
+protocol InfiniteStack
+  = Push' Int InfiniteStack
+  | Pop' -Int InfiniteStack
+  | Quit
+
+protocol EmptyStack
+  = Bottom Int Stack EmptyStack
+  | Done
+
+protocol Stack
+  = Push Int Stack Stack
+  | Pop -Int
+
+handleEmptyStack : ∀(s:SL). ?EmptyStack.s -> s
+handleEmptyStack [s] c = case c of {
+  Bottom c ->
+    let (bottom, c) = receive [Int, ?Stack.?EmptyStack.s] c in
+    handleStack [?EmptyStack.s] bottom c |> handleEmptyStack [s],
+  Done c ->
+    c
+}
+
+handleStack : ∀(s:SL). Int -> ?Stack.s -> s
+handleStack [s] top c = case c of {
+  Push c ->
+    let (newTop, c) = receive [Int, ?Stack.?Stack.s] c in
+    handleStack [?Stack.s] newTop c |> handleStack [s] top,
+  Pop c ->
+    send [Int, s] top c
+}
+
+interaction : ∀(s:SL). !EmptyStack.s -> !EmptyStack.s
+interaction [s] c =
+  let c = select Bottom [s] c in
+  let c = send [Int, !Stack.!EmptyStack.s] 5 c in
+  let c = select Pop [!EmptyStack.s] c in
+  let (x, c) = receive [Int, !EmptyStack.s] c in
+  c

@@ -1,0 +1,57 @@
+protocol Repeat (x:P) = More x (Repeat x) | Quit
+
+type Handler (p:P) = ∀(s:SL). ?p.s -> s
+
+repeater : ∀(p:P). Handler p -> Handler (Repeat p)
+repeater [p] serveP [s] c = case c of {
+  Quit c -> c,
+  More c -> serveP [?Repeat p.s] c |> repeater [p] serveP [s]
+}
+
+type Send (a:TL) = ∀(s:SL). a -> !a.s -o s
+type Recv (a:TL) = ∀(s:SL). ?a.s -> (a, s)
+
+-- `Fun a b` corresponds to a function `a -o b`. The function can be used
+-- multiple times through `FunSession` which wraps it in `Repeat`.
+protocol Fun (a:TL) (b:TL) = Fun +a -b
+type FunSession (a:TL) (b:TL) = !Repeat (Fun a b).end
+
+-- On the sending side there is `sendFun`. To send a function `a -> b` it must
+-- be provided with functions to receive values of type `a` and send values of
+-- type `b`.
+sendFun :
+  ∀(a:TL). Recv a ->
+  ∀(b:TL). Send b ->
+  ∀(s:SL). (a -> b) -> !FunSession a b.s -> s
+sendFun [a] recvA [b] sendB [s] fn c =
+  -- The helper function `ap1` is concerned with handling a single `Fun`
+  -- request: it receives an `a`, applies the given function to it, and sends
+  -- the result back.
+  let ap1 : Handler (Fun a b) = \[s:SL] (c : ?Fun a b.s) ->
+        let Fun c = c in
+        let (a, c) = recvA [!b.s] c in
+        sendB [s] (fn a) c
+  in
+  -- A new channel is created over which function arguments and results are
+  -- communicated. With the help of `repeater` and `ap1` a new thread waits for
+  -- function arguments to send the result back. The other end is sent over the
+  -- channel.
+  let (c1, c2) = new [FunSession a b] in
+  let _ = fork_ (repeater [Fun a b, end] ap1 c2) in
+  send [FunSession a b, s] c1 c
+
+-- On the receiving side the `FunSession` is accepted with a simple receive
+-- operation. When `app` is given functions to send/receive values of type `a`
+-- and `b`, a `FunSession a b` channel and an argument of type `a` it selects
+-- `More`, sends the argument and returns the result together with the
+-- remaining session. The remaining session can be passed again to `app` or
+-- terminated by selecting `Quit`.
+app :
+  ∀(a:TL). Send a ->
+  ∀(b:TL). Recv b ->
+  FunSession a b -> a -o (b, FunSession a b)
+app [a] sendA [b] recvB c a =
+  select More [Fun a b, end] c
+    |> select Fun [a, b, FunSession a b]
+    |> sendA [?b.FunSession a b] a
+    |> recvB [FunSession a b]

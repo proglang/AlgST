@@ -1,0 +1,9 @@
+isTenOdd : Bool
+isTenOdd =
+  let isOdd = \(n:Int) -o n % 2 == 1 in 
+  10 |> [Int, Bool] isOdd
+
+isTenOdd' : Bool
+isTenOdd' =
+  let isOdd = \(n:Int) -o n % 2 == 1 in 
+  10 |> isOdd

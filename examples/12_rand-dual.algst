@@ -1,0 +1,23 @@
+protocol Repeat (x:P) = More x (Repeat x) | Quit
+protocol Dual (x:P) = Dual -x
+
+type Seed : MU = Int
+type RNG  : SL = !Repeat (Dual Int).end
+
+seedRNG : Seed -> RNG
+
+randPair : Seed -> (Int, Int)
+randPair seed =
+  let c = seedRNG seed in
+  let (a, c) =
+    select More [Dual Int, end] c
+      |> select Dual [Int, !Repeat (Dual Int).end]
+      |> receive [Int, !Repeat (Dual Int).end]
+  in
+  let (b, c) =
+    select More [Dual Int, end] c
+      |> select Dual [Int, !Repeat (Dual Int).end]
+      |> receive [Int, !Repeat (Dual Int).end]
+  in
+  let _ = select Quit [Dual Int, end] c in
+  (a, b)

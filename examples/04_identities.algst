@@ -1,0 +1,10 @@
+identity1 : Int -> Int
+identity1 i =
+  let (c1, c2) = new [!Int.end] in
+  let _ = fork_ (send [Int, end] i c1) in
+  fst [Int, end] <| receive [Int, end] c2
+
+identity2 : Int -> Int
+identity2 i =
+  let c = fork i in
+  fst [Int, end] <| receive [Int, end] c

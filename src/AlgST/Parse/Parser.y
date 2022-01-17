@@ -393,7 +393,7 @@ TypeAtom :: { PType }
 
 Type1 :: { PType }
   : TypeAtom                      { $1 }
-  | Type1 TypeAtom                { T.App (pos $1) $1 $2 }
+  | Type1 polarised(TypeAtom)     { T.App (pos $1) $1 $2 }
 
 Type2 :: { PType }
   : polarised(Type1)              { $1 }

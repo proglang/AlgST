@@ -1,0 +1,9 @@
+protocol Repeat (x:P) = More x (Repeat x) | Quit
+
+type Handler (p:P) = ∀(s:SL). ?p.s -> s
+
+repeater : ∀(p:P). Handler p -> Handler (Repeat p)
+repeater [p] serveP [s] c = case c of {
+  Quit c -> c,
+  More c -> serveP [?Repeat p.s] c |> repeater [p] serveP [s]
+}

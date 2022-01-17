@@ -1,0 +1,21 @@
+protocol SimpleArith
+  = Add +Int +Int -Int
+  | Neg +Int -Int
+
+simpleArith : ∀(s:SL). ?SimpleArith.s -> s
+simpleArith [s] c = case c of {
+  Add c ->
+    let (a, c) = receive [Int, ?Int.!Int.s] c in
+    let (b, c) = receive [Int, !Int.s] c in
+    send [Int, s] (a + b) c,
+  Neg c ->
+    let (a, c) = receive [Int, !Int.s] c in
+    send [Int, s] (negate a) c
+}
+
+add : ∀(s:SL). Int -> Int -> !SimpleArith.s -> (Int, s)
+add [s] x y c =
+  select Add [s] c
+    |> send [Int, !Int.?Int.s] x
+    |> send [Int, ?Int.s] y
+    |> receive [Int, s]

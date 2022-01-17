@@ -1,0 +1,22 @@
+type Send (a:TL) = ∀(s:SL). a -> !a.s -o s
+type Recv (a:TL) = ∀(s:SL). ?a.s -> (a, s)
+
+sendPair : ∀(a:TL). Send a -> ∀(b:TL). Send b -> Send (a, b)
+sendPair [a] sendA [b] sendB [s] ab c =
+  let (a, b) = ab in
+  select (,) [a, b, s] c
+    |> sendA [!b.s] a
+    |> sendB [s] b
+
+recvPair : ∀(a:TL). Recv a -> ∀(b:TL). Recv b -> Recv (a, b)
+recvPair [a] recvA [b] recvB [s] c =
+  let (,) c = c in
+  let (a, c) = recvA [?b.s] c in
+  let (b, c) = recvB [s] c in
+  ((a, b), c)
+
+sendPairM : ∀(a:ML). ∀(b:ML). Send (a, b)
+sendPairM [a, b] = sendPair [a, b] (send [a]) (send [b])
+
+recvPairM : ∀(a:ML). ∀(b:ML). Recv (a, b)
+recvPairM [a, b] = recvPair [a, b] (receive [a]) (receive [b])
