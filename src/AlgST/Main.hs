@@ -107,10 +107,10 @@ runStage opts stage res = do
   let failure = style [SetColor Foreground Dull Red] . styleBold
 
   let styled selector f s = applyStyle (selector opts) f (showString s) ""
-  let putStatus style msg =
+  let putStatus style msg = do
         putStr $ styled stdoutMode style msg
+        hFlush stdout
   putStatus info $ stage ++ " ... "
-  hFlush stdout
 
   case res of
     Left errs -> do
