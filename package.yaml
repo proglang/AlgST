@@ -1,21 +1,13 @@
 name:                AlgST
-version:             0.0.1
-#github:              "githubuser/ContextFreeSession"
-license:             BSD3
+version:             1.0.0
+github:              "JaSpa/AlgST"
+license:             MIT
 author:              "Janek Spaderna"
-copyright:           "2021 authors"
+copyright:           "2022 Janek Spaderna"
+synopsis:            "Parser & Typechecker for Algebraic Session Types"
 
-#extra-source-files:
-#- README.md
-#data-dir: StandardLib
-#data-files: Prelude.fst
-# Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
-
-# To avoid duplicated efforts in documentation and dealing with the
-# complications of embedding Haddock markup inside cabal files, it is
-# common to point users to the README.md file.
+extra-source-files:
+  - README.md
 
 dependencies:
 - base >= 4.7 && < 5
