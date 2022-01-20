@@ -177,61 +177,6 @@ checkWithProgram prog k = runExceptT $ do
 checkProgram :: Program Rn -> RnM (Either (NonEmpty PosError) TcProgram)
 checkProgram p = checkWithProgram p \_ _ -> pure . Right
 
-{-
-checkWithProgram ::
-  Program Rn ->
-  ((forall x. TypeM x -> KindM x) -> TcProgram -> TcM KiTypingEnv KiSt a) ->
-  RnM (Either (NonEmpty PosError) (TcProgram, a))
-checkWithProgram prog action = fmap (first runErrors) . runExceptT $ do
-  (st, (tcTypes, tcValues, tcImports)) <-
-    ExceptT
-      . fmap sequence
-      $ runTcM kiEnv st0 checkGlobals
-  let tyEnv =
-        TyTypingEnv
-          { tcCheckedTypes = tcTypes,
-            tcCheckedValues = tcValues <> Map.map (ValueGlobal Nothing . signatureType) tcImports,
-            tcKiTypingEnv = kiEnv
-          }
-  let embed m = embedTypeM tyEnv m
-  let mkProg values =
-        Program
-          { programTypes = tcTypes,
-            programValues = values,
-            programImports = tcImports
-          }
-  let checkBodies = do
-        prog <- mkProg <$> checkValueBodies embed tcValues
-        a <- action embed prog
-        pure (prog, a)
-  (_st, res) <-
-    ExceptT
-      . fmap sequence
-      $ runTcM kiEnv st checkBodies
-  pure res
-  where
-    kiEnv =
-      KiTypingEnv
-        { tcKindEnv = mempty,
-          tcExpansionStack = mempty,
-          tcContext = prog
-        }
-    st0 =
-      KiSt
-        { tcAliases =
-            let getAlias _ decl = Identity do
-                  AliasDecl origin alias <- pure decl
-                  pure $ UncheckedAlias (pos origin) alias
-             in runIdentity $ Map.traverseMaybeWithKey getAlias $ programTypes prog
-        }
-    checkGlobals = do
-      checkAliases (Map.keys (programTypes prog))
-      tcTypes <- checkTypeDecls (programTypes prog)
-      checkedDefs <- checkValueSignatures (programValues prog)
-      tcImports <- traverse checkSignature (programImports prog)
-      pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcImports)
--}
-
 addError :: MonadValidate Errors m => PosError -> m ()
 addError !e = dispute $ This $ DL.singleton e
 
