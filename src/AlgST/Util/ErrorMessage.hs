@@ -1,16 +1,19 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module AlgST.Util.ErrorMessage
   ( ErrorMessage (..),
     ErrorMsg (..),
-    PosError (..),
+    Diagnostic (..),
+    DiagKind (..),
+    pattern PosError,
     MsgTag (..),
-    redFGStyling,
   )
 where
 
@@ -18,7 +21,9 @@ import AlgST.Parse.Unparser
 import AlgST.Syntax.Expression as E
 import qualified AlgST.Syntax.Kind as K
 import qualified AlgST.Syntax.Type as T
+import AlgST.Util.Output
 import Data.Coerce
+import qualified Data.DList as DL
 import Data.List (intercalate)
 import Syntax.Base
 import Syntax.ProgramVariable
@@ -33,9 +38,6 @@ class ErrorMsg a where
   -- no special rendering.
   msgStyling :: a -> [SGR]
 
-redFGStyling :: [SGR]
-redFGStyling = [SetColor Foreground Vivid Red]
-
 -- | Specifies that this part of the error message is not as important as the
 -- surroundings. When rendered with colors this uses a subdued highlighting.
 newtype MsgTag a = MsgTag a
@@ -44,10 +46,39 @@ data ErrorMessage where
   Error :: ErrorMsg a => a -> ErrorMessage
   ErrLine :: ErrorMessage
 
-data PosError = PosError !Pos [ErrorMessage]
+data DiagKind
+  = DiagError
 
-instance Position PosError where
-  pos (PosError p _) = p
+data Diagnostic = Diagnostic
+  { diagnosticKind :: !DiagKind,
+    diagnosticPos :: !Pos,
+    diagnosticMsg :: DL.DList ErrorMessage
+  }
+
+pattern DLIST :: [a] -> DL.DList a
+pattern DLIST xs <-
+  (DL.toList -> xs)
+  where
+    DLIST xs = DL.fromList xs
+
+pattern PosError :: Pos -> [ErrorMessage] -> Diagnostic
+pattern PosError p errs =
+  Diagnostic
+    { diagnosticKind = DiagError,
+      diagnosticPos = p,
+      diagnosticMsg = DLIST errs
+    }
+
+{-# COMPLETE PosError #-}
+
+instance ErrorMsg DiagKind where
+  msg = \case
+    DiagError -> "error"
+  msgStyling = \case
+    DiagError -> redFGStyling
+
+instance Position Diagnostic where
+  pos = diagnosticPos
 
 instance Unparse (T.XType x) => ErrorMsg (T.Type x) where
   msg = show

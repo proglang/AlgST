@@ -24,8 +24,11 @@ styleBold :: ShowS -> ShowS
 styleBold = style [boldSGR]
 
 styleRed :: ShowS -> ShowS
-styleRed = style [SetColor Foreground Dull Red]
+styleRed = style redFGStyling
 
 applyStyle :: OutputMode -> (a -> a) -> a -> a
 applyStyle Colorized f = f
 applyStyle Plain _ = id
+
+redFGStyling :: [SGR]
+redFGStyling = [SetColor Foreground Vivid Red]

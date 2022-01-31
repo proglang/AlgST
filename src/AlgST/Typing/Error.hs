@@ -30,7 +30,7 @@ unexpectedKind ::
   T.Type x ->
   K.Kind ->
   [K.Kind] ->
-  PosError
+  Diagnostic
 unexpectedKind t kind hintKinds = PosError (pos t) (message ++ hint)
   where
     message =
@@ -46,7 +46,7 @@ unexpectedKind t kind hintKinds = PosError (pos t) (message ++ hint)
         []
 {-# NOINLINE unexpectedKind #-}
 
-unexpectedForkKind :: String -> RnExp -> TcType -> K.Kind -> K.Kind -> PosError
+unexpectedForkKind :: String -> RnExp -> TcType -> K.Kind -> K.Kind -> Diagnostic
 unexpectedForkKind forkKind e ty kiActual kiExpected =
   PosError (pos e) $
     errUnline
@@ -62,7 +62,7 @@ unexpectedForkKind forkKind e ty kiActual kiExpected =
       ]
 {-# NOINLINE unexpectedForkKind #-}
 
-typeMismatch :: PExp -> TcType -> TcType -> TcType -> TcType -> PosError
+typeMismatch :: PExp -> TcType -> TcType -> TcType -> TcType -> Diagnostic
 typeMismatch expr tyActual tyActualNF tyExpected tyExpectedNF =
   PosError (pos expr) $
     errUnline
@@ -75,7 +75,7 @@ typeMismatch expr tyActual tyActualNF tyExpected tyExpectedNF =
       ]
 {-# NOINLINE typeMismatch #-}
 
-expectedBool :: Pos -> TcType -> PosError
+expectedBool :: Pos -> TcType -> Diagnostic
 expectedBool p ty =
   PosError
     p
@@ -96,11 +96,11 @@ expectedBool p ty =
 -- It is unlikely that this error can be triggered. But I feel that it is
 -- better to have an error message at hand should it be needed than crashing
 -- the compiler.
-noNormalform :: TcType -> PosError
+noNormalform :: TcType -> Diagnostic
 noNormalform t = PosError (pos t) [Error "Malformed type:", Error t]
 {-# NOINLINE noNormalform #-}
 
-missingUse :: ProgVar -> Var -> PosError
+missingUse :: ProgVar -> Var -> Diagnostic
 missingUse var Var {varLocation = loc} =
   PosError
     loc
@@ -110,7 +110,7 @@ missingUse var Var {varLocation = loc} =
     ]
 {-# NOINLINE missingUse #-}
 
-invalidConsumed :: Pos -> ProgVar -> Var -> Pos -> PosError
+invalidConsumed :: Pos -> ProgVar -> Var -> Pos -> Diagnostic
 invalidConsumed contextLoc name var loc =
   PosError
     loc
@@ -127,7 +127,7 @@ invalidConsumed contextLoc name var loc =
     ]
 {-# NOINLINE invalidConsumed #-}
 
-linVarUsedTwice :: Pos -> Pos -> ProgVar -> Var -> PosError
+linVarUsedTwice :: Pos -> Pos -> ProgVar -> Var -> Diagnostic
 linVarUsedTwice loc1 loc2 name var =
   PosError
     (max loc1 loc2)
@@ -146,7 +146,7 @@ linVarUsedTwice loc1 loc2 name var =
     ]
 {-# NOINLINE linVarUsedTwice #-}
 
-noArrowType :: RnExp -> TcType -> PosError
+noArrowType :: RnExp -> TcType -> Diagnostic
 noArrowType e t =
   PosError
     (pos e)
@@ -162,7 +162,7 @@ noArrowType e t =
     ]
 {-# NOINLINE noArrowType #-}
 
-noForallType :: RnExp -> TcType -> PosError
+noForallType :: RnExp -> TcType -> Diagnostic
 noForallType e t =
   PosError
     (pos e)
@@ -178,7 +178,7 @@ noForallType e t =
     ]
 {-# NOINLINE noForallType #-}
 
-typeConstructorNParams :: Pos -> NonEmpty RnType -> Int -> Int -> PosError
+typeConstructorNParams :: Pos -> NonEmpty RnType -> Int -> Int -> Diagnostic
 typeConstructorNParams loc ts !given !expected =
   PosError
     loc
@@ -197,7 +197,7 @@ typeConstructorNParams loc ts !given !expected =
     ]
 {-# NOINLINE typeConstructorNParams #-}
 
-cyclicAliases :: [(Pos, TypeVar, TypeAlias Rn)] -> PosError
+cyclicAliases :: [(Pos, TypeVar, TypeAlias Rn)] -> Diagnostic
 cyclicAliases aliases =
   PosError errLoc $
     Error "Cycle in type synonym declarations." :
@@ -221,7 +221,7 @@ cyclicAliases aliases =
     aliasHead name params = Error "type" : Error name : [Error p | (p, _) <- params]
 {-# NOINLINE cyclicAliases #-}
 
-invalidNominalKind :: Pos -> String -> TypeVar -> K.Kind -> NonEmpty K.Kind -> PosError
+invalidNominalKind :: Pos -> String -> TypeVar -> K.Kind -> NonEmpty K.Kind -> Diagnostic
 invalidNominalKind loc nomKind name actual allowed =
   PosError
     loc
@@ -238,7 +238,7 @@ invalidNominalKind loc nomKind name actual allowed =
     ]
 {-# NOINLINE invalidNominalKind #-}
 
-mismatchedBind :: PTVar -> TcType -> PosError
+mismatchedBind :: PTVar -> TcType -> Diagnostic
 mismatchedBind var t =
   PosError (pos var) $
     Error (choose "Binding of variable" "Binding of type variable") :
@@ -250,7 +250,7 @@ mismatchedBind var t =
     choose x y = either (const x) (const y) var
 {-# NOINLINE mismatchedBind #-}
 
-invalidPatternExpr :: String -> Pos -> TcType -> TcType -> PosError
+invalidPatternExpr :: String -> Pos -> TcType -> TcType -> Diagnostic
 invalidPatternExpr desc loc scrutTy tyNF =
   PosError loc $
     errUnline
@@ -260,13 +260,13 @@ invalidPatternExpr desc loc scrutTy tyNF =
       ]
 {-# NOINLINE invalidPatternExpr #-}
 
-invalidSessionCaseBranch :: E.CaseBranch f Rn -> PosError
+invalidSessionCaseBranch :: E.CaseBranch f Rn -> Diagnostic
 invalidSessionCaseBranch branch = PosError (E.branchPos branch) [Error msg]
   where
     msg = "Branches of a receiving case must bind exactly one variable."
 {-# NOINLINE invalidSessionCaseBranch #-}
 
-mismatchedCaseConstructor :: Pos -> TcType -> ProgVar -> PosError
+mismatchedCaseConstructor :: Pos -> TcType -> ProgVar -> Diagnostic
 mismatchedCaseConstructor loc ty con =
   PosError
     loc
@@ -276,7 +276,7 @@ mismatchedCaseConstructor loc ty con =
     ]
 {-# NOINLINE mismatchedCaseConstructor #-}
 
-missingCaseBranches :: Pos -> [ProgVar] -> PosError
+missingCaseBranches :: Pos -> [ProgVar] -> Diagnostic
 missingCaseBranches loc branches =
   PosError loc $
     Error "Incomplete case. Missing" :
@@ -284,7 +284,7 @@ missingCaseBranches loc branches =
     missingBranches branches
 {-# NOINLINE missingCaseBranches #-}
 
-noSingularConstructorType :: Pos -> TcType -> [ProgVar] -> PosError
+noSingularConstructorType :: Pos -> TcType -> [ProgVar] -> Diagnostic
 noSingularConstructorType loc ty branches =
   PosError loc $
     Error "Values of type" :
@@ -305,7 +305,7 @@ missingBranches branches =
       | branch <- truncate 3 (Error "...") (Error <$> branches)
     ]
 
-emptyCaseExpr :: Pos -> PosError
+emptyCaseExpr :: Pos -> Diagnostic
 emptyCaseExpr loc = PosError loc [Error "Empty case expression."]
 {-# NOINLINE emptyCaseExpr #-}
 
@@ -341,7 +341,7 @@ instance BranchSpec CondBranch where
   {-# INLINE displayBranchError #-}
 
 branchedConsumeDifference ::
-  (BranchSpec a, BranchSpec b) => ProgVar -> Var -> a -> Pos -> b -> PosError
+  (BranchSpec a, BranchSpec b) => ProgVar -> Var -> a -> Pos -> b -> Diagnostic
 branchedConsumeDifference name var consumeBranch consumeLoc otherBranch =
   PosError consumeLoc $
     concat
@@ -367,7 +367,7 @@ branchedConsumeDifference name var consumeBranch consumeLoc otherBranch =
       ]
 {-# NOINLINE branchedConsumeDifference #-}
 
-branchPatternBindingCount :: Pos -> ProgVar -> Int -> Int -> PosError
+branchPatternBindingCount :: Pos -> ProgVar -> Int -> Int -> Diagnostic
 branchPatternBindingCount loc name !expected !given =
   PosError
     loc
@@ -380,13 +380,13 @@ branchPatternBindingCount loc name !expected !given =
     ]
 {-# NOINLINE branchPatternBindingCount #-}
 
-unnecessaryWildcard :: Pos -> PosError
+unnecessaryWildcard :: Pos -> Diagnostic
 unnecessaryWildcard loc = PosError loc [Error msg]
   where
     msg = "Unnecessary wildcard. All possible branches are handled."
 {-# NOINLINE unnecessaryWildcard #-}
 
-wildcardNotAllowed :: Pos -> Pos -> PosError
+wildcardNotAllowed :: Pos -> Pos -> Diagnostic
 wildcardNotAllowed wildLoc caseLoc =
   PosError
     wildLoc
@@ -395,7 +395,7 @@ wildcardNotAllowed wildLoc caseLoc =
     ]
 {-# NOINLINE wildcardNotAllowed #-}
 
-protocolConAsValue :: Pos -> ProgVar -> TypeVar -> PosError
+protocolConAsValue :: Pos -> ProgVar -> TypeVar -> Diagnostic
 protocolConAsValue loc con parent =
   PosError
     loc
@@ -408,7 +408,7 @@ protocolConAsValue loc con parent =
     ]
 {-# NOINLINE protocolConAsValue #-}
 
-builtinMissingApp :: RnExp -> String -> PosError
+builtinMissingApp :: RnExp -> String -> Diagnostic
 builtinMissingApp e expected =
   PosError
     (pos e)
@@ -419,7 +419,7 @@ builtinMissingApp e expected =
     ]
 {-# NOINLINE builtinMissingApp #-}
 
-unboundVar :: forall v. (Variable v, ErrorMsg v) => v -> PosError
+unboundVar :: forall v. (Variable v, ErrorMsg v) => v -> Diagnostic
 unboundVar v =
   PosError
     (pos v)
@@ -427,10 +427,10 @@ unboundVar v =
       Error $ chooseVar @v @String "variable" "type variable",
       Error v
     ]
-{-# SPECIALIZE unboundVar :: ProgVar -> PosError #-}
-{-# SPECIALIZE unboundVar :: TypeVar -> PosError #-}
+{-# SPECIALIZE unboundVar :: ProgVar -> Diagnostic #-}
+{-# SPECIALIZE unboundVar :: TypeVar -> Diagnostic #-}
 
-undeclaredCon :: forall v. (Variable v, ErrorMsg v) => v -> PosError
+undeclaredCon :: forall v. (Variable v, ErrorMsg v) => v -> Diagnostic
 undeclaredCon v =
   PosError
     (pos v)
@@ -438,8 +438,8 @@ undeclaredCon v =
       Error $ chooseVar @v @String "constructor" "type",
       Error v
     ]
-{-# SPECIALIZE undeclaredCon :: ProgVar -> PosError #-}
-{-# SPECIALIZE undeclaredCon :: TypeVar -> PosError #-}
+{-# SPECIALIZE undeclaredCon :: ProgVar -> Diagnostic #-}
+{-# SPECIALIZE undeclaredCon :: TypeVar -> Diagnostic #-}
 
 showType :: TcType -> Maybe TcType -> [ErrorMessage]
 showType t mNF

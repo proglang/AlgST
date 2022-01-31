@@ -10,6 +10,7 @@ module AlgST.Parse.Lexer
 
 import qualified AlgST.Syntax.Kind as K
 import           AlgST.Util.ErrorMessage
+import           AlgST.Util.Output
 import           Syntax.Base
 }
 
@@ -215,7 +216,7 @@ instance Show Token where
   show (TokenDualof _) = "dualof"
   show (TokenEnd _) = "end"
 
-scanTokens :: String -> Either PosError [Token]
+scanTokens :: String -> Either Diagnostic [Token]
 scanTokens str = trim <$> go (alexStartPos, '\n', [], str)
   where
     go inp@(pos,_,_,str) =

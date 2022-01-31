@@ -108,7 +108,7 @@ import Prelude hiding (lookup, truncate)
 
 -- | Translates the typechecker specific error set representation into a simple
 -- list.
-runErrors :: Errors -> NonEmpty PosError
+runErrors :: Errors -> NonEmpty Diagnostic
 runErrors = DL.toNonEmpty . mergeTheseWith id recursiveErrs (<>)
   where
     recursiveErrs (RecursiveSets oneKeys oneRec recs) =
@@ -128,12 +128,12 @@ runTcM typesEnv s m =
 
 type RunTyM = forall x. TypeM x -> KindM x
 
-type RunKiM = forall a. TcM KiTypingEnv KiSt a -> RnM (Either (NonEmpty PosError) a)
+type RunKiM = forall a. TcM KiTypingEnv KiSt a -> RnM (Either (NonEmpty Diagnostic) a)
 
 checkWithProgram ::
   Program Rn ->
-  (RunTyM -> RunKiM -> TcProgram -> RnM (Either (NonEmpty PosError) r)) ->
-  RnM (Either (NonEmpty PosError) r)
+  (RunTyM -> RunKiM -> TcProgram -> RnM (Either (NonEmpty Diagnostic) r)) ->
+  RnM (Either (NonEmpty Diagnostic) r)
 checkWithProgram prog k = runExceptT $ do
   let runWrapExcept st m = ExceptT . fmap (first runErrors . sequence) $ runTcM kiEnv st m
   (st, (tcTypes, tcValues, tcImports)) <- runWrapExcept st0 checkGlobals
@@ -174,21 +174,21 @@ checkWithProgram prog k = runExceptT $ do
       tcImports <- traverse checkSignature (programImports prog)
       pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcImports)
 
-checkProgram :: Program Rn -> RnM (Either (NonEmpty PosError) TcProgram)
+checkProgram :: Program Rn -> RnM (Either (NonEmpty Diagnostic) TcProgram)
 checkProgram p = checkWithProgram p \_ _ -> pure . Right
 
-addError :: MonadValidate Errors m => PosError -> m ()
+addError :: MonadValidate Errors m => Diagnostic -> m ()
 addError !e = dispute $ This $ DL.singleton e
 
 -- | Records multiple errors. If the error list is acutally empty, no errors
 -- will be recorded and the computation won't fail.
-addErrors :: MonadValidate Errors m => [PosError] -> m ()
+addErrors :: MonadValidate Errors m => [Diagnostic] -> m ()
 addErrors = maybe (pure ()) (dispute . This . DL.fromNonEmpty) . nonEmpty
 
-addFatalError :: MonadValidate Errors m => PosError -> m a
+addFatalError :: MonadValidate Errors m => Diagnostic -> m a
 addFatalError !e = refute $ This $ DL.singleton e
 
-maybeError :: MonadValidate Errors m => PosError -> Maybe a -> m a
+maybeError :: MonadValidate Errors m => Diagnostic -> Maybe a -> m a
 maybeError e = maybe (addFatalError e) pure
 
 useVar :: MonadValidate Errors m => Pos -> ProgVar -> Var -> m Var
@@ -391,7 +391,7 @@ typeAppBase = flip go
       T.Con p c -> pure (p, c, toList us)
       T.App _ t u -> go (u <| us) t
       t -> addFatalError $ err us t
-    err :: NonEmpty RnType -> RnType -> PosError
+    err :: NonEmpty RnType -> RnType -> Diagnostic
     err us t = Error.typeConstructorNParams (pos t) (t <| us) (length us) 0
 
 kisynthTypeCon :: Pos -> TypeVar -> [RnType] -> KindM (TcType, K.Kind)
@@ -1256,7 +1256,7 @@ bindTyVar v k = bindParams [(v, k)]
 bindParams :: HasKiEnv env => Params -> env -> env
 bindParams ps = kiEnvL . tcKindEnvL <>~ Map.fromList ps
 
-errorIf :: MonadValidate Errors m => Bool -> PosError -> m ()
+errorIf :: MonadValidate Errors m => Bool -> Diagnostic -> m ()
 errorIf True e = addError e
 errorIf _ _ = pure ()
 

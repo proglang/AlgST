@@ -61,21 +61,21 @@ import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.Map.Merge.Strict as Map
 import qualified Data.Map.Strict as Map
 
-type ParseM = Validate (DNonEmpty PosError)
+type ParseM = Validate (DNonEmpty Diagnostic)
 
 -- | Evaluates a value in the 'ParseM' monad producing a list of errors and
 -- maybe a result.
-runParseM :: ParseM a -> Either (NonEmpty PosError) a
+runParseM :: ParseM a -> Either (NonEmpty Diagnostic) a
 runParseM = mapErrors DL.toNonEmpty >>> runValidate
 
 addError :: Pos -> [ErrorMessage] -> ParseM ()
 addError !p err = addErrors [PosError p err]
 
-addErrors :: [PosError] -> ParseM ()
+addErrors :: [Diagnostic] -> ParseM ()
 addErrors [] = pure ()
 addErrors (e : es) = dispute $ DL.fromNonEmpty $ e :| es
 
-fatalError :: PosError -> ParseM a
+fatalError :: Diagnostic -> ParseM a
 fatalError = refute . DL.singleton
 
 resolveOpSeq :: Parenthesized -> OpSeq first (ProgVar, [PType]) -> ParseM PExp
@@ -109,12 +109,13 @@ completePrevious = Kleisli \p -> do
       put Nothing
       let decl = SignatureDecl (OriginUser (pos name)) sig
       imports <- lift $ insertNoDuplicates name decl (programImports p)
-      pure p { programImports = imports }
+      pure p {programImports = imports}
 
 programValueDecl :: ProgVar -> PType -> ProgBuilder
-programValueDecl v ty = completePrevious >>> Kleisli \p -> do
-  put $ Just (v, ty)
-  pure p
+programValueDecl v ty =
+  completePrevious >>> Kleisli \p -> do
+    put $ Just (v, ty)
+    pure p
 
 programValueBinding :: ProgVar -> [PTVar] -> PExp -> ProgBuilder
 programValueBinding v params e = Kleisli \p0 -> do
@@ -123,8 +124,8 @@ programValueBinding v params e = Kleisli \p0 -> do
     -- If there is an incomplete definition which does not match the current
     -- variable, we have to add it to the "imported" signatures.
     if fmap fst mincomplete == Just v
-       then pure p0
-       else runKleisli completePrevious p0
+      then pure p0
+      else runKleisli completePrevious p0
 
   -- Re-read the incomplete binding, might be changed by the call to
   -- 'validateNotIncomplete' and remember that there is no incomplete binding
@@ -153,11 +154,12 @@ programValueBinding v params e = Kleisli \p0 -> do
       pure p {programValues = parsedValues'}
 
 programTypeDecl :: TypeVar -> TypeDecl Parse -> ProgBuilder
-programTypeDecl v tydecl = completePrevious >>> Kleisli \p -> do
-  parsedTypes' <- lift $ insertNoDuplicates v tydecl (programTypes p)
-  let constructors = Left <$> typeConstructors v tydecl
-  parsedValues' <- lift $ mergeNoDuplicates (programValues p) constructors
-  pure p {programTypes = parsedTypes', programValues = parsedValues'}
+programTypeDecl v tydecl =
+  completePrevious >>> Kleisli \p -> do
+    parsedTypes' <- lift $ insertNoDuplicates v tydecl (programTypes p)
+    let constructors = Left <$> typeConstructors v tydecl
+    parsedValues' <- lift $ mergeNoDuplicates (programValues p) constructors
+    pure p {programTypes = parsedTypes', programValues = parsedValues'}
 
 -- | Inserts the value under the given key into the map. If there is already a
 -- value under that key an error as with 'errorMultipleDeclarations' is added
@@ -176,7 +178,7 @@ mergeNoDuplicates =
     pure v1
 
 class DuplicateError k a where
-  duplicateError :: k -> a -> a -> PosError
+  duplicateError :: k -> a -> a -> Diagnostic
 
 -- | Message for duplicate type declarations.
 instance DuplicateError TypeVar (TypeDecl Parse) where
@@ -209,7 +211,8 @@ instance DuplicateError ProgVar (E.CaseBranch f Parse) where
 instance ErrorMsg a => DuplicateError a Pos where
   duplicateError = errorDuplicateBind
 
-errorMultipleDeclarations :: (ErrorMsg a, Position p1, Position p2) => a -> p1 -> p2 -> PosError
+errorMultipleDeclarations ::
+  (ErrorMsg a, Position p1, Position p2) => a -> p1 -> p2 -> Diagnostic
 errorMultipleDeclarations a (pos -> p1) (pos -> p2) =
   PosError
     (max p1 p2)
@@ -223,7 +226,7 @@ errorMultipleDeclarations a (pos -> p1) (pos -> p2) =
       Error (max p1 p2)
     ]
 
-errorDuplicateBind :: ErrorMsg v => v -> Pos -> Pos -> PosError
+errorDuplicateBind :: ErrorMsg v => v -> Pos -> Pos -> Diagnostic
 errorDuplicateBind name p1 p2 =
   PosError
     (min p1 p2)
@@ -238,7 +241,7 @@ errorDuplicateBind name p1 p2 =
     ]
 {-# NOINLINE errorDuplicateBind #-}
 
-errorDuplicateBranch :: ProgVar -> E.CaseBranch f x -> E.CaseBranch f x -> PosError
+errorDuplicateBranch :: ProgVar -> E.CaseBranch f x -> E.CaseBranch f x -> Diagnostic
 errorDuplicateBranch name (pos -> p1) (pos -> p2) =
   PosError
     (max p1 p2)
@@ -252,7 +255,7 @@ errorDuplicateBranch name (pos -> p1) (pos -> p2) =
       Error (max p1 p2)
     ]
 
-errorImportShadowed :: ProgVar -> PosError
+errorImportShadowed :: ProgVar -> Diagnostic
 errorImportShadowed name =
   PosError
     (pos name)
@@ -264,7 +267,7 @@ errorImportShadowed name =
 -- | An error message for when a lambda binds only type variables but uses the
 -- linear arrow @-o@. This combination does not make sense, therefore we do not
 -- allow it.
-errorNoTermLinLambda :: Pos -> Pos -> PosError
+errorNoTermLinLambda :: Pos -> Pos -> Diagnostic
 errorNoTermLinLambda lambdaLoc arrowLoc =
   PosError
     arrowLoc
@@ -276,7 +279,7 @@ errorNoTermLinLambda lambdaLoc arrowLoc =
     ]
 {-# NOINLINE errorNoTermLinLambda #-}
 
-errorRecNoTermLambda :: Pos -> PosError
+errorRecNoTermLambda :: Pos -> Diagnostic
 errorRecNoTermLambda p = PosError p [Error msg1, ErrLine, Error msg2]
   where
     msg1 =
@@ -287,7 +290,8 @@ errorRecNoTermLambda p = PosError p [Error msg1, ErrLine, Error msg2]
       \their right-hand side lambda abstraction."
 {-# NOINLINE errorRecNoTermLambda #-}
 
-errorMultipleWildcards :: E.CaseBranch Identity Parse -> E.CaseBranch Identity Parse -> PosError
+errorMultipleWildcards ::
+  E.CaseBranch Identity Parse -> E.CaseBranch Identity Parse -> Diagnostic
 errorMultipleWildcards x y =
   PosError
     (pos b2)
@@ -307,7 +311,8 @@ errorMultipleWildcards x y =
         then (x, y)
         else (y, x)
 
-errorMisplacedPairCon :: forall v proxy. (Variable v, ErrorMsg v) => Pos -> proxy v -> PosError
+errorMisplacedPairCon ::
+  forall v proxy. (Variable v, ErrorMsg v) => Pos -> proxy v -> Diagnostic
 errorMisplacedPairCon p _ =
   PosError
     p

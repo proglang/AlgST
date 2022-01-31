@@ -141,7 +141,7 @@ spec = do
 
 infix 1 `nfShouldBe`, `kindShouldBe`
 
-shouldNotError :: (HasCallStack, Foldable f) => Either (f PosError) a -> IO a
+shouldNotError :: (HasCallStack, Foldable f) => Either (f Diagnostic) a -> IO a
 shouldNotError = \case
   Left errs -> expectationFailure (plainErrors errs) >> mzero
   Right a -> pure a
@@ -199,7 +199,7 @@ runKiAction p m src = first plainErrors do
     checkWithProgram rnDecls \embed runTc _ -> runTc $ m embed renamed
 
 -- | Parses and typecheks a program in the context of 'declarations'.
-parseAndCheckProgram :: String -> Either (NonEmpty PosError) (Program Tc)
+parseAndCheckProgram :: String -> Either (NonEmpty Diagnostic) (Program Tc)
 parseAndCheckProgram src = do
   parsed <- runParser (parseProg declarations) src
   withRenamedProgram parsed checkProgram

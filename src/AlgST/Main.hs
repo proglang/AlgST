@@ -100,7 +100,7 @@ evalAction opts runTy runKi i = \case
         Just a -> True <$ f a
         Nothing -> pure False
 
-runStage :: Foldable f => Options -> String -> Either (f PosError) a -> IO (Maybe a)
+runStage :: Foldable f => Options -> String -> Either (f Diagnostic) a -> IO (Maybe a)
 runStage opts stage res = do
   let info = style [SetColor Foreground Vivid Cyan]
   let success = style [SetColor Foreground Dull Green]

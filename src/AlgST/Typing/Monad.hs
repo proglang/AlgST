@@ -3,6 +3,14 @@
 
 module AlgST.Typing.Monad where
 
+import AlgST.Rename
+import AlgST.Syntax.Decl
+import qualified AlgST.Syntax.Kind as K
+import AlgST.Syntax.Program
+import AlgST.Syntax.Variable
+import AlgST.Typing.Phase
+import AlgST.Util.ErrorMessage (Diagnostic)
+import AlgST.Util.Lenses
 import Control.Monad.Eta
 import Control.Monad.Reader
 import Control.Monad.State.Strict
@@ -13,14 +21,6 @@ import Data.Sequence (Seq)
 import qualified Data.Set as Set
 import Data.These
 import Lens.Family2
-import AlgST.Rename
-import AlgST.Syntax.Decl
-import qualified AlgST.Syntax.Kind as K
-import AlgST.Syntax.Program
-import AlgST.Syntax.Variable
-import AlgST.Typing.Phase
-import AlgST.Util.ErrorMessage (PosError)
-import AlgST.Util.Lenses
 
 -- | A @Var@ tracks a 'ProgVar's type, declaration location and usage
 -- information.
@@ -151,7 +151,7 @@ type TypeM = TcM TyTypingEnv TySt
 
 type TcM env s = ValidateT Errors (StateT s (ReaderT env RnM))
 
-type Errors = These (DNonEmpty PosError) RecursiveSets
+type Errors = These (DNonEmpty Diagnostic) RecursiveSets
 
 liftRn :: RnM a -> TcM env st a
 liftRn = etaTcM . lift . lift . lift

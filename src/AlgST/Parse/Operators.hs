@@ -46,7 +46,7 @@ deriving instance Foldable (OpSeq first)
 deriving instance Traversable (OpSeq first)
 
 parseOperators ::
-  MonadValidate [PosError] m =>
+  MonadValidate [Diagnostic] m =>
   Parenthesized ->
   OpSeq first (ProgVar, [PType]) ->
   m PExp
@@ -81,7 +81,7 @@ instance Bounded Prec where
   maxBound = MaxPrec
 
 foldGroupedOperators ::
-  MonadValidate [PosError] m => Parenthesized -> OpGrouping -> m PExp
+  MonadValidate [Diagnostic] m => Parenthesized -> OpGrouping -> m PExp
 foldGroupedOperators ps = \case
   OpGrouping Nothing [] Nothing ->
     error "internal parsing error: empty operator sequence"
@@ -111,7 +111,7 @@ foldGroupedOperators ps = \case
 
 foldOperators ::
   forall m.
-  MonadValidate [PosError] m =>
+  MonadValidate [Diagnostic] m =>
   PExp ->
   [(ResolvedOp, PExp)] ->
   Maybe ResolvedOp ->
@@ -217,7 +217,7 @@ buildOpApplication op lhs mrhs
 -- | Annotates all 'ProgVar's with their operator 'Info' or returns a list of
 -- errors about unknown operators.
 resolveOperators ::
-  ( MonadValidate [PosError] m,
+  ( MonadValidate [Diagnostic] m,
     Traversable f
   ) =>
   f (ProgVar, [PType]) ->
@@ -261,7 +261,7 @@ groupOperators = \case
       Operator op (Operand e ops) ->
         go mLhs (DL.snoc groupedOps (op, e)) ops
 
-errorMissingBothOperands :: ProgVar -> PosError
+errorMissingBothOperands :: ProgVar -> Diagnostic
 errorMissingBothOperands v =
   PosError
     (pos v)
@@ -278,7 +278,7 @@ errorMissingOperand ::
   -- | Additional 'ErrorMessage' components
   [ErrorMessage] ->
   ResolvedOp ->
-  PosError
+  Diagnostic
 errorMissingOperand side additionalMsgs v = PosError (pos v) (msgs ++ additionalMsgs)
   where
     msgs =
@@ -296,7 +296,7 @@ type Side = forall a. a -> Either a a
 select :: Side -> b -> b -> b
 select side = either const (const id) . side
 
-errorUnsupportedRightSection :: ResolvedOp -> PosError
+errorUnsupportedRightSection :: ResolvedOp -> Diagnostic
 errorUnsupportedRightSection =
   errorMissingOperand
     Left
@@ -304,7 +304,7 @@ errorUnsupportedRightSection =
       Error "Right sections are not (yet) supported."
     ]
 
-errorUnknownOperator :: ProgVar -> PosError
+errorUnknownOperator :: ProgVar -> Diagnostic
 errorUnknownOperator v =
   PosError
     (pos v)
@@ -312,7 +312,7 @@ errorUnknownOperator v =
       Error v
     ]
 
-errorNonAssocOperators :: ResolvedOp -> ResolvedOp -> PosError
+errorNonAssocOperators :: ResolvedOp -> ResolvedOp -> Diagnostic
 errorNonAssocOperators v1 v2 =
   PosError
     (pos v2)
