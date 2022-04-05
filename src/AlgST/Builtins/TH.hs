@@ -1,27 +1,29 @@
+{-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-defer-type-errors #-}
 
 module AlgST.Builtins.TH where
 
+import AlgST.Parse.Parser
+import AlgST.Parse.Phase
+import AlgST.Syntax.Decl
+import AlgST.Syntax.Program
+import AlgST.Util
 import Control.Monad
 import Data.List.NonEmpty (nonEmpty)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.Set as Set
 import Language.Haskell.TH
-import AlgST.Parse.Parser
-import AlgST.Parse.Phase
-import AlgST.Syntax.Decl
-import AlgST.Syntax.Program
-import AlgST.Util
+import qualified Language.Haskell.TH.CodeDo as Code
 import Syntax.Base
 import Syntax.ProgramVariable
 
-parseStatic :: [(String, String)] -> [String] -> TExpQ PProgram
+parseStatic :: [(String, String)] -> [String] -> CodeQ PProgram
 parseStatic = parseStatic' emptyProgram
 
-parseStatic' :: PProgram -> [(String, String)] -> [String] -> TExpQ PProgram
-parseStatic' baseProg sigs lines = do
+parseStatic' :: PProgram -> [(String, String)] -> [String] -> CodeQ PProgram
+parseStatic' baseProg sigs lines = Code.do
   let showVar :: Show a => a -> String
       showVar a = "‘" ++ show a ++ "’"
   let parseSig (name, sig) = do

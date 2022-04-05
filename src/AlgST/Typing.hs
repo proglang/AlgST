@@ -17,10 +17,8 @@ module AlgST.Typing
     runTcM,
 
     -- * Kinds
-    KindM,
     HasKiSt (..),
     HasKiEnv (..),
-    runKindM,
     KindEnv,
     KiSt (..),
     KiTypingEnv (..),
@@ -116,9 +114,6 @@ runErrors = DL.toNonEmpty . mergeTheseWith id recursiveErrs (<>)
         Error.cyclicAliases oneRec
           :| fmap Error.cyclicAliases (Map.elems (Map.delete oneKeys recs))
 
-runKindM :: (HasKiEnv env, HasKiSt s) => env -> s -> KindM a -> RnM (s, Either Errors a)
-runKindM = runTcM
-
 runTypeM :: TyTypingEnv -> TySt -> TypeM a -> RnM (TySt, Either Errors a)
 runTypeM = runTcM
 
@@ -126,7 +121,7 @@ runTcM :: env -> s -> TcM env s a -> RnM (s, Either Errors a)
 runTcM typesEnv s m =
   Tuple.swap <$> runReaderT (runStateT (runValidateT m) s) typesEnv
 
-type RunTyM = forall x. TypeM x -> KindM x
+type RunTyM = forall env st a. (HasKiEnv env, HasKiSt st) => TypeM a -> TcM env st a
 
 type RunKiM = forall a. TcM KiTypingEnv KiSt a -> RnM (Either (NonEmpty Diagnostic) a)
 
@@ -137,13 +132,15 @@ checkWithProgram ::
 checkWithProgram prog k = runExceptT $ do
   let runWrapExcept st m = ExceptT . fmap (first runErrors . sequence) $ runTcM kiEnv st m
   (st, (tcTypes, tcValues, tcImports)) <- runWrapExcept st0 checkGlobals
+  let importedValues = Map.map (ValueGlobal Nothing . signatureType) tcImports
   let tyEnv =
         TyTypingEnv
           { tcCheckedTypes = tcTypes,
-            tcCheckedValues = tcValues <> Map.map (ValueGlobal Nothing . signatureType) tcImports,
+            tcCheckedValues = tcValues <> importedValues,
             tcKiTypingEnv = kiEnv
           }
-  let embed m = embedTypeM tyEnv m
+  let -- Not eta-reduced because of the monomorphism restriction.
+      embed m = embedTypeM tyEnv m
   let mkProg values =
         Program
           { programTypes = tcTypes,
@@ -201,12 +198,13 @@ useVar loc name v = case varUsage v of
     addError (Error.linVarUsedTwice ppos loc name v)
     pure v
 
-checkTypeDecls :: TypesMap Rn -> KindM (TypesMap Tc)
+checkTypeDecls :: (HasKiEnv env, HasKiSt st) => TypesMap Rn -> TcM env st (TypesMap Tc)
 checkTypeDecls = Map.traverseMaybeWithKey checkTypeDecl
 
 -- | Checks the given type declaration. Nothing is done for 'AliasDecl's. The
 -- returned map contains the checked constructors.
-checkTypeDecl :: TypeVar -> TypeDecl Rn -> KindM (Maybe (TypeDecl Tc))
+checkTypeDecl ::
+  (HasKiEnv env, HasKiSt st) => TypeVar -> TypeDecl Rn -> TcM env st (Maybe (TypeDecl Tc))
 checkTypeDecl name = \case
   AliasDecl _ _ ->
     pure Nothing
@@ -238,7 +236,7 @@ checkTypeDecl name = \case
 
 -- | Makes sure all aliases are expanded. This step is to make sure all invalid
 -- type aliases are diagnosed even when they are not used.
-checkAliases :: Foldable f => f TypeVar -> KindM ()
+checkAliases :: (Foldable f, HasKiEnv env, HasKiSt st) => f TypeVar -> TcM env st ()
 checkAliases =
   -- Type aliases are expanded by looking them up.
   traverse_ $ runMaybeT . lookupTypeAlias
@@ -246,7 +244,7 @@ checkAliases =
 -- | Typechecks the signatures of the contained 'ValueDecl's. The resulting map
 -- does not contain any 'ValueCon's. Checked constructors are returned by
 -- 'checkTypeDecl'/'checkTypeDecls'.
-checkValueSignatures :: ValuesMap Rn -> KindM TcValuesMap
+checkValueSignatures :: (HasKiEnv env, HasKiSt st) => ValuesMap Rn -> TcM env st TcValuesMap
 checkValueSignatures = Map.traverseMaybeWithKey $ const \case
   Left _ -> do
     -- The reason for dropping the construcutors here is twofold:
@@ -261,12 +259,12 @@ checkedConstructors :: TypesMap Tc -> TcValuesMap
 checkedConstructors = Map.foldMapWithKey \name ->
   Map.map ValueCon . declConstructors originAt originAt name
 
-checkSignature :: SignatureDecl Rn -> KindM (SignatureDecl Tc)
+checkSignature :: (HasKiEnv env, HasKiSt st) => SignatureDecl Rn -> TcM env st (SignatureDecl Tc)
 checkSignature (SignatureDecl x ty) =
   SignatureDecl x <$> kicheck ty (K.TU (pos x))
 
 checkValueBodies ::
-  (forall a. TypeM a -> KindM a) -> TcValuesMap -> KindM (ValuesMap Tc)
+  (forall a. TypeM a -> TcM env st a) -> TcValuesMap -> TcM env st (ValuesMap Tc)
 checkValueBodies embed = Map.traverseMaybeWithKey \_name -> \case
   ValueCon condecl -> do
     -- Constructors have no body to check.
@@ -383,10 +381,10 @@ lookupTypeAlias name = do
 --
 -- The result is a tuple consisting of the head location, the head, and
 -- parameters (including @us@).
-typeAppBase :: RnType -> NonEmpty RnType -> KindM (Pos, TypeVar, [RnType])
+typeAppBase :: forall env st. RnType -> NonEmpty RnType -> TcM env st (Pos, TypeVar, [RnType])
 typeAppBase = flip go
   where
-    go :: NonEmpty RnType -> RnType -> KindM (Pos, TypeVar, [RnType])
+    go :: NonEmpty RnType -> RnType -> TcM env st (Pos, TypeVar, [RnType])
     go us = \case
       T.Con p c -> pure (p, c, toList us)
       T.App _ t u -> go (u <| us) t
@@ -394,7 +392,8 @@ typeAppBase = flip go
     err :: NonEmpty RnType -> RnType -> Diagnostic
     err us t = Error.typeConstructorNParams (pos t) (t <| us) (length us) 0
 
-kisynthTypeCon :: Pos -> TypeVar -> [RnType] -> KindM (TcType, K.Kind)
+kisynthTypeCon ::
+  (HasKiEnv env, HasKiSt st) => Pos -> TypeVar -> [RnType] -> TcM env st (TcType, K.Kind)
 kisynthTypeCon loc name args =
   runMaybeT (alias <|> decl) >>= maybeError (Error.undeclaredCon name)
   where
@@ -426,7 +425,13 @@ kisynthTypeCon loc name args =
 
 -- | Kind-checks the types against the parameter list. In case they differ in
 -- length an error is emitted.
-zipTypeParams :: Pos -> TypeVar -> Params -> [RnType] -> KindM [(TypeVar, TcType)]
+zipTypeParams ::
+  (HasKiEnv env, HasKiSt st) =>
+  Pos ->
+  TypeVar ->
+  Params ->
+  [RnType] ->
+  TcM env st [(TypeVar, TcType)]
 zipTypeParams loc name ps0 ts0 = go 0 ps0 ts0
   where
     go !_ [] [] = pure []
@@ -462,7 +467,7 @@ substituteTypeConstructors subs = nomDecl >>> substituteConstructors
     substituteConstructors nom =
       mapConstructors (const $ applySubstitutions subs) (nominalConstructors nom)
 
-kisynth :: RnType -> KindM (TcType, K.Kind)
+kisynth :: (HasKiEnv env, HasKiSt st) => RnType -> TcM env st (TcType, K.Kind)
 kisynth =
   etaTcM . \case
     T.Unit p -> do
@@ -527,7 +532,7 @@ kisynth =
     T.Type x ->
       absurd x
 
-kicheck :: RnType -> K.Kind -> KindM TcType
+kicheck :: (HasKiEnv env, HasKiSt st) => RnType -> K.Kind -> TcM env st TcType
 kicheck t k = do
   (t', k') <- kisynth t
   expectSubkind t k' [k]

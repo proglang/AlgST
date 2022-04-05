@@ -145,8 +145,6 @@ instance HasKiEnv KiTypingEnv where
 instance HasKiEnv TyTypingEnv where
   kiEnvL = tcKiTypingEnvL
 
-type KindM a = forall env st. (HasKiEnv env, HasKiSt st) => TcM env st a
-
 type TypeM = TcM TyTypingEnv TySt
 
 type TcM env s = ValidateT Errors (StateT s (ReaderT env RnM))

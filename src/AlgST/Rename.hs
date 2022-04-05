@@ -114,7 +114,7 @@ withRenamedProgram p f = runRename $ renameProgram p >>= f
 -- | Binds all variables traversed over in @f@. If there are duplicate names an
 -- error will be emitted at the provided location.
 bindingAll :: (Traversable f, Variable v) => f v -> (f v -> RnM a) -> RnM a
-bindingAll vs = withBindings (`traverse` vs)
+bindingAll vs = withBindings \x -> traverse x vs
 {-# INLINEABLE bindingAll #-}
 
 bindingAllPTVars :: Traversable f => f PTVar -> (f PTVar -> RnM a) -> RnM a

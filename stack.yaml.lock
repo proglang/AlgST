@@ -5,13 +5,6 @@
 
 packages:
 - completed:
-    hackage: monad-validate-1.2.0.0@sha256:9850f408431098b28806dd464b6825a88a0b56c84f380d7fe0454c1df9d6f881,3505
-    pantry-tree:
-      size: 713
-      sha256: 8e049bd12ce2bd470909578f2ee8eb80b89d5ff88860afa30e29dd4eafecfa3e
-  original:
-    hackage: monad-validate-1.2.0.0@sha256:9850f408431098b28806dd464b6825a88a0b56c84f380d7fe0454c1df9d6f881,3505
-- completed:
     hackage: lens-family-2.1.1@sha256:dc7b2f404f201e37f9d5c3baea4c15ee2beeb0b79f7ccd43c4b38331e22205c7,2026
     pantry-tree:
       size: 612
@@ -25,9 +18,20 @@ packages:
       sha256: dc329b99e191f8fdcf6cd8f1c9d4efdc3bb90d6d8e2aa6957e70134648f9a18c
   original:
     hackage: lens-family-core-2.1.0@sha256:124b4371ffc147a8f2fb59a7bda339ce20eec83f887a647a63497e1efc56f837,2290
+- completed:
+    name: monad-validate
+    version: 1.2.0.0
+    git: https://github.com/LeapYear/monad-validate.git
+    pantry-tree:
+      size: 869
+      sha256: 476226f8ab103b78b7599c2ddae3d2177960c326ab9bc3b9cb64fdabb10e24e1
+    commit: 6123194b484c6fc002e5f491bae1054fac437c4b
+  original:
+    git: https://github.com/LeapYear/monad-validate.git
+    commit: 6123194b484c6fc002e5f491bae1054fac437c4b
 snapshots:
 - completed:
-    size: 587546
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/10.yaml
-    sha256: 88b4f81e162ba3adc230a9fcccc4d19ac116377656bab56c7382ca88598b257a
-  original: lts-18.10
+    size: 617368
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/2.yaml
+    sha256: e7e57649a12f6178d1158e4b6f1f1885ed56d210ae6174385271cecc9b1ea974
+  original: lts-19.2

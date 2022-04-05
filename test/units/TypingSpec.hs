@@ -189,7 +189,12 @@ performTySynth = runKiAction parseExpr (\embed -> fmap snd . embed . tysynth)
 runKiAction ::
   VarTraversable (s Parse) Parse =>
   Parser (s Parse) ->
-  ((forall x. TypeM x -> KindM x) -> s Rn -> KindM a) ->
+  ( forall env st.
+    (HasKiEnv env, HasKiSt st) =>
+    RunTyM ->
+    s Rn ->
+    TcM env st a
+  ) ->
   String ->
   Either String a
 runKiAction p m src = first plainErrors do
