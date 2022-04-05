@@ -2,7 +2,7 @@
 
 module AlgST.Util where
 
-import qualified Data.List as List
+import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe
 import Data.Ord

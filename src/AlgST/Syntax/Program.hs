@@ -22,16 +22,16 @@ module AlgST.Syntax.Program
 where
 
 import Data.Bifunctor
-import qualified Data.Kind as Hs
+import Data.Kind qualified as Hs
 import Data.Map.Strict ((\\))
-import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
+import Data.Map.Strict qualified as Map
+import Data.Set qualified as Set
 import Instances.TH.Lift ()
 import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2
-import qualified AlgST.Syntax.Decl as D
-import qualified AlgST.Syntax.Expression as E
-import qualified AlgST.Syntax.Type as T
+import AlgST.Syntax.Decl qualified as D
+import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Type qualified as T
 import Syntax.ProgramVariable (ProgVar)
 import Syntax.TypeVariable (TypeVar)
 

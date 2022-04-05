@@ -46,9 +46,9 @@ module AlgST.Syntax.Traversal
   )
 where
 
-import qualified AlgST.Syntax.Expression as E
-import qualified AlgST.Syntax.Kind as K
-import qualified AlgST.Syntax.Type as T
+import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Type qualified as T
 import AlgST.Syntax.Variable
 import Control.Applicative
 import Control.Category ((>>>))
@@ -58,10 +58,10 @@ import Data.Bitraversable
 import Data.Foldable
 import Data.Functor.Classes
 import Data.Functor.Identity
-import qualified Data.Map.Strict as Map
-import qualified Data.Monoid as M
+import Data.Map.Strict qualified as Map
+import Data.Monoid qualified as M
 import Data.Proxy
-import qualified Data.Set as Set
+import Data.Set qualified as Set
 import Data.Void
 
 class Applicative f => VarTraversal f x where

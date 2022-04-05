@@ -24,11 +24,11 @@ module AlgST.Syntax.Variable
   )
 where
 
-import qualified Data.Char as C
-import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
+import Data.Char qualified as C
+import Data.Map.Strict qualified as Map
+import Data.Set qualified as Set
 import Data.Type.Equality
-import qualified Syntax.Base as Base
+import Syntax.Base qualified as Base
 import Syntax.ProgramVariable
 import Syntax.TypeVariable
 

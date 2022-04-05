@@ -18,16 +18,16 @@ module AlgST.Syntax.Tree
 where
 
 import AlgST.Parse.Unparser ()
-import qualified AlgST.Syntax.Decl as D
-import qualified AlgST.Syntax.Expression as E
-import qualified AlgST.Syntax.Kind as K
+import AlgST.Syntax.Decl qualified as D
+import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Program
-import qualified AlgST.Syntax.Type as T
+import AlgST.Syntax.Type qualified as T
 import AlgST.Syntax.Variable
 import Control.Category ((>>>))
 import Data.Foldable
 import Data.Functor.Identity
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Data.Tree
 import Data.Void
 import Syntax.Base

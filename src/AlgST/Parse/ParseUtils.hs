@@ -47,7 +47,7 @@ where
 import AlgST.Parse.Operators
 import AlgST.Parse.Phase
 import AlgST.Syntax.Decl
-import qualified AlgST.Syntax.Expression as E
+import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Program
 import AlgST.Syntax.Variable
 import AlgST.Util.ErrorMessage
@@ -55,11 +55,11 @@ import Control.Arrow
 import Control.Monad.State
 import Control.Monad.Validate
 import Data.DList.DNonEmpty (DNonEmpty)
-import qualified Data.DList.DNonEmpty as DL
+import Data.DList.DNonEmpty qualified as DL
 import Data.Functor.Identity
 import Data.List.NonEmpty (NonEmpty (..))
-import qualified Data.Map.Merge.Strict as Map
-import qualified Data.Map.Strict as Map
+import Data.Map.Merge.Strict qualified as Map
+import Data.Map.Strict qualified as Map
 
 type ParseM = Validate (DNonEmpty Diagnostic)
 

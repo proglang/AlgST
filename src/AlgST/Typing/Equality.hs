@@ -5,10 +5,10 @@
 
 module AlgST.Typing.Equality where
 
-import qualified AlgST.Syntax.Kind as K
-import qualified AlgST.Syntax.Type as T
+import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Type qualified as T
 import AlgST.Syntax.Variable
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Data.Void
 
 class Equivalence a where

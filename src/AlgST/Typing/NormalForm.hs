@@ -4,14 +4,14 @@
 
 module AlgST.Typing.NormalForm (nf) where
 
-import qualified AlgST.Syntax.Kind as K
+import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Type
 import AlgST.Syntax.Variable
 import AlgST.Typing.Phase
 import Control.Category ((<<<), (>>>))
 import Data.Functor.Compose
-import qualified Data.Set as Set
+import Data.Set qualified as Set
 import Data.Tuple
 import Data.Void
 

@@ -1,7 +1,7 @@
 module AlgST.Syntax.Operators where
 
 import Data.Function
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 
 data Precedence
   = -- | > (<|)

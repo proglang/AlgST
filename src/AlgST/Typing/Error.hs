@@ -10,18 +10,18 @@ import AlgST.Parse.Phase
 import AlgST.Parse.Unparser
 import AlgST.Rename
 import AlgST.Syntax.Decl
-import qualified AlgST.Syntax.Expression as E
-import qualified AlgST.Syntax.Kind as K
-import qualified AlgST.Syntax.Type as T
+import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Type qualified as T
 import AlgST.Syntax.Variable
-import qualified AlgST.Typing.Equality as Eq
+import AlgST.Typing.Equality qualified as Eq
 import AlgST.Typing.Monad
 import AlgST.Typing.Phase
 import AlgST.Util
 import AlgST.Util.ErrorMessage
-import qualified Data.List as List
+import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty, nonEmpty)
-import qualified Data.List.NonEmpty as NE
+import Data.List.NonEmpty qualified as NE
 import Syntax.Base hiding (Variable)
 import Prelude hiding (truncate)
 

@@ -31,8 +31,8 @@ module AlgST.Syntax.Type
   )
 where
 
-import qualified AlgST.Syntax.Kind as K
-import qualified Data.Kind as HS
+import AlgST.Syntax.Kind qualified as K
+import Data.Kind qualified as HS
 import Language.Haskell.TH.Syntax (Lift)
 import Syntax.Base
 import Syntax.TypeVariable (TypeVar)

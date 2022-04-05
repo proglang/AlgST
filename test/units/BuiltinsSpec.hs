@@ -5,7 +5,7 @@ import AlgST.Rename
 import AlgST.Syntax.Program
 import AlgST.Typing
 import Data.Foldable
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Test.Golden
 import Test.Hspec
 

@@ -46,6 +46,7 @@ ghc-options:
 
 default-extensions:
   - BlockArguments
+  - ImportQualifiedPost
   - LambdaCase
 
 library:

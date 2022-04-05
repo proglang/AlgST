@@ -12,14 +12,14 @@
 
 module AlgST.Syntax.Decl where
 
-import qualified AlgST.Syntax.Expression as E
-import qualified AlgST.Syntax.Kind as K
-import qualified AlgST.Syntax.Type as T
+import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Type qualified as T
 import AlgST.Syntax.Variable
 import Control.Category ((>>>))
 import Data.Functor.Identity
-import qualified Data.Kind as Hs
-import qualified Data.Map.Strict as Map
+import Data.Kind qualified as Hs
+import Data.Map.Strict qualified as Map
 import Data.Maybe
 import Data.Void
 import Language.Haskell.TH.Syntax (Lift)

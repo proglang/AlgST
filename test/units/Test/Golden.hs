@@ -18,13 +18,13 @@ where
 import Control.Exception
 import Control.Monad
 import Data.Foldable
-import qualified Data.List as List
+import Data.List qualified as List
 import Data.Maybe
 import AlgST.Util.Error
 import System.Directory
 import System.FilePath
 import Data.CallStack
-import qualified Test.Hspec as Hspec
+import Test.Hspec qualified as Hspec
 import Test.Hspec.Core.Spec hiding (Node, Tree)
 import Test.Hspec.Core.Util
 import System.Timeout

@@ -19,11 +19,11 @@ where
 
 import AlgST.Parse.Unparser
 import AlgST.Syntax.Expression as E
-import qualified AlgST.Syntax.Kind as K
-import qualified AlgST.Syntax.Type as T
+import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Type qualified as T
 import AlgST.Util.Output
 import Data.Coerce
-import qualified Data.DList as DL
+import Data.DList qualified as DL
 import Data.List (intercalate)
 import Syntax.Base
 import Syntax.ProgramVariable

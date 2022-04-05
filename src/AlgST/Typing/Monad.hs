@@ -5,7 +5,7 @@ module AlgST.Typing.Monad where
 
 import AlgST.Rename
 import AlgST.Syntax.Decl
-import qualified AlgST.Syntax.Kind as K
+import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Program
 import AlgST.Syntax.Variable
 import AlgST.Typing.Phase
@@ -16,9 +16,9 @@ import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.Validate
 import Data.DList.DNonEmpty (DNonEmpty)
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Data.Sequence (Seq)
-import qualified Data.Set as Set
+import Data.Set qualified as Set
 import Data.These
 import Lens.Family2
 

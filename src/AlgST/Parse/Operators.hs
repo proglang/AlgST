@@ -18,16 +18,16 @@ module AlgST.Parse.Operators
 where
 
 import AlgST.Parse.Phase
-import qualified AlgST.Syntax.Expression as E
+import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Operators
 import AlgST.Syntax.Variable
 import AlgST.Util.ErrorMessage
 import Control.Category ((>>>))
 import Control.Monad
 import Control.Monad.Validate
-import qualified Data.DList as DL
+import Data.DList qualified as DL
 import Data.Foldable
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Syntax.Base
 
 data OpsHead

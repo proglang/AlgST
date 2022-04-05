@@ -16,7 +16,7 @@ where
 
 import AlgST.Util.Output
 import Control.Applicative
-import qualified Options.Applicative as O
+import Options.Applicative qualified as O
 import System.FilePath
 
 data Source

@@ -54,20 +54,20 @@ module AlgST.Typing
   )
 where
 
-import qualified AlgST.Builtins as Builtins
+import AlgST.Builtins qualified as Builtins
 import AlgST.Parse.ParseUtils (pairConId)
 import AlgST.Parse.Phase
 import AlgST.Rename
 import AlgST.Syntax.Decl
-import qualified AlgST.Syntax.Expression as E
+import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind ((<=?))
-import qualified AlgST.Syntax.Kind as K
+import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Program
 import AlgST.Syntax.Traversal
-import qualified AlgST.Syntax.Type as T
+import AlgST.Syntax.Type qualified as T
 import AlgST.Syntax.Variable
-import qualified AlgST.Typing.Equality as Eq
-import qualified AlgST.Typing.Error as Error
+import AlgST.Typing.Equality qualified as Eq
+import AlgST.Typing.Error qualified as Error
 import AlgST.Typing.Monad
 import AlgST.Typing.NormalForm
 import AlgST.Typing.Phase
@@ -81,22 +81,22 @@ import Control.Monad.State.Strict
 import Control.Monad.Trans.Maybe
 import Control.Monad.Validate
 import Data.Bifunctor
-import qualified Data.DList.DNonEmpty as DL
+import Data.DList.DNonEmpty qualified as DL
 import Data.Either
 import Data.Foldable
 import Data.Functor.Identity
 import Data.List.NonEmpty (NonEmpty (..), nonEmpty, (<|))
-import qualified Data.List.NonEmpty as NE
-import qualified Data.Map.Merge.Strict as Merge
-import qualified Data.Map.Strict as Map
+import Data.List.NonEmpty qualified as NE
+import Data.Map.Merge.Strict qualified as Merge
+import Data.Map.Strict qualified as Map
 import Data.Maybe
 import Data.Monoid (Endo (..))
 import Data.Proxy
-import qualified Data.Sequence as Seq
-import qualified Data.Set as Set
+import Data.Sequence qualified as Seq
+import Data.Set qualified as Set
 import Data.These
 import Data.Traversable.WithIndex
-import qualified Data.Tuple as Tuple
+import Data.Tuple qualified as Tuple
 import Data.Void
 import Lens.Family2
 import Lens.Family2.State.Strict

@@ -7,7 +7,7 @@ import AlgST.Parse.Unparser ()
 import AlgST.Syntax.Kind ((<=?))
 import Syntax.Base
 import Test.Hspec
-import qualified AlgST.Syntax.Kind as K
+import AlgST.Syntax.Kind qualified as K
 import AlgST.Parse.Parser
 
 spec :: Spec

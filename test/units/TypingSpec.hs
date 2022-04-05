@@ -14,12 +14,12 @@ import AlgST.Builtins.TH
 import AlgST.Parse.Parser
 import AlgST.Parse.Phase
 import AlgST.Rename
-import qualified AlgST.Syntax.Kind as K
+import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Program
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
 import AlgST.Typing
-import qualified AlgST.Typing.Equality as Eq
+import AlgST.Typing.Equality qualified as Eq
 import AlgST.Util.Error
 import Control.DeepSeq
 import Control.Exception

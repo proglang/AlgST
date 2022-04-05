@@ -48,12 +48,12 @@ module AlgST.Syntax.Expression
   )
 where
 
-import qualified AlgST.Syntax.Kind as K
-import qualified AlgST.Syntax.Type as T
+import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Type qualified as T
 import Control.Applicative
 import Data.Functor.Identity
-import qualified Data.Kind as HS
-import qualified Data.Map.Strict as Map
+import Data.Kind qualified as HS
+import Data.Map.Strict qualified as Map
 import Instances.TH.Lift ()
 import Language.Haskell.TH.Syntax (Lift)
 import Syntax.Base

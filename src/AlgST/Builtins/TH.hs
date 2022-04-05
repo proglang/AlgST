@@ -11,11 +11,11 @@ import AlgST.Syntax.Program
 import AlgST.Util
 import Control.Monad
 import Data.List.NonEmpty (nonEmpty)
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Data.Maybe
-import qualified Data.Set as Set
+import Data.Set qualified as Set
 import Language.Haskell.TH
-import qualified Language.Haskell.TH.CodeDo as Code
+import Language.Haskell.TH.CodeDo qualified as Code
 import Syntax.Base
 import Syntax.ProgramVariable
 

@@ -6,12 +6,12 @@
 module AlgST.Parse.Phase where
 
 import AlgST.Parse.Unparser
-import qualified AlgST.Syntax.Decl as D
-import qualified AlgST.Syntax.Expression as E
+import AlgST.Syntax.Decl qualified as D
+import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Program
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
-import qualified AlgST.Syntax.Type as T
+import AlgST.Syntax.Type qualified as T
 import Data.Void
 import Language.Haskell.TH.Syntax (Lift)
 import Syntax.Base

@@ -19,7 +19,7 @@ import AlgST.Util.Output
 import Data.CallStack
 import Data.Foldable
 import Data.Function
-import qualified Data.List as List
+import Data.List qualified as List
 import Data.Maybe
 import Data.Monoid (Endo (..))
 import Syntax.Base

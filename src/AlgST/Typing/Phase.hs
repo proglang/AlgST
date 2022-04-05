@@ -6,13 +6,13 @@
 module AlgST.Typing.Phase where
 
 import AlgST.Parse.Unparser
-import qualified AlgST.Syntax.Decl as D
-import qualified AlgST.Syntax.Expression as E
-import qualified AlgST.Syntax.Kind as K
+import AlgST.Syntax.Decl qualified as D
+import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Program (Program)
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
-import qualified AlgST.Syntax.Type as T
+import AlgST.Syntax.Type qualified as T
 import AlgST.Syntax.Variable
 import AlgST.Typing.Equality
 import Data.Functor.Const

@@ -32,11 +32,11 @@ module AlgST.Rename
 where
 
 import AlgST.Parse.Phase
-import qualified AlgST.Syntax.Decl as D
-import qualified AlgST.Syntax.Expression as E
+import AlgST.Syntax.Decl qualified as D
+import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Program
 import AlgST.Syntax.Traversal
-import qualified AlgST.Syntax.Type as T
+import AlgST.Syntax.Type qualified as T
 import AlgST.Syntax.Variable
 import Control.Applicative
 import Control.Category ((>>>))
@@ -45,7 +45,7 @@ import Control.Monad.Eta
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Data.Bitraversable
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Data.Maybe
 import Data.Proxy
 import Data.Traversable

@@ -3,8 +3,8 @@
 module AlgST.Util.Lenses where
 
 import Control.Monad
-import qualified Language.Haskell.TH as TH
-import qualified Lens.Family2.TH as Lens
+import Language.Haskell.TH qualified as TH
+import Lens.Family2.TH qualified as Lens
 
 class LensResult a where
   makeLenses :: a

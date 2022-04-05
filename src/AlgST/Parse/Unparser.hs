@@ -17,15 +17,15 @@ module AlgST.Parse.Unparser
 where
 
 import AlgST.Syntax.Expression as E
-import qualified AlgST.Syntax.Kind as K
+import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Operators hiding (Precedence)
-import qualified AlgST.Syntax.Operators as Op
-import qualified AlgST.Syntax.Type as T
+import AlgST.Syntax.Operators qualified as Op
+import AlgST.Syntax.Type qualified as T
 import AlgST.Syntax.Variable
 import Data.Foldable
 import Data.Functor.Identity
 import Data.List (intercalate)
-import qualified Data.Map.Strict as Map
+import Data.Map.Strict qualified as Map
 import Data.Void
 import Syntax.Base
 
