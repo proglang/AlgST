@@ -1,9 +1,12 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module AlgST.Interpret where
 
+import AlgST.Parse.ParseUtils (pattern PairConId)
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Variable
@@ -12,11 +15,13 @@ import AlgST.Util.Lenses
 import Control.Concurrent
 import Control.Monad.Reader
 import Data.Bifunctor
+import Data.Functor.Identity (Identity (runIdentity))
 import Data.IORef
 import Data.Map.Strict qualified as Map
 import Data.Void
 import GHC.IORef (atomicModifyIORef'_)
 import Lens.Family2
+import Syntax.Base (defaultPos)
 
 type Env = Map.Map ProgVar Value
 
@@ -53,7 +58,14 @@ data Value
     -- @env@ must be lazy to allow the entries to refer to the closure itself
     -- in recursive values.
     Closure Env !ProgVar !TcExp
-  | Pair !Value !Value
+  | -- | A fully applied constructor.
+    --
+    -- Pairs are represented as
+    --
+    -- > Con "(,)" [a, b]
+    --
+    -- The 'Pair' pattern synonym exists to help with matching on pairs.
+    Con !String [Value]
   | -- | Endpoint to a channel. The 'Side' is an indicator for the user.
     Endpoint !Side !Channel
   | -- | Labels can't be constructed by the user. The are user to handle
@@ -63,6 +75,9 @@ data Value
   | String !String
   | Char !Char
   | Unit
+
+pattern Pair :: Value -> Value -> Value
+pattern Pair a b = Con PairConId [a, b]
 
 instance Show Value where
   showsPrec p =
@@ -81,6 +96,12 @@ instance Show Value where
           showsPrec 11 a,
           showString " ",
           showsPrec 11 b
+        ]
+      Con c vs ->
+        [ showString "Con ",
+          showsPrec 11 c,
+          showString " ",
+          showsPrec 11 vs
         ]
       Endpoint side c ->
         [ showString "Endpoint ",
@@ -102,7 +123,9 @@ instance Show Value where
 
 data Type a where
   TClosure :: Type (Env, ProgVar, TcExp)
+  TCon :: Type (String, [Value])
   TChannel :: Type Channel
+  TLabel :: Type String
   TNumber :: Type Integer
   TString :: Type String
   TChar :: Type Char
@@ -129,30 +152,44 @@ eval = \case
     lookupEnv "variable" v
   E.Con _ c -> do
     lookupEnv "constructor" c
+
+  --
   E.Abs _ bind -> do
     (env, _) <- ask
     pure $ closure env bind
+
+  --
   E.App _ e1 e2 -> do
     (env, var, body) <- evalAs TClosure e1
     arg <- eval e2
     let env' = Map.insert var arg env
     local (first $ const env') (eval body)
+
+  --
   E.Pair _ e1 e2 -> do
     v1 <- eval e1
     v2 <- eval e2
     pure $ Pair v1 v2
+
+  --
   E.Cond x _ _ _ -> do
     absurd x
   E.Case x _ _ -> do
     absurd x
+
+  --
   E.TypeAbs _ (K.Bind _ _ _ e) -> do
     eval e
   E.TypeApp _ e _ -> do
     eval e
+
+  --
   E.UnLet x _ _ _ _ -> do
     absurd x
   E.PatLet x _ _ _ _ -> do
     absurd x
+
+  --
   E.Rec _ v _ rl -> do
     -- Like a lambda abstraction but `v` is bound in the body.
     --
@@ -185,8 +222,31 @@ eval = \case
     pure Unit
 
   --
-  E.Exp (ValueCase _ e cases) -> undefined
-  E.Exp (RecvCase _ e cases) -> undefined
+  E.Exp (ValueCase _ e cases) -> do
+    val <- eval e
+    (c, vs) <- unwrap TCon val
+    let cvar = mkVar defaultPos c
+    if
+        | Just b <- Map.lookup cvar (E.casesPatterns cases) ->
+          localBinds (zip (E.branchBinds b) vs) do
+            eval $ E.branchExp b
+        | Just b <- E.casesWildcard cases ->
+          localBinds [(runIdentity (E.branchBinds b), val)] do
+            eval $ E.branchExp b
+        | otherwise ->
+          unmatchableConstructor c
+
+  --
+  E.Exp (RecvCase _ e cases) -> do
+    chanVal <- eval e
+    channel <- unwrap TChannel chanVal
+    l <- unwrap TLabel =<< readChannel channel
+    b <-
+      E.casesPatterns cases
+        & Map.lookup (mkVar defaultPos l)
+        & maybe (unmatchableConstructor l) pure
+    localBinds [(runIdentity (E.branchBinds b), chanVal)] do
+      eval $ E.branchExp b
 
 newChannel :: EvalM Channel
 newChannel = do
@@ -200,6 +260,9 @@ newChannel = do
 
 putChannel :: Channel -> Value -> EvalM ()
 putChannel c = liftIO . putMVar (channelVar c)
+
+readChannel :: Channel -> EvalM Value
+readChannel = liftIO . takeMVar . channelVar
 
 forkEval :: TcExp -> (Value -> EvalM ()) -> EvalM ()
 forkEval e f = do
@@ -218,6 +281,9 @@ recBody (E.RecTypeAbs _ (K.Bind _ _ _ rl)) = recBody rl
 closure :: Env -> TcBind -> Value
 closure env (E.Bind _ _ v _ body) = Closure env v body
 
+localBinds :: [(ProgVar, Value)] -> EvalM a -> EvalM a
+localBinds binds = local $ first \e -> Map.fromList binds <> e
+
 lookupEnv :: String -> ProgVar -> EvalM Value
 lookupEnv kind v = maybe (fail err) pure =<< asks (Map.lookup v . fst)
   where
@@ -232,6 +298,9 @@ unwrap TString (String s) = pure s
 unwrap TChar (Char c) = pure c
 unwrap TUnit Unit = pure ()
 unwrap TClosure (Closure env v e) = pure (env, v, e)
+unwrap TCon (Con c vs) = pure (c, vs)
+unwrap TLabel (Label l) = pure l
+unwrap TChannel (Endpoint _ c) = pure c
 unwrap ty v =
   fail . unwords $
     [ "internal error: expected",
@@ -241,9 +310,16 @@ unwrap ty v =
     ]
   where
     tyname = case ty of
+      TCon -> "a data value"
       TChannel -> "a channel"
+      TLabel -> "a label"
       TNumber -> "a number"
       TString -> "a string"
       TChar -> "a char"
       TUnit -> "unit"
       TClosure -> "a closure"
+
+unmatchableConstructor :: String -> EvalM a
+unmatchableConstructor c =
+  fail $ unwords ["internal error: unmatchable constructor", c]
+{-# NOINLINE unmatchableConstructor #-}
