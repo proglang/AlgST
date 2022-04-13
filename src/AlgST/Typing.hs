@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
@@ -56,7 +57,7 @@ module AlgST.Typing
 where
 
 import AlgST.Builtins qualified as Builtins
-import AlgST.Parse.ParseUtils (pairConId)
+import AlgST.Parse.ParseUtils (pairConId, pattern PairConId)
 import AlgST.Parse.Phase
 import AlgST.Rename
 import AlgST.Syntax.Decl
@@ -720,7 +721,7 @@ tysynth =
       checkPatternExpression p e' cases pat
 
     --
-    E.Select p con@(UserNamed "(,)") -> do
+    E.Select p con@(UserNamed PairConId) -> do
       let tyvar x = mkVar defaultPos x :: TypeVar
       liftRn $ bind @_ @Rn Proxy (tyvar <$> Two ("a", "b")) \(Two (v1, v2)) -> do
         let tyX = T.Var @Tc kiX

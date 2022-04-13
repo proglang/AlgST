@@ -2,6 +2,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -28,6 +29,7 @@ module AlgST.Parse.ParseUtils
 
     -- * Type declarations
     pairConId,
+    pattern PairConId,
     typeConstructors,
 
     -- * Assembling of programs
@@ -81,8 +83,11 @@ fatalError = refute . DL.singleton
 resolveOpSeq :: Parenthesized -> OpSeq first (ProgVar, [PType]) -> ParseM PExp
 resolveOpSeq ps = mapErrors DL.fromList . parseOperators ps
 
-pairConId :: Pos -> ProgVar
-pairConId p = mkVar p "(,)"
+pattern PairConId :: String
+pattern PairConId = "(,)"
+
+pairConId :: Variable v => Pos -> v
+pairConId p = mkVar p PairConId
 
 typeConstructors ::
   TypeVar ->
@@ -317,7 +322,7 @@ errorMisplacedPairCon p _ =
   PosError
     p
     [ Error "Pair constructor",
-      Error $ mkVar @v p "(,)",
+      Error $ pairConId @v p,
       Error "cannot be used as",
       choose "an expression." "a type constructor.",
       ErrLine,
