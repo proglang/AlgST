@@ -47,6 +47,7 @@ module AlgST.Typing
     -- * Phase
     Tc,
     TcExp,
+    TcExpX (..),
     TcType,
     TcBind,
     TcCaseMap,
