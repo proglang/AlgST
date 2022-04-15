@@ -4,19 +4,31 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module AlgST.Interpret where
+module AlgST.Interpret
+  ( EvalSt (..),
+    ThreadList,
+    ChannelId,
+    Env,
+    Value (..),
+    Side (..),
+    pattern Pair,
+    eval,
+  )
+where
 
-import AlgST.Parse.ParseUtils (pattern PairConId)
+import AlgST.Parse.ParseUtils (pairConId, pattern PairConId)
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Variable
-import AlgST.Typing (Tc, TcBind, TcExp, TcExpX (..))
+import AlgST.Typing.Phase (Tc, TcBind, TcExp, TcExpX (..))
 import AlgST.Util.Lenses
 import Control.Concurrent
+import Control.Monad.Eta
 import Control.Monad.Reader
 import Data.Bifunctor
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.IORef
+import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Void
 import GHC.IORef (atomicModifyIORef'_)
@@ -57,7 +69,7 @@ data Value
     --
     -- @env@ must be lazy to allow the entries to refer to the closure itself
     -- in recursive values.
-    Closure Env !ProgVar !TcExp
+    Closure String (Value -> EvalM Value)
   | -- | A fully applied constructor.
     --
     -- Pairs are represented as
@@ -65,48 +77,43 @@ data Value
     -- > Con "(,)" [a, b]
     --
     -- The 'Pair' pattern synonym exists to help with matching on pairs.
-    Con !String [Value]
+    Con !ProgVar [Value]
   | -- | Endpoint to a channel. The 'Side' is an indicator for the user.
     Endpoint !Side !Channel
   | -- | Labels can't be constructed by the user. The are user to handle
     -- select/case operations on channels.
-    Label !String
+    Label !ProgVar
   | Number !Integer
   | String !String
   | Char !Char
   | Unit
 
 pattern Pair :: Value -> Value -> Value
-pattern Pair a b = Con PairConId [a, b]
+pattern Pair a b <-
+  Con (UserNamed PairConId) [a, b]
+  where
+    Pair a b = Con (pairConId defaultPos) [a, b]
 
 instance Show Value where
   showsPrec p =
-    paren . \case
-      Closure env v e ->
-        [ showString "Closure ",
-          showsPrec 11 env,
-          showString " ",
-          showsPrec 11 v,
-          showString " {",
-          showsPrec 11 e,
-          showString "}"
+    parenWords . \case
+      Closure s _ ->
+        [ showString "Closure",
+          showChar '{' . showString s . showChar '}'
         ]
       Pair a b ->
-        [ showString "Pair ",
+        [ showString "Pair",
           showsPrec 11 a,
-          showString " ",
           showsPrec 11 b
         ]
       Con c vs ->
-        [ showString "Con ",
+        [ showString "Con",
           showsPrec 11 c,
-          showString " ",
           showsPrec 11 vs
         ]
       Endpoint side c ->
-        [ showString "Endpoint ",
+        [ showString "Endpoint",
           showsPrec 11 side,
-          showString " ",
           showsPrec 11 (channelId c)
         ]
       Label lbl -> unary "Label" lbl
@@ -116,20 +123,22 @@ instance Show Value where
       Unit -> [showString "Unit"]
     where
       unary :: Show a => String -> a -> [ShowS]
-      unary label a = [showString label . showChar ' ', showsPrec 11 a]
-      paren :: [ShowS] -> ShowS
-      paren [x] = x
-      paren xs = showParen (p > 10) $ foldr (.) id xs
+      unary label a = [showString label, showsPrec 11 a]
+      parenWords :: [ShowS] -> ShowS
+      parenWords [x] = x
+      parenWords xs =
+        List.intersperse (showChar ' ') xs
+          & foldr (.) id
+          & showParen (p > 10)
 
 data Type a where
-  TClosure :: Type (Env, ProgVar, TcExp)
-  TCon :: Type (String, [Value])
+  TClosure :: Type (Value -> EvalM Value)
+  TCon :: Type (ProgVar, [Value])
   TChannel :: Type Channel
-  TLabel :: Type String
+  TLabel :: Type ProgVar
   TNumber :: Type Integer
   TString :: Type String
   TChar :: Type Char
-  TUnit :: Type ()
 
 {- ORMOLU_DISABLE -}
 makeLenses ''EvalSt
@@ -145,108 +154,111 @@ evalLiteral = \case
   E.String s -> String s
 
 eval :: TcExp -> EvalM Value
-eval = \case
-  E.Lit _ l -> do
-    pure $ evalLiteral l
-  E.Var _ v -> do
-    lookupEnv "variable" v
-  E.Con _ c -> do
-    lookupEnv "constructor" c
+eval =
+  etaReaderT . \case
+    E.Lit _ l -> do
+      pure $ evalLiteral l
+    E.Var _ v -> do
+      lookupEnv "variable" v
+    E.Con _ c -> do
+      lookupEnv "constructor" c
 
-  --
-  E.Abs _ bind -> do
-    (env, _) <- ask
-    pure $ closure env bind
-
-  --
-  E.App _ e1 e2 -> do
-    (env, var, body) <- evalAs TClosure e1
-    arg <- eval e2
-    let env' = Map.insert var arg env
-    local (first $ const env') (eval body)
-
-  --
-  E.Pair _ e1 e2 -> do
-    v1 <- eval e1
-    v2 <- eval e2
-    pure $ Pair v1 v2
-
-  --
-  E.Cond x _ _ _ -> do
-    absurd x
-  E.Case x _ _ -> do
-    absurd x
-
-  --
-  E.TypeAbs _ (K.Bind _ _ _ e) -> do
-    eval e
-  E.TypeApp _ e _ -> do
-    eval e
-
-  --
-  E.UnLet x _ _ _ _ -> do
-    absurd x
-  E.PatLet x _ _ _ _ -> do
-    absurd x
-
-  --
-  E.Rec _ v _ rl -> do
-    -- Like a lambda abstraction but `v` is bound in the body.
     --
-    -- TODO: Ensure that the shadowing rules between the interpreter and type
-    -- checker are consistent when `arg` and `v` are the same.
-    (env, _) <- ask
-    let env' = Map.insert v val env
-        val = closure env' $ recBody rl
-    pure val
+    E.Abs _ bind -> do
+      (env, _) <- ask
+      pure $ closure env bind
 
-  -- Creates a new channel and returns a pair of the two endpoints.
-  E.New _ _ -> do
-    c <- newChannel
-    pure $ Pair (Endpoint A c) (Endpoint B c)
+    --
+    E.App _ e1 e2 -> do
+      f <- evalAs TClosure e1
+      x <- eval e2
+      f x
 
-  -- Constructs a function which sends the selected constructor as a label.
-  E.Select _ c -> do
-    error "TODO: E.Select"
+    --
+    E.Pair _ e1 e2 -> do
+      v1 <- eval e1
+      v2 <- eval e2
+      pure $ Pair v1 v2
 
-  -- Forks the evaluation of `e` and sends the result over a new channel. In
-  -- the current thread it evaluates to that new channel.
-  E.Fork _ e -> do
-    c <- newChannel
-    forkEval e (putChannel c)
-    pure $ Endpoint A c
+    --
+    E.Cond x _ _ _ -> do
+      absurd x
+    E.Case x _ _ -> do
+      absurd x
 
-  -- Forks the evaluation of `e` and returns `Unit` in the current thread.
-  E.Fork_ _ e -> do
-    forkEval e \_ -> pure ()
-    pure Unit
+    --
+    E.TypeAbs _ (K.Bind _ _ _ e) -> do
+      eval e
+    E.TypeApp _ e _ -> do
+      eval e
 
-  --
-  E.Exp (ValueCase _ e cases) -> do
-    val <- eval e
-    (c, vs) <- unwrap TCon val
-    let cvar = mkVar defaultPos c
-    if
-        | Just b <- Map.lookup cvar (E.casesPatterns cases) ->
-          localBinds (zip (E.branchBinds b) vs) do
-            eval $ E.branchExp b
-        | Just b <- E.casesWildcard cases ->
-          localBinds [(runIdentity (E.branchBinds b), val)] do
-            eval $ E.branchExp b
-        | otherwise ->
-          unmatchableConstructor c
+    --
+    E.UnLet x _ _ _ _ -> do
+      absurd x
+    E.PatLet x _ _ _ _ -> do
+      absurd x
 
-  --
-  E.Exp (RecvCase _ e cases) -> do
-    chanVal <- eval e
-    channel <- unwrap TChannel chanVal
-    l <- unwrap TLabel =<< readChannel channel
-    b <-
-      E.casesPatterns cases
-        & Map.lookup (mkVar defaultPos l)
-        & maybe (unmatchableConstructor l) pure
-    localBinds [(runIdentity (E.branchBinds b), chanVal)] do
-      eval $ E.branchExp b
+    --
+    E.Rec _ v _ rl -> do
+      -- Like a lambda abstraction but `v` is bound in the body.
+      --
+      -- TODO: Ensure that the shadowing rules between the interpreter and type
+      -- checker are consistent when `arg` and `v` are the same.
+      (env, _) <- ask
+      let env' = Map.insert v val env
+          val = closure env' $ recBody rl
+      pure val
+
+    -- Creates a new channel and returns a pair of the two endpoints.
+    E.New _ _ -> do
+      c <- newChannel
+      pure $ Pair (Endpoint A c) (Endpoint B c)
+
+    -- Constructs a function which sends the selected constructor as a label.
+    -- The type abstractions are skipped as they correspond to no-ops anyways.
+    E.Select _ con -> do
+      pure $ Closure ("\\c -> select " ++ show con ++ " c") \c -> do
+        chan <- unwrap TChannel c
+        putChannel chan $ Label con
+        pure c
+
+    -- Forks the evaluation of `e` and sends the result over a new channel. In
+    -- the current thread it evaluates to that new channel.
+    E.Fork _ e -> do
+      c <- newChannel
+      forkEval e (putChannel c)
+      pure $ Endpoint A c
+
+    -- Forks the evaluation of `e` and returns `Unit` in the current thread.
+    E.Fork_ _ e -> do
+      forkEval e \_ -> pure ()
+      pure Unit
+
+    --
+    E.Exp (ValueCase _ e cases) -> do
+      val <- eval e
+      (con, vs) <- unwrap TCon val
+      if
+          | Just b <- Map.lookup con (E.casesPatterns cases) ->
+            localBinds (zip (E.branchBinds b) vs) do
+              eval $ E.branchExp b
+          | Just b <- E.casesWildcard cases ->
+            localBinds [(runIdentity (E.branchBinds b), val)] do
+              eval $ E.branchExp b
+          | otherwise ->
+            unmatchableConstructor con
+
+    --
+    E.Exp (RecvCase _ e cases) -> do
+      chanVal <- eval e
+      channel <- unwrap TChannel chanVal
+      l <- unwrap TLabel =<< readChannel channel
+      b <-
+        E.casesPatterns cases
+          & Map.lookup l
+          & maybe (unmatchableConstructor l) pure
+      localBinds [(runIdentity (E.branchBinds b), chanVal)] do
+        eval $ E.branchExp b
 
 newChannel :: EvalM Channel
 newChannel = do
@@ -279,7 +291,10 @@ recBody (E.RecTermAbs _ bind) = bind
 recBody (E.RecTypeAbs _ (K.Bind _ _ _ rl)) = recBody rl
 
 closure :: Env -> TcBind -> Value
-closure env (E.Bind _ _ v _ body) = Closure env v body
+closure env bind@(E.Bind _ _ v _ body) =
+  Closure (show bind) \a -> do
+    let env' = Map.insert v a env
+    local (first $ const env') $ eval body
 
 localBinds :: [(ProgVar, Value)] -> EvalM a -> EvalM a
 localBinds binds = local $ first \e -> Map.fromList binds <> e
@@ -289,15 +304,17 @@ lookupEnv kind v = maybe (fail err) pure =<< asks (Map.lookup v . fst)
   where
     err = unwords ["internal error:", kind, show v, "is not bound."]
 
+-- | Evaluates the given expression and extracts the expected type.
 evalAs :: Type a -> TcExp -> EvalM a
 evalAs ty = eval >=> unwrap ty
 
+-- | Tries to extract the payload of the given type from a value. If the value
+-- has a different type 'fail' will be called.
 unwrap :: Type a -> Value -> EvalM a
 unwrap TNumber (Number n) = pure n
 unwrap TString (String s) = pure s
 unwrap TChar (Char c) = pure c
-unwrap TUnit Unit = pure ()
-unwrap TClosure (Closure env v e) = pure (env, v, e)
+unwrap TClosure (Closure _ f) = pure f
 unwrap TCon (Con c vs) = pure (c, vs)
 unwrap TLabel (Label l) = pure l
 unwrap TChannel (Endpoint _ c) = pure c
@@ -316,10 +333,9 @@ unwrap ty v =
       TNumber -> "a number"
       TString -> "a string"
       TChar -> "a char"
-      TUnit -> "unit"
       TClosure -> "a closure"
 
-unmatchableConstructor :: String -> EvalM a
+unmatchableConstructor :: ProgVar -> EvalM a
 unmatchableConstructor c =
-  fail $ unwords ["internal error: unmatchable constructor", c]
+  fail $ unwords ["internal error: unmatchable constructor", show c]
 {-# NOINLINE unmatchableConstructor #-}
