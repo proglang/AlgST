@@ -13,30 +13,44 @@ module AlgST.Interpret
     Side (..),
     pattern Pair,
     eval,
+    programEnvironment,
   )
 where
 
 import AlgST.Parse.ParseUtils (pairConId, pattern PairConId)
+import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Program
 import AlgST.Syntax.Variable
-import AlgST.Typing.Phase (Tc, TcBind, TcExp, TcExpX (..))
+import AlgST.Typing.Phase (Tc, TcBind, TcExp, TcExpX (..), TcProgram)
 import AlgST.Util.Lenses
+import Control.Category ((>>>))
 import Control.Concurrent
 import Control.Monad.Eta
 import Control.Monad.Reader
 import Data.Bifunctor
+import Data.DList qualified as DL
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.IORef
 import Data.List qualified as List
+import Data.Map.Lazy qualified as LMap
 import Data.Map.Strict qualified as Map
 import Data.Void
 import GHC.IORef (atomicModifyIORef'_)
 import Lens.Family2
 import Syntax.Base (defaultPos)
 
-type Env = Map.Map ProgVar Value
+-- | The environment associates names with either an unevaluated expression or
+-- a final value.
+--
+-- Unevaluted expressions are used for top-level definitions. They are not
+-- updated after evaluation.
+--
+-- FIXME: Caching of global values seems reasonable.
+type Env = Map.Map ProgVar (Either TcExp Value)
 
+-- | The list of spawned threads
 type ThreadList = [ThreadId]
 
 data EvalSt = EvalSt
@@ -65,18 +79,10 @@ data Side = A | B
   deriving stock (Show)
 
 data Value
-  = -- | > Closure env var body
-    --
-    -- @env@ must be lazy to allow the entries to refer to the closure itself
-    -- in recursive values.
+  = -- | The 'String' is a description of the closure value used in the 'Show' instance.
     Closure String (Value -> EvalM Value)
-  | -- | A fully applied constructor.
-    --
-    -- Pairs are represented as
-    --
-    -- > Con "(,)" [a, b]
-    --
-    -- The 'Pair' pattern synonym exists to help with matching on pairs.
+  | -- | A fully applied constructor. This includes pairs. See the 'Pair'
+    -- pattern synonym for more information about their representation.
     Con !ProgVar [Value]
   | -- | Endpoint to a channel. The 'Side' is an indicator for the user.
     Endpoint !Side !Channel
@@ -88,6 +94,7 @@ data Value
   | Char !Char
   | Unit
 
+-- | Pairs are represented through the 'Con' constructor with a name of 'PairConId'.
 pattern Pair :: Value -> Value -> Value
 pattern Pair a b <-
   Con (UserNamed PairConId) [a, b]
@@ -145,6 +152,37 @@ makeLenses ''EvalSt
 stNextChannelL :: Lens' EvalSt ChannelId
 stForkedL :: Lens' EvalSt ThreadList
 {- ORMOLU_ENABLE -}
+
+-- | Constrcuts the global 'Env' from a type checked 'Program'.
+programEnvironment :: TcProgram -> Env
+programEnvironment p =
+  LMap.mapMaybeWithKey (\k -> either (conValue k) (globValue k)) (programValues p)
+  where
+    conValue :: ProgVar -> ConstructorDecl Tc -> Maybe (Either TcExp Value)
+    conValue name = \case
+      DataCon _ _ _ _ args ->
+        -- Data constructors correspond to closures evaluating to a 'Con' value.
+        --
+        -- We could easily build a 'TcExp' value for the constructors but their
+        -- 'Value' representation is simple enough (and does not require the
+        -- full environment) to construct the 'Value' directly.
+        --
+        -- TODO: 'buildDataConType' in AlgST.Typing does basically the same. A
+        -- unification of the logic in one place might be reasonable.
+        let go :: tcType -> (DL.DList Value -> Value) -> DL.DList Value -> Value
+            go _ f vs =
+              -- TODO: closure description.
+              Closure "" \v -> pure $ f (vs `DL.snoc` v)
+         in Just $ Right $ foldr go (Con name . DL.toList) args DL.empty
+      ProtocolCon {} ->
+        -- Protocol constructors can't appear as values after type checking.
+        Nothing
+
+    globValue :: ProgVar -> ValueDecl Tc -> Maybe (Either TcExp Value)
+    globValue _ =
+      -- The bodies of 'ValueDecl's (after TC) already contain the parameter
+      -- lambda abstractions.
+      Just . Left . valueBody
 
 evalLiteral :: E.Lit -> Value
 evalLiteral = \case
@@ -205,7 +243,7 @@ eval =
       -- TODO: Ensure that the shadowing rules between the interpreter and type
       -- checker are consistent when `arg` and `v` are the same.
       (env, _) <- ask
-      let env' = Map.insert v val env
+      let env' = Map.insert v (Right val) env
           val = closure env' $ recBody rl
       pure val
 
@@ -293,14 +331,19 @@ recBody (E.RecTypeAbs _ (K.Bind _ _ _ rl)) = recBody rl
 closure :: Env -> TcBind -> Value
 closure env bind@(E.Bind _ _ v _ body) =
   Closure (show bind) \a -> do
-    let env' = Map.insert v a env
+    let env' = Map.insert v (Right a) env
     local (first $ const env') $ eval body
 
 localBinds :: [(ProgVar, Value)] -> EvalM a -> EvalM a
-localBinds binds = local $ first \e -> Map.fromList binds <> e
+localBinds binds = local $ first \e -> Right `fmap` Map.fromList binds <> e
 
+-- | Looks for the given variable in the current environment. If it resovles to
+-- a top-level expression it will be evaluated before returning.
 lookupEnv :: String -> ProgVar -> EvalM Value
-lookupEnv kind v = maybe (fail err) pure =<< asks (Map.lookup v . fst)
+lookupEnv kind v =
+  asks (fst >>> Map.lookup v)
+    >>= maybe (fail err) pure
+    >>= either eval pure
   where
     err = unwords ["internal error:", kind, show v, "is not bound."]
 
