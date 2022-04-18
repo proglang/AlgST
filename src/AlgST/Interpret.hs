@@ -197,9 +197,9 @@ eval =
     E.Lit _ l -> do
       pure $ evalLiteral l
     E.Var _ v -> do
-      lookupEnv "variable" v
+      lookupEnv v
     E.Con _ c -> do
-      lookupEnv "constructor" c
+      lookupEnv c
 
     --
     E.Abs _ bind -> do
@@ -339,13 +339,13 @@ localBinds binds = local $ first \e -> Right `fmap` Map.fromList binds <> e
 
 -- | Looks for the given variable in the current environment. If it resovles to
 -- a top-level expression it will be evaluated before returning.
-lookupEnv :: String -> ProgVar -> EvalM Value
-lookupEnv kind v =
+lookupEnv :: ProgVar -> EvalM Value
+lookupEnv v =
   asks (fst >>> Map.lookup v)
     >>= maybe (fail err) pure
     >>= either eval pure
   where
-    err = unwords ["internal error:", kind, show v, "is not bound."]
+    err = unwords ["internal error:", show v, "is not bound."]
 
 -- | Evaluates the given expression and extracts the expected type.
 evalAs :: Type a -> TcExp -> EvalM a
