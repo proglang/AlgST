@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiWayIf #-}
@@ -159,7 +160,7 @@ programEnvironment p =
   LMap.mapMaybeWithKey (\k -> either (conValue k) (globValue k)) (programValues p)
   where
     conValue :: ProgVar -> ConstructorDecl Tc -> Maybe (Either TcExp Value)
-    conValue name = \case
+    conValue !name = \case
       DataCon _ _ _ _ args ->
         -- Data constructors correspond to closures evaluating to a 'Con' value.
         --
@@ -169,20 +170,21 @@ programEnvironment p =
         --
         -- TODO: 'buildDataConType' in AlgST.Typing does basically the same. A
         -- unification of the logic in one place might be reasonable.
-        let go :: tcType -> (DL.DList Value -> Value) -> DL.DList Value -> Value
-            go _ f vs =
-              -- TODO: closure description.
-              Closure "" \v -> pure $ f (vs `DL.snoc` v)
-         in Just $ Right $ foldr go (Con name . DL.toList) args DL.empty
+        let go :: tcType -> (Int -> DL.DList Value -> Value) -> Int -> DL.DList Value -> Value
+            go _ f remaining vs =
+              Closure
+                (show remaining ++ "*" ++ show (Con name (DL.toList vs)))
+                (\v -> pure $ f (remaining - 1) (vs `DL.snoc` v))
+         in Just $ Right $ foldr go (\_ -> Con name . DL.toList) args (length args) DL.empty
       ProtocolCon {} ->
         -- Protocol constructors can't appear as values after type checking.
         Nothing
 
     globValue :: ProgVar -> ValueDecl Tc -> Maybe (Either TcExp Value)
-    globValue _ =
+    globValue _ !d =
       -- The bodies of 'ValueDecl's (after TC) already contain the parameter
       -- lambda abstractions.
-      Just . Left . valueBody
+      Just . Left $ valueBody d
 
 evalLiteral :: E.Lit -> Value
 evalLiteral = \case
