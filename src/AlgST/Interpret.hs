@@ -1,12 +1,16 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module AlgST.Interpret
-  ( EvalSt (..),
+  ( EvalM,
+    etaEvalM,
+    runEvalM,
+    EvalSt (..),
     ThreadList,
     ChannelId,
     Env,
@@ -26,19 +30,20 @@ import AlgST.Syntax.Program
 import AlgST.Syntax.Variable
 import AlgST.Typing.Phase (Tc, TcBind, TcExp, TcExpX (..), TcProgram)
 import AlgST.Util.Lenses
-import Control.Category ((>>>))
 import Control.Concurrent
+import Control.Concurrent.Async
+import Control.Exception
 import Control.Monad.Eta
 import Control.Monad.Reader
 import Data.Bifunctor
 import Data.DList qualified as DL
+import Data.Foldable
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.IORef
 import Data.List qualified as List
 import Data.Map.Lazy qualified as LMap
 import Data.Map.Strict qualified as Map
 import Data.Void
-import GHC.IORef (atomicModifyIORef'_)
 import Lens.Family2
 import Syntax.Base (defaultPos)
 
@@ -51,24 +56,64 @@ import Syntax.Base (defaultPos)
 -- FIXME: Caching of global values seems reasonable.
 type Env = Map.Map ProgVar (Either TcExp Value)
 
--- | The list of spawned threads
-type ThreadList = [ThreadId]
+-- | A list of spawned threads.
+type ThreadList = [Async ()]
 
 data EvalSt = EvalSt
-  { -- | The next channel id to be used. Examining this value at the end gives
-    -- information about how many channels were created.
+  { -- | The next channel id to be used.
     stNextChannel :: !ChannelId,
-    -- | A list of all threads forked during evaluation.
+    -- | The list of threads forked during evaluation. Accumulated to be able
+    -- to wait for all to complete or to cancel them.
     --
     -- TODO: Think about exception propagation.
     stForked :: ThreadList
   }
 
--- | Evaluating requires an environment of bound identifiers. It collects a
--- list of created threads and keeps track of the next 'ChannelId'.
-type EvalM = ReaderT (Env, IORef EvalSt) IO
+newtype EvalM a = EvalM {unEvalM :: ReaderT (Env, IORef EvalSt) IO a}
+  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadFix, MonadFail)
 
-type ChannelId = Int
+runEvalM :: Env -> EvalM a -> IO a
+runEvalM env (EvalM m) = do
+  let st0 =
+        EvalSt
+          { stNextChannel = 0,
+            stForked = []
+          }
+  let allThreads f ref = do
+        -- While waiting for threads new threads might spawn.
+        ts <- atomicModifyIORef' ref \st ->
+          ( st {stForked = []},
+            stForked st
+          )
+        case ts of
+          [] -> pure ()
+          _ -> traverse_ f ts *> allThreads f ref
+  bracketOnError (newIORef st0) (allThreads cancel) \ref ->
+    runReaderT m (env, ref) <* allThreads wait ref
+
+etaEvalM :: EvalM a -> EvalM a
+etaEvalM (EvalM m) = EvalM (etaReaderT m)
+{-# INLINE etaEvalM #-}
+
+askEnv :: EvalM Env
+askEnv = EvalM (asks fst)
+{-# INLINE askEnv #-}
+
+localEnv :: (Env -> Env) -> EvalM a -> EvalM a
+localEnv f = EvalM . local (first f) . unEvalM
+{-# INLINE localEnv #-}
+
+askState :: EvalM (IORef EvalSt)
+askState = EvalM (asks snd)
+{-# INLINE askState #-}
+
+modifyState :: (EvalSt -> EvalSt) -> EvalM ()
+modifyState f = do
+  ref <- askState
+  liftIO $ atomicModifyIORef' ref \st -> (f st, ())
+{-# INLINE modifyState #-}
+
+type ChannelId = Word
 
 data Channel = Channel
   { channelId :: !ChannelId,
@@ -195,7 +240,7 @@ evalLiteral = \case
 
 eval :: TcExp -> EvalM Value
 eval =
-  etaReaderT . \case
+  etaEvalM . \case
     E.Lit _ l -> do
       pure $ evalLiteral l
     E.Var _ v -> do
@@ -205,7 +250,7 @@ eval =
 
     --
     E.Abs _ bind -> do
-      (env, _) <- ask
+      env <- askEnv
       pure $ closure env bind
 
     --
@@ -244,7 +289,7 @@ eval =
       --
       -- TODO: Ensure that the shadowing rules between the interpreter and type
       -- checker are consistent when `arg` and `v` are the same.
-      (env, _) <- ask
+      env <- askEnv
       let env' = Map.insert v (Right val) env
           val = closure env' $ recBody rl
       pure val
@@ -279,7 +324,7 @@ eval =
       val <- eval e
       (con, vs) <- unwrap TCon val
       if
-          | Just b <- Map.lookup con (E.casesPatterns cases) ->
+          | Just b <- Map.lookup con (E.casesPatterns cases) -> do
             localBinds (zip (E.branchBinds b) vs) do
               eval $ E.branchExp b
           | Just b <- E.casesWildcard cases ->
@@ -302,7 +347,7 @@ eval =
 
 newChannel :: EvalM Channel
 newChannel = do
-  (_, ref) <- ask
+  ref <- askState
   cid <- liftIO $ atomicModifyIORef' ref \st ->
     ( st & stNextChannelL +~ 1,
       st ^. stNextChannelL
@@ -318,13 +363,13 @@ readChannel = liftIO . takeMVar . channelVar
 
 forkEval :: TcExp -> (Value -> EvalM ()) -> EvalM ()
 forkEval e f = do
-  env@(_, ref) <- ask
+  env <- EvalM ask
   -- Fork evaluation.
-  tid <- liftIO $ forkIO do
-    runReaderT (f =<< eval e) env
+  thread <- liftIO $ async do
+    runReaderT (unEvalM (f =<< eval e)) env
   -- Record the forked thread.
-  void . liftIO $ atomicModifyIORef'_ ref \st ->
-    st & stForkedL %~ (tid :)
+  modifyState \st -> do
+    st & stForkedL %~ (thread :)
 
 recBody :: E.RecLam Tc -> E.Bind Tc
 recBody (E.RecTermAbs _ bind) = bind
@@ -334,17 +379,18 @@ closure :: Env -> TcBind -> Value
 closure env bind@(E.Bind _ _ v _ body) =
   Closure (show bind) \a -> do
     let env' = Map.insert v (Right a) env
-    local (first $ const env') $ eval body
+    localEnv (const env') $ eval body
 
+-- Establish a set of bindings locally.
 localBinds :: [(ProgVar, Value)] -> EvalM a -> EvalM a
-localBinds binds = local $ first \e -> Right `fmap` Map.fromList binds <> e
+localBinds binds = localEnv \e -> Right `fmap` Map.fromList binds <> e
 
 -- | Looks for the given variable in the current environment. If it resovles to
 -- a top-level expression it will be evaluated before returning.
 lookupEnv :: ProgVar -> EvalM Value
 lookupEnv v =
-  asks (fst >>> Map.lookup v)
-    >>= maybe (fail err) pure
+  askEnv
+    >>= maybe (fail err) pure . Map.lookup v
     >>= either eval pure
   where
     err = unwords ["internal error:", show v, "is not bound."]

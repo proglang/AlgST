@@ -13,6 +13,7 @@ dependencies:
 - base >= 4.7 && < 5
 - ansi-terminal
 - array
+- async
 - call-stack
 - containers >=0.5.9
 - deepseq
