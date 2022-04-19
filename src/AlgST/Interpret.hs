@@ -303,9 +303,6 @@ eval =
     --
     E.Rec _ v _ rl -> do
       -- Like a lambda abstraction but `v` is bound in the body.
-      --
-      -- TODO: Ensure that the shadowing rules between the interpreter and type
-      -- checker are consistent when `arg` and `v` are the same.
       env <- askEnv
       let env' = Map.insert v (Right val) env
           val = closure env' $ recBody rl

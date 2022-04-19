@@ -1,0 +1,6 @@
+main : Int
+main =
+  let x = 10 in
+  let f = \(_ : ()) -> x in
+  let x = 20 in
+  f ()

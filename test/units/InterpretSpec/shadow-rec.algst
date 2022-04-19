@@ -1,0 +1,6 @@
+-- Check that the correct value perseveres when recursion function and its
+-- argument share the same name.
+main : Int
+main =
+  let f = rec x : Int -> Int = \(x : Int) -> x in
+  f 10
