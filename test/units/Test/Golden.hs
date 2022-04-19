@@ -3,6 +3,7 @@
 module Test.Golden
   ( -- * Golden tests
     goldenTests,
+    goldenTestsM,
     plainErrors,
     swap,
 
@@ -15,19 +16,21 @@ module Test.Golden
   )
 where
 
+import AlgST.Util.Error
+import Control.Category ((>>>))
+import Control.DeepSeq
 import Control.Exception
 import Control.Monad
+import Data.CallStack
 import Data.Foldable
 import Data.List qualified as List
 import Data.Maybe
-import AlgST.Util.Error
 import System.Directory
 import System.FilePath
-import Data.CallStack
+import System.Timeout
 import Test.Hspec qualified as Hspec
 import Test.Hspec.Core.Spec hiding (Node, Tree)
 import Test.Hspec.Core.Util
-import System.Timeout
 
 withTestInputs :: HasCallStack => FilePath -> (FilePath -> Spec) -> Spec
 withTestInputs dir run = do
@@ -61,30 +64,42 @@ protectIO = runIO . safeTry
 goldenTests :: HasCallStack => FilePath -> (String -> Either String String) -> Spec
 goldenTests dir = withTestInputs dir . fileSpec
 
+goldenTestsM :: HasCallStack => FilePath -> (String -> IO String) -> Spec
+goldenTestsM dir = withTestInputs dir . fileSpecM
+
 fileSpec :: HasCallStack => (String -> Either String String) -> FilePath -> Spec
-fileSpec run fp = specify (takeFileName fp) do
-  -- Files with a name starting with x- are skipped.
+fileSpec f = fileSpecM $ f >>> either expectationFailure pure
+
+fileSpecM :: HasCallStack => (String -> IO String) -> FilePath -> Spec
+fileSpecM run fp = specify (takeFileName fp) do
+  -- Files with a name starting with "x-" are skipped.
   when (take 2 (takeFileName fp) == "x-") do
     pending
 
   -- Ensures there is a final newline.
   let normalize = unlines . lines
 
+  -- Read the source code.
   src <- readFile fp
-  -- Give the action 2s to complete.
-  mactual <- timeout 2_000_000 $
-    case run src of
-      Left err -> expectationFailure ("unexpected result:\n" ++ err)
-      Right actual -> normalize actual <$ writeFile (fp <.> "actual") actual
-  actual <- failNothing "Test timed out." mactual
 
+  -- Give the action 2s to complete.
+  actual <-
+    failNothing "Test timed out." =<< timeout 2_000_000 do
+      s <- run src
+      evaluate $ force s
+
+  -- Write the result to the ".actual" file.
+  writeFile (fp <.> "actual") actual
+
+  -- Read the expectation.
   let fpExpected = fp <.> "expected"
   hasExpectation <- doesFileExist fpExpected
   when (not hasExpectation) do
     pendingWith $ "Expected output file " ++ fpExpected ++ " does not exist."
+  expectation <- readFile fpExpected
 
-  expectation <- normalize <$> readFile fpExpected
-  actual `Hspec.shouldBe` expectation
+  -- Check the result.
+  normalize actual `Hspec.shouldBe` normalize expectation
 
 plainErrors :: Foldable f => f Diagnostic -> String
 plainErrors = show . toList

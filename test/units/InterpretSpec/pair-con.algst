@@ -1,0 +1,2 @@
+main : (Int, Int)
+main = (10, 20)

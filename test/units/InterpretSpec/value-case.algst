@@ -1,0 +1,12 @@
+data XY
+  = X Int String
+  | Y String Int
+
+unwrapXY : XY -> (Int, String)
+unwrapXY xy = case xy of {
+  X a b -> (a, b),
+  Y a b -> (b, a),
+}
+
+main : ((Int, String), (Int, String))
+main = (unwrapXY (X 10 "11"), unwrapXY (Y "13" 12))

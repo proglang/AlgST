@@ -1,5 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiWayIf #-}
@@ -10,6 +10,7 @@ module AlgST.Interpret
   ( EvalM,
     etaEvalM,
     runEvalM,
+    InterpretError (..),
     EvalSt (..),
     ThreadList,
     ChannelId,
@@ -43,6 +44,7 @@ import Data.IORef
 import Data.List qualified as List
 import Data.Map.Lazy qualified as LMap
 import Data.Map.Strict qualified as Map
+import Data.Monoid
 import Data.Void
 import Lens.Family2
 import Syntax.Base (defaultPos)
@@ -70,7 +72,22 @@ data EvalSt = EvalSt
   }
 
 newtype EvalM a = EvalM {unEvalM :: ReaderT (Env, IORef EvalSt) IO a}
+  deriving (Semigroup, Monoid) via (Ap EvalM a)
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadFix, MonadFail)
+
+data InterpretError = InterpretError !Pos String
+  deriving stock (Show)
+
+instance Exception InterpretError where
+  displayException (InterpretError p e) =
+    concat
+      [ if p == defaultPos then "" else shows p ": ",
+        "interpret error: ",
+        e
+      ]
+
+failInterpet :: Pos -> String -> EvalM a
+failInterpet !p = liftIO . throwIO . InterpretError p
 
 runEvalM :: Env -> EvalM a -> IO a
 runEvalM env (EvalM m) = do
@@ -126,7 +143,7 @@ data Side = A | B
 
 data Value
   = -- | The 'String' is a description of the closure value used in the 'Show' instance.
-    Closure String (Value -> EvalM Value)
+    Closure String (Pos -> Value -> EvalM Value)
   | -- | A fully applied constructor. This includes pairs. See the 'Pair'
     -- pattern synonym for more information about their representation.
     Con !ProgVar [Value]
@@ -185,7 +202,7 @@ instance Show Value where
           & showParen (p > 10)
 
 data Type a where
-  TClosure :: Type (Value -> EvalM Value)
+  TClosure :: Type (Pos -> Value -> EvalM Value)
   TCon :: Type (ProgVar, [Value])
   TChannel :: Type Channel
   TLabel :: Type ProgVar
@@ -219,7 +236,7 @@ programEnvironment p =
             go _ f remaining vs =
               Closure
                 (show remaining ++ "*" ++ show (Con name (DL.toList vs)))
-                (\v -> pure $ f (remaining - 1) (vs `DL.snoc` v))
+                (\_ v -> pure $ f (remaining - 1) (vs `DL.snoc` v))
          in Just $ Right $ foldr go (\_ -> Con name . DL.toList) args (length args) DL.empty
       ProtocolCon {} ->
         -- Protocol constructors can't appear as values after type checking.
@@ -243,10 +260,10 @@ eval =
   etaEvalM . \case
     E.Lit _ l -> do
       pure $ evalLiteral l
-    E.Var _ v -> do
-      lookupEnv v
-    E.Con _ c -> do
-      lookupEnv c
+    E.Var p v -> do
+      lookupEnv p v
+    E.Con p c -> do
+      lookupEnv p c
 
     --
     E.Abs _ bind -> do
@@ -257,7 +274,7 @@ eval =
     E.App _ e1 e2 -> do
       f <- evalAs TClosure e1
       x <- eval e2
-      f x
+      f (pos e2) x
 
     --
     E.Pair _ e1 e2 -> do
@@ -302,8 +319,8 @@ eval =
     -- Constructs a function which sends the selected constructor as a label.
     -- The type abstractions are skipped as they correspond to no-ops anyways.
     E.Select _ con -> do
-      pure $ Closure ("\\c -> select " ++ show con ++ " c") \c -> do
-        chan <- unwrap TChannel c
+      pure $ Closure ("\\c -> select " ++ show con ++ " c") \appPos c -> do
+        chan <- unwrap appPos TChannel c
         putChannel chan $ Label con
         pure c
 
@@ -322,7 +339,7 @@ eval =
     --
     E.Exp (ValueCase _ e cases) -> do
       val <- eval e
-      (con, vs) <- unwrap TCon val
+      (con, vs) <- unwrap (pos e) TCon val
       if
           | Just b <- Map.lookup con (E.casesPatterns cases) -> do
             localBinds (zip (E.branchBinds b) vs) do
@@ -331,17 +348,17 @@ eval =
             localBinds [(runIdentity (E.branchBinds b), val)] do
               eval $ E.branchExp b
           | otherwise ->
-            unmatchableConstructor con
+            unmatchableConstructor (pos e) con
 
     --
-    E.Exp (RecvCase _ e cases) -> do
+    E.Exp (RecvCase p e cases) -> do
       chanVal <- eval e
-      channel <- unwrap TChannel chanVal
-      l <- unwrap TLabel =<< readChannel channel
+      channel <- unwrap (pos e) TChannel chanVal
+      l <- unwrap defaultPos TLabel =<< readChannel channel
       b <-
         E.casesPatterns cases
           & Map.lookup l
-          & maybe (unmatchableConstructor l) pure
+          & maybe (unmatchableConstructor p l) pure
       localBinds [(runIdentity (E.branchBinds b), chanVal)] do
         eval $ E.branchExp b
 
@@ -377,7 +394,7 @@ recBody (E.RecTypeAbs _ (K.Bind _ _ _ rl)) = recBody rl
 
 closure :: Env -> TcBind -> Value
 closure env bind@(E.Bind _ _ v _ body) =
-  Closure (show bind) \a -> do
+  Closure (show bind) \_ a -> do
     let env' = Map.insert v (Right a) env
     localEnv (const env') $ eval body
 
@@ -387,31 +404,31 @@ localBinds binds = localEnv \e -> Right `fmap` Map.fromList binds <> e
 
 -- | Looks for the given variable in the current environment. If it resovles to
 -- a top-level expression it will be evaluated before returning.
-lookupEnv :: ProgVar -> EvalM Value
-lookupEnv v =
+lookupEnv :: Pos -> ProgVar -> EvalM Value
+lookupEnv p v =
   askEnv
-    >>= maybe (fail err) pure . Map.lookup v
+    >>= maybe (failInterpet p err) pure . Map.lookup v
     >>= either eval pure
   where
-    err = unwords ["internal error:", show v, "is not bound."]
+    err = show v ++ " is not bound."
 
 -- | Evaluates the given expression and extracts the expected type.
 evalAs :: Type a -> TcExp -> EvalM a
-evalAs ty = eval >=> unwrap ty
+evalAs ty e = eval e >>= unwrap (pos e) ty
 
 -- | Tries to extract the payload of the given type from a value. If the value
--- has a different type 'fail' will be called.
-unwrap :: Type a -> Value -> EvalM a
-unwrap TNumber (Number n) = pure n
-unwrap TString (String s) = pure s
-unwrap TChar (Char c) = pure c
-unwrap TClosure (Closure _ f) = pure f
-unwrap TCon (Con c vs) = pure (c, vs)
-unwrap TLabel (Label l) = pure l
-unwrap TChannel (Endpoint _ c) = pure c
-unwrap ty v =
-  fail . unwords $
-    [ "internal error: expected",
+-- has a different type an 'InterpretError' will be thrown.
+unwrap :: Pos -> Type a -> Value -> EvalM a
+unwrap _ TNumber (Number n) = pure n
+unwrap _ TString (String s) = pure s
+unwrap _ TChar (Char c) = pure c
+unwrap _ TClosure (Closure _ f) = pure f
+unwrap _ TCon (Con c vs) = pure (c, vs)
+unwrap _ TLabel (Label l) = pure l
+unwrap _ TChannel (Endpoint _ c) = pure c
+unwrap p ty v =
+  failInterpet p . unwords $
+    [ "expected",
       tyname,
       "but the value is\n\t",
       show v
@@ -426,7 +443,6 @@ unwrap ty v =
       TChar -> "a char"
       TClosure -> "a closure"
 
-unmatchableConstructor :: ProgVar -> EvalM a
-unmatchableConstructor c =
-  fail $ unwords ["internal error: unmatchable constructor", show c]
+unmatchableConstructor :: Pos -> ProgVar -> EvalM a
+unmatchableConstructor p c = failInterpet p $ "unmatchable constructor " ++ show c
 {-# NOINLINE unmatchableConstructor #-}
