@@ -9,22 +9,28 @@
 {-# LANGUAGE TypeApplications #-}
 
 module AlgST.Interpret
-  ( EvalM,
+  ( -- * Evaluating
+    EvalM,
     etaEvalM,
     runEval,
     runEvalWith,
+    eval,
+    Env,
+    programEnvironment,
+
+    -- ** Values
+    Value (..),
+    pattern Pair,
+    ChannelId,
+    Channel (channelId, channelSide),
+    Side (..),
+
+    -- * Evaluation settings
     Settings (..),
     defaultSettings,
+
+    -- * Errors
     InterpretError (..),
-    EvalSt (..),
-    ThreadList,
-    ChannelId,
-    Env,
-    Value (..),
-    Side (..),
-    pattern Pair,
-    eval,
-    programEnvironment,
   )
 where
 
