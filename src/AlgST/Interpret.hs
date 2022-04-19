@@ -337,18 +337,22 @@ eval =
       pure Unit
 
     --
-    E.Exp (ValueCase _ e cases) -> do
+    E.Exp (ValueCase p e cases) -> do
       val <- eval e
-      (con, vs) <- unwrap (pos e) TCon val
       if
-          | Just b <- Map.lookup con (E.casesPatterns cases) -> do
-            localBinds (zip (E.branchBinds b) vs) do
-              eval $ E.branchExp b
+          | Con con vs <- val,
+            Just b <- Map.lookup con (E.casesPatterns cases) ->
+            -- Bind the payload values.
+            evalBranch b vs
           | Just b <- E.casesWildcard cases ->
-            localBinds [(runIdentity (E.branchBinds b), val)] do
-              eval $ E.branchExp b
+            -- We have to allow any value to appear as the scrutinee in a case
+            -- expression since `let` is desugared this way.
+            --
+            -- Bind the scrutinee itself.
+            evalBranch b [val]
           | otherwise ->
-            unmatchableConstructor (pos e) con
+            -- Something went wrong somewhere.
+            failInterpet p $ "unmatchable value " ++ show val
 
     --
     E.Exp (RecvCase p e cases) -> do
@@ -361,6 +365,11 @@ eval =
           & maybe (unmatchableConstructor p l) pure
       localBinds [(runIdentity (E.branchBinds b), chanVal)] do
         eval $ E.branchExp b
+
+evalBranch :: Foldable f => E.CaseBranch f Tc -> [Value] -> EvalM Value
+evalBranch b vs =
+  localBinds (zip (toList (E.branchBinds b)) vs) do
+    eval $ E.branchExp b
 
 newChannel :: EvalM Channel
 newChannel = do
