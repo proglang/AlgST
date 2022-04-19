@@ -23,6 +23,7 @@ module AlgST.Interpret
   )
 where
 
+import AlgST.Builtins
 import AlgST.Parse.ParseUtils (pairConId, pattern PairConId)
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
@@ -226,10 +227,11 @@ stNextChannelL :: Lens' EvalSt ChannelId
 stForkedL :: Lens' EvalSt ThreadList
 {- ORMOLU_ENABLE -}
 
--- | Constrcuts the global 'Env' from a type checked 'Program'.
+-- | Constructs the global 'Env' from a type checked 'Program'.
 programEnvironment :: TcProgram -> Env
 programEnvironment p =
   LMap.mapMaybeWithKey (\k -> either (conValue k) (globValue k)) (programValues p)
+    <> builtinsEnv
   where
     conValue :: ProgVar -> ConstructorDecl Tc -> Maybe (Either TcExp Value)
     conValue !name = \case
@@ -257,6 +259,40 @@ programEnvironment p =
       -- The bodies of 'ValueDecl's (after TC) already contain the parameter
       -- lambda abstractions.
       Just . Left $ valueBody d
+
+builtinsEnv :: Env
+builtinsEnv =
+  Map.fromList
+    [ bin "(+)" TNumber TNumber \x y -> Number (x + y),
+      bin "(-)" TNumber TNumber \x y -> Number (x - y),
+      bin "(*)" TNumber TNumber \x y -> Number (x * y),
+      bin "(/)" TNumber TNumber \x y -> Number (x `div` y),
+      bin "(%)" TNumber TNumber \x y -> Number (x `rem` y),
+      bin "(<=)" TNumber TNumber \x y ->
+        if x <= y
+          then Con conTrue []
+          else Con conFalse [],
+      bin' "send" \(_, val) (p, channel) ->
+        do
+          c <- unwrap p TChannel channel
+          putChannel c val
+          pure channel,
+      unary "receive" \p channel -> do
+        c <- unwrap p TChannel channel
+        v <- readChannel c
+        pure $ Pair v channel
+    ]
+  where
+    unary name f =
+      (mkVar defaultPos name, Right $ Closure name f)
+    bin' name f =
+      unary name \p1 a ->
+        pure $ Closure (name ++ " " ++ show a) (curry (f (p1, a)))
+    bin name t1 t2 f =
+      bin' name \(p1, a) (p2, b) -> do
+        a' <- unwrap p1 t1 a
+        b' <- unwrap p2 t2 b
+        pure $ f a' b'
 
 evalLiteral :: E.Lit -> Value
 evalLiteral = \case
