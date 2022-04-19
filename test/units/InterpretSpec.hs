@@ -47,7 +47,7 @@ parseAndCheckProgram src = do
   withRenamedProgram parsed checkProgram
 
 runProgram :: TcProgram -> IO Value
-runProgram p = runEvalM env (eval mainExpr)
+runProgram p = runEval env (eval mainExpr)
   where
     env = programEnvironment p
     mainExpr = E.Var defaultPos (mkVar defaultPos "main")

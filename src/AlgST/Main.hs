@@ -66,7 +66,7 @@ main = do
   case Map.lookup (mkVar defaultPos "main") (programValues checked) of
     Just (Right (D.ValueDecl {D.valueBody})) -> do
       v <- runStage @[] opts "Evaluating ›main‹" do
-        Right $ unsafePerformIO $ runEvalM (programEnvironment checked) (eval valueBody)
+        Right $ unsafePerformIO $ runEval (programEnvironment checked) (eval valueBody)
       traverse_ print v
     _ -> pure ()
 

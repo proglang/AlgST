@@ -11,7 +11,10 @@
 module AlgST.Interpret
   ( EvalM,
     etaEvalM,
-    runEvalM,
+    runEval,
+    runEvalWith,
+    Settings (..),
+    defaultSettings,
     InterpretError (..),
     EvalSt (..),
     ThreadList,
@@ -39,7 +42,6 @@ import Control.Concurrent.Async
 import Control.Exception
 import Control.Monad.Eta
 import Control.Monad.Reader
-import Data.Bifunctor
 import Data.DList qualified as DL
 import Data.Foldable
 import Data.Functor.Identity (Identity (runIdentity))
@@ -68,6 +70,22 @@ type Env = Map.Map ProgVar (Either TcExp Value)
 -- | A list of spawned threads.
 type ThreadList = [Async ()]
 
+newtype Settings = Settings
+  { evalDebugMessages :: Bool
+  }
+
+defaultSettings :: Settings
+defaultSettings =
+  Settings
+    { evalDebugMessages = False
+    }
+
+data EvalInfo = EvalInfo
+  { evalEnv :: !Env,
+    evalState :: !(IORef EvalSt),
+    evalSettings :: !Settings
+  }
+
 data EvalSt = EvalSt
   { -- | The next channel id to be used.
     stNextChannel :: !ChannelId,
@@ -78,7 +96,7 @@ data EvalSt = EvalSt
     stForked :: ThreadList
   }
 
-newtype EvalM a = EvalM {unEvalM :: ReaderT (Env, IORef EvalSt) IO a}
+newtype EvalM a = EvalM {unEvalM :: ReaderT EvalInfo IO a}
   deriving (Semigroup, Monoid) via (Ap EvalM a)
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadFix, MonadFail)
 
@@ -105,8 +123,14 @@ instance Exception InterpretError where
 failInterpet :: HasCallStack => Pos -> String -> EvalM a
 failInterpet !p = liftIO . throwIO . InterpretError callStack p
 
-log :: MonadIO m => String -> m ()
-log s = liftIO do
+debugLogM :: String -> EvalM ()
+debugLogM msg = do
+  settings <- EvalM $ asks evalSettings
+  debugLog settings msg
+
+debugLog :: MonadIO m => Settings -> String -> m ()
+debugLog Settings {evalDebugMessages = False} _ = pure ()
+debugLog _ msg = liftIO do
   tid <- myThreadId
   let color =
         SetPaletteColor Foreground . fromIntegral $
@@ -116,12 +140,15 @@ log s = liftIO do
       "[",
       show tid,
       "] ",
-      s,
+      msg,
       setSGRCode [Reset]
     ]
 
-runEvalM :: Env -> EvalM a -> IO a
-runEvalM env (EvalM m) = do
+runEval :: Env -> EvalM a -> IO a
+runEval = runEvalWith defaultSettings
+
+runEvalWith :: Settings -> Env -> EvalM a -> IO a
+runEvalWith settings env (EvalM m) = do
   let st0 =
         EvalSt
           { stNextChannel = ChannelId 0,
@@ -136,37 +163,24 @@ runEvalM env (EvalM m) = do
         case ts of
           [] -> pure ()
           _ -> traverse_ f ts *> allThreads f ref
+  let info ref =
+        EvalInfo
+          { evalEnv = env,
+            evalState = ref,
+            evalSettings = settings
+          }
   let main ref =
-        runReaderT m (env, ref)
-          <* allThreads wait ref
-          <* log "Evaluation Completed"
+        runReaderT
+          ( m
+              <* liftIO (allThreads wait ref)
+              <* debugLog settings "Evaluation Completed"
+          )
+          (info ref)
   let failed ref =
-        log "Evaluation Failed"
+        debugLog settings "Evaluation Failed"
           *> allThreads cancel ref
-  log "Beginning Evaluation"
+  debugLog settings "Beginning Evaluation"
   bracketOnError (newIORef st0) failed main
-
-etaEvalM :: EvalM a -> EvalM a
-etaEvalM (EvalM m) = EvalM (etaReaderT m)
-{-# INLINE etaEvalM #-}
-
-askEnv :: EvalM Env
-askEnv = EvalM (asks fst)
-{-# INLINE askEnv #-}
-
-localEnv :: (Env -> Env) -> EvalM a -> EvalM a
-localEnv f = EvalM . local (first f) . unEvalM
-{-# INLINE localEnv #-}
-
-askState :: EvalM (IORef EvalSt)
-askState = EvalM (asks snd)
-{-# INLINE askState #-}
-
-modifyState :: (EvalSt -> EvalSt) -> EvalM ()
-modifyState f = do
-  ref <- askState
-  liftIO $ atomicModifyIORef' ref \st -> (f st, ())
-{-# INLINE modifyState #-}
 
 newtype ChannelId = ChannelId Word
   deriving stock (Show, Eq, Ord)
@@ -268,6 +282,33 @@ makeLenses ''EvalSt
 stNextChannelL :: Lens' EvalSt ChannelId
 stForkedL :: Lens' EvalSt ThreadList
 {- ORMOLU_ENABLE -}
+
+{- ORMOLU_DISABLE -}
+makeLenses ['evalEnv] ''EvalInfo
+evalEnvL :: Lens' EvalInfo Env
+{- ORMOLU_ENABLE -}
+
+etaEvalM :: EvalM a -> EvalM a
+etaEvalM (EvalM m) = EvalM (etaReaderT m)
+{-# INLINE etaEvalM #-}
+
+askEnv :: EvalM Env
+askEnv = EvalM (asks evalEnv)
+{-# INLINE askEnv #-}
+
+localEnv :: (Env -> Env) -> EvalM a -> EvalM a
+localEnv f = EvalM . local (evalEnvL %~ f) . unEvalM
+{-# INLINE localEnv #-}
+
+askState :: EvalM (IORef EvalSt)
+askState = EvalM (asks evalState)
+{-# INLINE askState #-}
+
+modifyState :: (EvalSt -> EvalSt) -> EvalM ()
+modifyState f = do
+  ref <- askState
+  liftIO $ atomicModifyIORef' ref \st -> (f st, ())
+{-# INLINE modifyState #-}
 
 -- | Constructs the global 'Env' from a type checked 'Program'.
 programEnvironment :: TcProgram -> Env
@@ -468,18 +509,18 @@ newChannel = do
   pure (Channel cid A v1 v2, Channel cid B v1 v2)
 
 putChannel :: Channel -> Value -> EvalM ()
-putChannel c v = liftIO do
-  log $ "╔ send@" ++ show c ++ ": " ++ show v
-  putMVar (channelVar c) v
-  takeMVar (channelSync c)
-  log $ "╚ send@" ++ show c
+putChannel c v = do
+  debugLogM $ "╔ send@" ++ show c ++ ": " ++ show v
+  liftIO $ putMVar (channelVar c) v
+  liftIO $ takeMVar (channelSync c)
+  debugLogM $ "╚ send@" ++ show c
 
 readChannel :: Channel -> EvalM Value
-readChannel c = liftIO do
-  log $ "╭ recv@" ++ show c
-  v <- takeMVar (channelVar c)
-  putMVar (channelSync c) ()
-  log $ "╰ recv@" ++ show c ++ ": " ++ show v
+readChannel c = do
+  debugLogM $ "╭ recv@" ++ show c
+  v <- liftIO $ takeMVar (channelVar c)
+  liftIO $ putMVar (channelSync c) ()
+  debugLogM $ "╰ recv@" ++ show c ++ ": " ++ show v
   pure v
 
 forkEval :: TcExp -> (Value -> EvalM ()) -> EvalM ()
@@ -487,11 +528,11 @@ forkEval e f = do
   env <- EvalM ask
   -- Fork evaluation.
   thread <- liftIO . mask_ $ asyncWithUnmask \restore -> do
-    log "┏ starting"
+    debugLog (evalSettings env) "┏ starting"
     restore (runReaderT (unEvalM (f =<< eval e)) env) `catch` \(e :: SomeException) -> do
-      log $ "┗ failed: " ++ displayException e
+      debugLog (evalSettings env) $ "┗ failed: " ++ displayException e
       throwIO e
-    log "┗ completed"
+    debugLog (evalSettings env) "┗ completed"
   -- Record the forked thread.
   modifyState \st -> do
     st & stForkedL %~ (thread :)
