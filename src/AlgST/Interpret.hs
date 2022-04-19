@@ -43,6 +43,7 @@ import AlgST.Syntax.Program
 import AlgST.Syntax.Variable
 import AlgST.Typing.Phase (Tc, TcBind, TcExp, TcExpX (..), TcProgram)
 import AlgST.Util.Lenses
+import AlgST.Util.Output
 import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Exception
@@ -62,6 +63,7 @@ import GHC.Stack
 import Lens.Family2
 import Syntax.Base (defaultPos)
 import System.Console.ANSI
+import System.IO
 import Prelude hiding (log)
 
 -- | The environment associates names with either an unevaluated expression or
@@ -77,13 +79,13 @@ type Env = Map.Map ProgVar (Either TcExp Value)
 type ThreadList = [Async ()]
 
 newtype Settings = Settings
-  { evalDebugMessages :: Bool
+  { evalDebugMessages :: Maybe OutputMode
   }
 
 defaultSettings :: Settings
 defaultSettings =
   Settings
-    { evalDebugMessages = False
+    { evalDebugMessages = Nothing
     }
 
 data EvalInfo = EvalInfo
@@ -128,65 +130,6 @@ instance Exception InterpretError where
 
 failInterpet :: HasCallStack => Pos -> String -> EvalM a
 failInterpet !p = liftIO . throwIO . InterpretError callStack p
-
-debugLogM :: String -> EvalM ()
-debugLogM msg = do
-  settings <- EvalM $ asks evalSettings
-  debugLog settings msg
-
-debugLog :: MonadIO m => Settings -> String -> m ()
-debugLog Settings {evalDebugMessages = False} _ = pure ()
-debugLog _ msg = liftIO do
-  tid <- myThreadId
-  let color =
-        SetPaletteColor Foreground . fromIntegral $
-          (hash tid + 3) `rem` (228 - 21) + 21
-  putStrLn . concat $
-    [ setSGRCode [color],
-      "[",
-      show tid,
-      "] ",
-      msg,
-      setSGRCode [Reset]
-    ]
-
-runEval :: Env -> EvalM a -> IO a
-runEval = runEvalWith defaultSettings
-
-runEvalWith :: Settings -> Env -> EvalM a -> IO a
-runEvalWith settings env (EvalM m) = do
-  let st0 =
-        EvalSt
-          { stNextChannel = ChannelId 0,
-            stForked = []
-          }
-  let allThreads f ref = do
-        -- While waiting for threads new threads might spawn.
-        ts <- atomicModifyIORef' ref \st ->
-          ( st {stForked = []},
-            stForked st
-          )
-        case ts of
-          [] -> pure ()
-          _ -> traverse_ f ts *> allThreads f ref
-  let info ref =
-        EvalInfo
-          { evalEnv = env,
-            evalState = ref,
-            evalSettings = settings
-          }
-  let main ref =
-        runReaderT
-          ( m
-              <* liftIO (allThreads wait ref)
-              <* debugLog settings "Evaluation Completed"
-          )
-          (info ref)
-  let failed ref =
-        debugLog settings "Evaluation Failed"
-          *> allThreads cancel ref
-  debugLog settings "Beginning Evaluation"
-  bracketOnError (newIORef st0) failed main
 
 newtype ChannelId = ChannelId Word
   deriving stock (Show, Eq, Ord)
@@ -293,6 +236,68 @@ stForkedL :: Lens' EvalSt ThreadList
 makeLenses ['evalEnv] ''EvalInfo
 evalEnvL :: Lens' EvalInfo Env
 {- ORMOLU_ENABLE -}
+
+debugLogM :: String -> EvalM ()
+debugLogM msg = etaEvalM do
+  settings <- EvalM $ asks evalSettings
+  debugLog settings msg
+
+debugLog :: MonadIO m => Settings -> String -> m ()
+debugLog Settings {evalDebugMessages = Just mode} msg = liftIO do
+  let colorize = case mode of
+        Plain -> const ""
+        Colorized -> setSGRCode
+  let color t =
+        SetPaletteColor Foreground . fromIntegral $
+          (hash t + 3) `rem` (228 - 21) + 21
+  tid <- myThreadId
+  hPutStrLn stderr . concat $
+    [ colorize [color tid],
+      "[",
+      show tid,
+      "] ",
+      msg,
+      colorize [Reset]
+    ]
+debugLog _ _ = pure ()
+
+runEval :: Env -> EvalM a -> IO a
+runEval = runEvalWith defaultSettings
+
+runEvalWith :: Settings -> Env -> EvalM a -> IO a
+runEvalWith settings env (EvalM m) = do
+  let st0 =
+        EvalSt
+          { stNextChannel = ChannelId 0,
+            stForked = []
+          }
+  let allThreads f ref = do
+        -- While waiting for threads new threads might spawn.
+        ts <- atomicModifyIORef' ref \st ->
+          ( st {stForked = []},
+            stForked st
+          )
+        case ts of
+          [] -> pure ()
+          _ -> traverse_ f ts *> allThreads f ref
+  let info ref =
+        EvalInfo
+          { evalEnv = env,
+            evalState = ref,
+            evalSettings = settings
+          }
+  let main ref =
+        runReaderT
+          ( m
+              <* liftIO (allThreads wait ref)
+              <* debugLog settings "Evaluation Completed"
+          )
+          (info ref)
+  let failed ref =
+        debugLog settings "Evaluation Failed"
+          *> allThreads cancel ref
+  debugLog settings "Beginning Evaluation"
+  bracketOnError (newIORef st0) failed main
 
 etaEvalM :: EvalM a -> EvalM a
 etaEvalM (EvalM m) = EvalM (etaReaderT m)

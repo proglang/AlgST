@@ -103,7 +103,8 @@ actionParser = tysynth <|> kisynth <|> nf
 data RunOpts = RunOpts
   { optsSource :: !Source,
     optsOutputMode :: !(Maybe OutputMode),
-    optsActions :: ![Action]
+    optsActions :: ![Action],
+    optsDebugEval :: !Bool
   }
   deriving (Show)
 
@@ -112,6 +113,7 @@ optsParser = do
   optsOutputMode <- optional modeParser
   optsSource <- sourceParser
   optsActions <- many actionParser
+  optsDebugEval <- debugParser
   pure RunOpts {..}
 
 modeParser :: O.Parser OutputMode
@@ -132,6 +134,15 @@ modeParser = plain <|> colorized
               "Output messages with colors even when the output device is \
               \not a terminal."
           ]
+
+debugParser :: O.Parser Bool
+debugParser =
+  O.flag False True $
+    mconcat
+      [ O.long "debug",
+        O.short 'd',
+        O.help "Output debug messages during evaluation."
+      ]
 
 getOptions :: IO RunOpts
 getOptions = O.execParser $ O.info (optsParser <**> O.helper) mempty

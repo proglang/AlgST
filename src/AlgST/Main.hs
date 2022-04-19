@@ -63,10 +63,19 @@ main = do
 
   mparsed <- runStage opts "Parsing" $ runParser (parseProg builtins) src
   checked <- runChecks opts =<< maybe exitFailure pure mparsed
+
+  let evalSettings =
+        defaultSettings
+          { evalDebugMessages =
+              if optsDebugEval runOpts
+                then Just (stdoutMode opts)
+                else Nothing
+          }
   case Map.lookup (mkVar defaultPos "main") (programValues checked) of
     Just (Right (D.ValueDecl {D.valueBody})) -> do
       v <- runStage @[] opts "Evaluating ›main‹" do
-        Right $ unsafePerformIO $ runEval (programEnvironment checked) (eval valueBody)
+        Right . unsafePerformIO $ do
+          runEvalWith evalSettings (programEnvironment checked) (eval valueBody)
       traverse_ print v
     _ -> pure ()
 
