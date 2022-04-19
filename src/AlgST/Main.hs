@@ -1,12 +1,18 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeApplications #-}
 
 module AlgST.Main (main) where
 
 import AlgST.Builtins (builtins)
 import AlgST.CommandLine
+import AlgST.Interpret
 import AlgST.Parse.Parser
 import AlgST.Parse.Phase
 import AlgST.Rename
+import AlgST.Syntax.Decl qualified as D
+import AlgST.Syntax.Program
+import AlgST.Syntax.Variable
 import AlgST.Typing
 import AlgST.Util.Error
 import AlgST.Util.Output
@@ -17,10 +23,13 @@ import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Data.Foldable
+import Data.Map.Strict qualified as Map
 import Data.Traversable.WithIndex
+import Syntax.Base (defaultPos)
 import System.Console.ANSI
 import System.Exit
 import System.IO
+import System.IO.Unsafe
 
 data Options = Options
   { runOpts :: !RunOpts,
@@ -53,18 +62,25 @@ main = do
     checkOut stdout <|> checkOut stderr
 
   mparsed <- runStage opts "Parsing" $ runParser (parseProg builtins) src
-  runChecks opts =<< maybe exitFailure pure mparsed
-  pure ()
+  checked <- runChecks opts =<< maybe exitFailure pure mparsed
+  case Map.lookup (mkVar defaultPos "main") (programValues checked) of
+    Just (Right (D.ValueDecl {D.valueBody})) -> do
+      v <- runStage @[] opts "Evaluating ›main‹" do
+        Right $ unsafePerformIO $ runEvalM (programEnvironment checked) (eval valueBody)
+      traverse_ print v
+    _ -> pure ()
 
-runChecks :: Options -> PProgram -> IO ()
-runChecks opts pprogram = do
-  actions <- runStage opts "Checking" $
-    withRenamedProgram pprogram \rnProgram ->
-      checkWithProgram rnProgram \runTy runKi _ -> do
-        Right <$> itraverse (evalAction opts runTy runKi) (optsActions (runOpts opts))
-  oks <- sequence =<< maybe exitFailure pure actions
-  when (not (and oks)) do
-    exitFailure
+runChecks :: Options -> PProgram -> IO TcProgram
+runChecks opts pprogram =
+  maybe exitFailure pure =<< runMaybeT do
+    (checked, actions) <- MaybeT . runStage opts "Checking" $
+      withRenamedProgram pprogram \rnProgram ->
+        checkWithProgram rnProgram \runTy runKi checkedProgram -> do
+          actions <- itraverse (evalAction opts runTy runKi) (optsActions (runOpts opts))
+          pure $ Right (checkedProgram, actions)
+    oks <- lift $ sequence actions
+    guard $ and oks
+    pure checked
 
 evalAction :: Options -> RunTyM -> RunKiM -> Int -> Action -> RnM (IO Bool)
 evalAction opts runTy runKi i = \case
