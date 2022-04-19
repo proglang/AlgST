@@ -1,0 +1,15 @@
+echoServer : ∀(a : ML). ∀(s : SL). (a -> a) -> ?a.!a.s -> s
+echoServer [a, s] f c =
+  let (a, c) = receive [a, !a.s] c in
+  send [a, s] (f a) c
+
+double : Int -> Int
+double n = n * 2
+
+main : Int
+main =
+  let (c1, c2) = new [!Int.?Int.end] in
+  let _ = fork_ (echoServer [Int, end] double c2) in
+  let c = send [Int, ?Int.end] 10 c1 in
+  let (r, _) = receive [Int, end] c in
+  r

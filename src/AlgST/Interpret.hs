@@ -4,7 +4,9 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 
 module AlgST.Interpret
   ( EvalM,
@@ -41,6 +43,7 @@ import Data.Bifunctor
 import Data.DList qualified as DL
 import Data.Foldable
 import Data.Functor.Identity (Identity (runIdentity))
+import Data.Hashable
 import Data.IORef
 import Data.List qualified as List
 import Data.Map.Lazy qualified as LMap
@@ -50,6 +53,8 @@ import Data.Void
 import GHC.Stack
 import Lens.Family2
 import Syntax.Base (defaultPos)
+import System.Console.ANSI
+import Prelude hiding (log)
 
 -- | The environment associates names with either an unevaluated expression or
 -- a final value.
@@ -100,11 +105,26 @@ instance Exception InterpretError where
 failInterpet :: HasCallStack => Pos -> String -> EvalM a
 failInterpet !p = liftIO . throwIO . InterpretError callStack p
 
+log :: MonadIO m => String -> m ()
+log s = liftIO do
+  tid <- myThreadId
+  let color =
+        SetPaletteColor Foreground . fromIntegral $
+          (hash tid + 3) `rem` (228 - 21) + 21
+  putStrLn . concat $
+    [ setSGRCode [color],
+      "[",
+      show tid,
+      "] ",
+      s,
+      setSGRCode [Reset]
+    ]
+
 runEvalM :: Env -> EvalM a -> IO a
 runEvalM env (EvalM m) = do
   let st0 =
         EvalSt
-          { stNextChannel = 0,
+          { stNextChannel = ChannelId 0,
             stForked = []
           }
   let allThreads f ref = do
@@ -116,8 +136,15 @@ runEvalM env (EvalM m) = do
         case ts of
           [] -> pure ()
           _ -> traverse_ f ts *> allThreads f ref
-  bracketOnError (newIORef st0) (allThreads cancel) \ref ->
-    runReaderT m (env, ref) <* allThreads wait ref
+  let main ref =
+        runReaderT m (env, ref)
+          <* allThreads wait ref
+          <* log "Evaluation Completed"
+  let failed ref =
+        log "Evaluation Failed"
+          *> allThreads cancel ref
+  log "Beginning Evaluation"
+  bracketOnError (newIORef st0) failed main
 
 etaEvalM :: EvalM a -> EvalM a
 etaEvalM (EvalM m) = EvalM (etaReaderT m)
@@ -141,12 +168,27 @@ modifyState f = do
   liftIO $ atomicModifyIORef' ref \st -> (f st, ())
 {-# INLINE modifyState #-}
 
-type ChannelId = Word
+newtype ChannelId = ChannelId Word
+  deriving stock (Show, Eq, Ord)
+
+_ChannelId :: Lens' ChannelId Word
+_ChannelId = coerced
 
 data Channel = Channel
   { channelId :: !ChannelId,
-    channelVar :: !(MVar Value)
+    channelSide :: !Side,
+    -- | Filled by the sender, emptied by the receiving side.
+    channelVar :: !(MVar Value),
+    -- | Filled by the receiving side, emptied by the sender to synchronize the
+    -- two endpoints.
+    --
+    -- To avoid deadlocks the operation on 'channelSync' should always happen
+    -- after the operation on 'channelVar'.
+    channelSync :: !(MVar ())
   }
+
+instance Show Channel where
+  show c = show (channelId c ^. _ChannelId) ++ "." ++ show (channelSide c)
 
 -- | An indicator to differentiate the two channel endpoints.
 data Side = A | B
@@ -159,7 +201,7 @@ data Value
     -- pattern synonym for more information about their representation.
     Con !ProgVar [Value]
   | -- | Endpoint to a channel. The 'Side' is an indicator for the user.
-    Endpoint !Side !Channel
+    Endpoint !Channel
   | -- | Labels can't be constructed by the user. The are user to handle
     -- select/case operations on channels.
     Label !ProgVar
@@ -192,10 +234,10 @@ instance Show Value where
           showsPrec 11 c,
           showsPrec 11 vs
         ]
-      Endpoint side c ->
+      Endpoint c ->
         [ showString "Endpoint",
-          showsPrec 11 side,
-          showsPrec 11 (channelId c)
+          showsPrec 11 (channelId c),
+          showsPrec 11 (channelSide c)
         ]
       Label lbl -> unary "Label" lbl
       Number n -> unary "Number" n
@@ -356,8 +398,8 @@ eval =
 
     -- Creates a new channel and returns a pair of the two endpoints.
     E.New _ _ -> do
-      c <- newChannel
-      pure $ Pair (Endpoint A c) (Endpoint B c)
+      (c1, c2) <- newChannel
+      pure $ Pair (Endpoint c1) (Endpoint c2)
 
     -- Constructs a function which sends the selected constructor as a label.
     -- The type abstractions are skipped as they correspond to no-ops anyways.
@@ -370,9 +412,9 @@ eval =
     -- Forks the evaluation of `e` and sends the result over a new channel. In
     -- the current thread it evaluates to that new channel.
     E.Fork _ e -> do
-      c <- newChannel
-      forkEval e (putChannel c)
-      pure $ Endpoint A c
+      (c1, c2) <- newChannel
+      forkEval e (putChannel c2)
+      pure $ Endpoint c1
 
     -- Forks the evaluation of `e` and returns `Unit` in the current thread.
     E.Fork_ _ e -> do
@@ -414,28 +456,42 @@ evalBranch b vs =
   localBinds (zip (toList (E.branchBinds b)) vs) do
     eval $ E.branchExp b
 
-newChannel :: EvalM Channel
+newChannel :: EvalM (Channel, Channel)
 newChannel = do
   ref <- askState
   cid <- liftIO $ atomicModifyIORef' ref \st ->
-    ( st & stNextChannelL +~ 1,
+    ( st & stNextChannelL . _ChannelId +~ 1,
       st ^. stNextChannelL
     )
-  var <- liftIO newEmptyMVar
-  pure $ Channel cid var
+  v1 <- liftIO newEmptyMVar
+  v2 <- liftIO newEmptyMVar
+  pure (Channel cid A v1 v2, Channel cid B v1 v2)
 
 putChannel :: Channel -> Value -> EvalM ()
-putChannel c = liftIO . putMVar (channelVar c)
+putChannel c v = liftIO do
+  log $ "╔ send@" ++ show c ++ ": " ++ show v
+  putMVar (channelVar c) v
+  takeMVar (channelSync c)
+  log $ "╚ send@" ++ show c
 
 readChannel :: Channel -> EvalM Value
-readChannel = liftIO . takeMVar . channelVar
+readChannel c = liftIO do
+  log $ "╭ recv@" ++ show c
+  v <- takeMVar (channelVar c)
+  putMVar (channelSync c) ()
+  log $ "╰ recv@" ++ show c ++ ": " ++ show v
+  pure v
 
 forkEval :: TcExp -> (Value -> EvalM ()) -> EvalM ()
 forkEval e f = do
   env <- EvalM ask
   -- Fork evaluation.
-  thread <- liftIO $ async do
-    runReaderT (unEvalM (f =<< eval e)) env
+  thread <- liftIO . mask_ $ asyncWithUnmask \restore -> do
+    log "┏ starting"
+    restore (runReaderT (unEvalM (f =<< eval e)) env) `catch` \(e :: SomeException) -> do
+      log $ "┗ failed: " ++ displayException e
+      throwIO e
+    log "┗ completed"
   -- Record the forked thread.
   modifyState \st -> do
     st & stForkedL %~ (thread :)
@@ -477,7 +533,7 @@ unwrap _ TChar (Char c) = pure c
 unwrap _ TClosure (Closure _ f) = pure f
 unwrap _ TCon (Con c vs) = pure (c, vs)
 unwrap _ TLabel (Label l) = pure l
-unwrap _ TChannel (Endpoint _ c) = pure c
+unwrap _ TChannel (Endpoint c) = pure c
 unwrap p ty v =
   failInterpet p . unwords $
     [ "expected",
