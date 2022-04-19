@@ -1,0 +1,4 @@
+foo : Int
+foo =
+  let (theInt, theString) = (10, "20") in
+  theInt + 20

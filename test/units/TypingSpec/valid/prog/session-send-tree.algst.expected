@@ -234,7 +234,7 @@ sendBTree
                         |
                         +- Exp.Var 51#t
                         |
-                        +- Branch 58#r 57#l
+                        +- Branch 57#l 58#r
                         |  |
                         |  `- Exp.Exp
                         |     |

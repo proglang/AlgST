@@ -1,0 +1,42 @@
+foo
+|
++- type
+|  |
+|  `- Type.Type
+|     |
+|     `- TypeRef
+|        |
+|        `- Int
+|
++- params
+|
+`- definition
+   |
+   `- Exp.Exp
+      |
+      `- TcExpX.ValueCase
+         |
+         +- Exp.Pair
+         |  |
+         |  +- Exp.Lit
+         |  |  |
+         |  |  `- Lit.Int 10
+         |  |
+         |  `- Exp.Lit
+         |     |
+         |     `- Lit.String "20"
+         |
+         `- (,) 39#theInt 40#theString
+            |
+            `- Exp.App
+               |
+               +- Exp.App
+               |  |
+               |  +- Exp.Var (+)
+               |  |
+               |  `- Exp.Var 39#theInt
+               |
+               `- Exp.Lit
+                  |
+                  `- Lit.Int 20
+

@@ -81,7 +81,7 @@ import Control.Monad.State.Strict
 import Control.Monad.Trans.Maybe
 import Control.Monad.Validate
 import Data.Bifunctor
-import Data.DList.DNonEmpty qualified as DL
+import Data.DList.DNonEmpty qualified as DNE
 import Data.Either
 import Data.Foldable
 import Data.Functor.Identity
@@ -107,10 +107,10 @@ import Prelude hiding (lookup, truncate)
 -- | Translates the typechecker specific error set representation into a simple
 -- list.
 runErrors :: Errors -> NonEmpty Diagnostic
-runErrors = DL.toNonEmpty . mergeTheseWith id recursiveErrs (<>)
+runErrors = DNE.toNonEmpty . mergeTheseWith id recursiveErrs (<>)
   where
     recursiveErrs (RecursiveSets oneKeys oneRec recs) =
-      DL.fromNonEmpty $
+      DNE.fromNonEmpty $
         Error.cyclicAliases oneRec
           :| fmap Error.cyclicAliases (Map.elems (Map.delete oneKeys recs))
 
@@ -175,15 +175,15 @@ checkProgram :: Program Rn -> RnM (Either (NonEmpty Diagnostic) TcProgram)
 checkProgram p = checkWithProgram p \_ _ -> pure . Right
 
 addError :: MonadValidate Errors m => Diagnostic -> m ()
-addError !e = dispute $ This $ DL.singleton e
+addError !e = dispute $ This $ DNE.singleton e
 
 -- | Records multiple errors. If the error list is acutally empty, no errors
 -- will be recorded and the computation won't fail.
 addErrors :: MonadValidate Errors m => [Diagnostic] -> m ()
-addErrors = maybe (pure ()) (dispute . This . DL.fromNonEmpty) . nonEmpty
+addErrors = maybe (pure ()) (dispute . This . DNE.fromNonEmpty) . nonEmpty
 
 addFatalError :: MonadValidate Errors m => Diagnostic -> m a
-addFatalError !e = refute $ This $ DL.singleton e
+addFatalError !e = refute $ This $ DNE.singleton e
 
 maybeError :: MonadValidate Errors m => Diagnostic -> Maybe a -> m a
 maybeError e = maybe (addFatalError e) pure
@@ -902,25 +902,17 @@ checkPatternExpression loc scrut cases pat = do
       (cases', ty) <- checkStandardCase loc cases pat
       pure (E.Exp $ ValueCase loc scrut cases', ty)
 
--- | Like 'zip' but counts the number of elements for an easy check that the
--- lengths correspond and error messages about the number of given/expected
--- elements.
-zipExcess :: [a] -> [b] -> (Int, Int, [(a, b)])
-zipExcess = go 0 []
-  where
-    go !n cs (a : as) (b : bs) = go (n + 1) ((a, b) : cs) as bs
-    go !n cs as bs = (n + length as, n + length bs, cs)
-
 checkStandardCase ::
   Pos -> RnCaseMap -> PatternType -> TypeM (TcCaseMap [] Maybe, TcType)
 checkStandardCase loc cases patTy =
   checkCaseExpr loc True cases patTy \con fields b -> etaTcM do
     -- Check that the number of binds matches the number of fields.
-    let (nGiven, nExpected, vs) = zipExcess (E.branchBinds b) fields
+    let nGiven = length (E.branchBinds b)
+        nExpected = length fields
     errorIf (nGiven /= nExpected) $
       Error.branchPatternBindingCount (pos b) con nExpected nGiven
     -- Return the typed binds.
-    pure vs
+    pure (zip (E.branchBinds b) fields)
 
 -- | Combines a list of @('TypeVar', 'K.Kind')@ pairs into a nested 'T.Forall'
 -- type.

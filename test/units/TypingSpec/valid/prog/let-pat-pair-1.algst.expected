@@ -56,7 +56,7 @@ pairId1
                   |
                   +- Exp.Var 46#ab
                   |
-                  `- (,) 50#b 49#a
+                  `- (,) 49#a 50#b
                      |
                      `- Exp.Pair
                         |

@@ -200,7 +200,7 @@ altLength
          |                    |
          |                    +- Exp.Var 53#xs
          |                    |
-         |                    +- ACons 55#xs 54#_
+         |                    +- ACons 54#_ 55#xs
          |                    |  |
          |                    |  `- Exp.App
          |                    |     |

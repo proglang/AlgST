@@ -196,7 +196,7 @@ empty_head
          |  |
          |  `- Type.Unit
          |
-         +- Cons 48#_ 47#x
+         +- Cons 47#x 48#_
          |  |
          |  `- Exp.App
          |     |

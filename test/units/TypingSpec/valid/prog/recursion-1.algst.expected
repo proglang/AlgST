@@ -168,7 +168,7 @@ length
             |              |
             |              +- Exp.Var 51#xs
             |              |
-            |              +- Cons 53#xs 52#_
+            |              +- Cons 52#_ 53#xs
             |              |  |
             |              |  `- Exp.App
             |              |     |

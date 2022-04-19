@@ -280,7 +280,7 @@ altLength
          |                    |
          |                    +- Exp.Var 56#xs
          |                    |
-         |                    +- ACons 58#xs 57#_
+         |                    +- ACons 57#_ 58#xs
          |                    |  |
          |                    |  `- Exp.App
          |                    |     |
@@ -418,7 +418,7 @@ length
             |              |
             |              +- Exp.Var 69#xs
             |              |
-            |              +- Cons 71#xs 70#_
+            |              +- Cons 70#_ 71#xs
             |              |  |
             |              |  `- Exp.App
             |              |     |

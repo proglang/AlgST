@@ -128,7 +128,7 @@ unsafe_head
                |
                +- Exp.Var 55#xs
                |
-               +- Cons 58#_ 57#a
+               +- Cons 57#a 58#_
                |  |
                |  `- Exp.Var 57#a
                |
