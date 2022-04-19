@@ -46,6 +46,7 @@ import Data.Map.Lazy qualified as LMap
 import Data.Map.Strict qualified as Map
 import Data.Monoid
 import Data.Void
+import GHC.Stack
 import Lens.Family2
 import Syntax.Base (defaultPos)
 
@@ -75,19 +76,28 @@ newtype EvalM a = EvalM {unEvalM :: ReaderT (Env, IORef EvalSt) IO a}
   deriving (Semigroup, Monoid) via (Ap EvalM a)
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadFix, MonadFail)
 
-data InterpretError = InterpretError !Pos String
-  deriving stock (Show)
+data InterpretError = InterpretError !CallStack !Pos String
+
+instance Show InterpretError where
+  -- Ideally we would derive 'Show' (display the representation) and keep
+  -- 'displayException' as the user-level textual output.
+  --
+  -- But the test suite, which is were most of these should crop up if at all,
+  -- does not use 'displayException' but delegates to 'show'.
+  show = displayException
 
 instance Exception InterpretError where
-  displayException (InterpretError p e) =
+  displayException (InterpretError cs p e) =
     concat
-      [ if p == defaultPos then "" else shows p ": ",
+      [ if p == defaultPos then "" else shows p ":",
         "interpret error: ",
-        e
+        e,
+        "\n\n",
+        prettyCallStack cs
       ]
 
-failInterpet :: Pos -> String -> EvalM a
-failInterpet !p = liftIO . throwIO . InterpretError p
+failInterpet :: HasCallStack => Pos -> String -> EvalM a
+failInterpet !p = liftIO . throwIO . InterpretError callStack p
 
 runEvalM :: Env -> EvalM a -> IO a
 runEvalM env (EvalM m) = do
@@ -410,7 +420,7 @@ localBinds binds = localEnv \e -> Right `fmap` Map.fromList binds <> e
 
 -- | Looks for the given variable in the current environment. If it resovles to
 -- a top-level expression it will be evaluated before returning.
-lookupEnv :: Pos -> ProgVar -> EvalM Value
+lookupEnv :: HasCallStack => Pos -> ProgVar -> EvalM Value
 lookupEnv p v =
   askEnv
     >>= maybe (failInterpet p err) pure . Map.lookup v
