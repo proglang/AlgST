@@ -1,0 +1,10 @@
+x : String
+x = "global"
+
+func : String
+func = x
+
+main : String
+main =
+  let x = "local" in
+  func
