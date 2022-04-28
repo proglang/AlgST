@@ -1,59 +1,13 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
-module AlgST.Builtins
-  ( -- * Program
-    builtins,
-
-    -- * Types
-    types,
-    typeInt,
-    typeBool,
-    typeChar,
-    typeString,
-
-    -- * Constructors
-    values,
-    conTrue,
-    conFalse,
-
-    -- * Imports
-    imports,
-    importSend,
-    importRecv,
-  )
-where
+module AlgST.Builtins where
 
 import AlgST.Builtins.TH
 import AlgST.Parse.Phase
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Program
-import AlgST.Syntax.Variable
-import Syntax.Base
 import Prelude hiding (all)
-
-typeInt, typeChar, typeString, typeBool :: TypeVar
-typeInt = mkVar defaultPos "Int"
-typeChar = mkVar defaultPos "Char"
-typeString = mkVar defaultPos "String"
-typeBool = mkVar defaultPos "Bool"
-
-types :: [TypeVar]
-types = [typeInt, typeChar, typeString, typeBool]
-
-conTrue, conFalse :: ProgVar
-conTrue = mkVar defaultPos "True"
-conFalse = mkVar defaultPos "False"
-
-values :: [ProgVar]
-values = [conTrue, conFalse]
-
-importSend, importRecv :: ProgVar
-importSend = mkVar defaultPos "send"
-importRecv = mkVar defaultPos "receive"
-
-imports :: [ProgVar]
-imports = [importSend, importRecv]
 
 builtins :: PProgram
 builtins =

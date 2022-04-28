@@ -24,6 +24,8 @@ import Test.Hspec
 
 spec :: Spec
 spec = do
+  -- TODO: I want to test that the 'AlgST.Interpret.builtinsEnv'
+  -- contains definitions for all abstract builtins!
   describe "whole programs" do
     goldenTestsM
       dir
