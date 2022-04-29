@@ -88,14 +88,14 @@ type ThreadList = [Async ()]
 
 data Settings = Settings
   { evalDebugMessages :: !(Maybe OutputMode),
-    evalBufferSize :: !(Maybe Natural)
+    evalBufferSize :: !Natural
   }
 
 defaultSettings :: Settings
 defaultSettings =
   Settings
     { evalDebugMessages = Nothing,
-      evalBufferSize = Just 0
+      evalBufferSize = 0
     }
 
 data EvalInfo = EvalInfo
@@ -515,36 +515,30 @@ newChannelPair = do
     ( st & stNextChannelL . _ChannelId +~ 1,
       st ^. stNextChannelL
     )
-  liftIO $ makeChannelPair (evalBufferSize (evalSettings env)) $! cid
+  liftIO $ makeChannelPair (evalBufferSize (evalSettings env)) cid
   where
     makeChannelPair = \case
-      Just 0 ->
+      0 ->
         -- No buffering at all. Create a synchronous pair.
         newSyncChannelPair
-      Just 1 ->
+      1 ->
         -- Use simple MVars to simulate a buffer of one.
         -- (This is an optimization over the STM bounded queue.)
         newChannelPair'
           newEmptyMVar
           putMVar
           takeMVar
-      Just n ->
+      n ->
         -- Use a bounded queue for any bigger buffer.
         newChannelPair'
           (newTBQueueIO n)
           (fmap atomically . writeTBQueue)
           (atomically . readTBQueue)
-      Nothing ->
-        -- Use an unbounded channel.
-        newChannelPair'
-          newChan
-          writeChan
-          readChan
 
 -- | Creates a pair of synchronous channels. It uses one 'MVar' to transfer the
 -- value either way, and a second 'MVar' to signal that the value was received.
 newSyncChannelPair :: ChannelId -> IO (Channel, Channel)
-newSyncChannelPair !cid = do
+newSyncChannelPair cid = do
   valueVar <- newEmptyMVar
   syncVar <- newEmptyMVar
   let send v =
@@ -570,7 +564,7 @@ newChannelPair' ::
   (queue -> IO Value) ->
   ChannelId ->
   IO (Channel, Channel)
-newChannelPair' mkQueue writeQueue readQueue !cid = do
+newChannelPair' mkQueue writeQueue readQueue cid = do
   q1 <- mkQueue
   q2 <- mkQueue
   let channel :: (forall a. a -> a -> a) -> Channel
