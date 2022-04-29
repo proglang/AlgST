@@ -14,13 +14,22 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module AlgST.Syntax.Name
   ( -- * Type/Value Names
     Name (..),
+    pprName,
     pattern Wildcard,
     isWild,
     pattern PairCon,
+
+    -- ** Resolved Names
+    ResolvedName (..),
+    pprNameResolved,
+    ResolvedId,
+    firstResolvedId,
+    nextResolvedId,
 
     -- ** Abbreviations
     ProgVar,
@@ -37,9 +46,6 @@ module AlgST.Syntax.Name
     liftNameSet,
     liftNameMap,
     eitherName,
-
-    -- ** Pretty-printing
-    pprName,
 
     -- * Modules
     Module (..),
@@ -61,6 +67,7 @@ import Data.Foldable
 import Data.Hashable
 import Data.Kind
 import Data.Map.Strict qualified as Map
+import Data.Ord
 import Data.Set qualified as Set
 import Data.Singletons.TH
 import GHC.Generics (Generic)
@@ -116,6 +123,46 @@ instance Hashable Scope
 
 $(genSingletons [''Scope])
 
+-- | A resolved name combines information about how a name was written
+-- by the user with definitive globally identifying information.
+--
+-- All type/value constructors and variables are uniquely identified by
+-- their origin module and a module-unique 'ResolvedId'.
+type ResolvedName :: Scope -> Type
+data ResolvedName scope = ResolvedName
+  { resolvedModule :: Module,
+    resolvedId :: !ResolvedId,
+    -- | The name as it was written by the user. This name is used when
+    -- shown in diagnostics.
+    --
+    -- This field is not considered for equality, ordering or when
+    -- calculating hash values.
+    nameUnresolved :: Name scope
+  }
+  deriving stock (Show)
+
+instance Eq (ResolvedName scope) where
+  a == b = a `compare` b == EQ
+
+instance Ord (ResolvedName scope) where
+  compare = comparing resolvedId <> comparing resolvedModule
+
+instance Hashable (ResolvedName scope) where
+  hashWithSalt s rn =
+    s `hashWithSalt` resolvedId rn
+      `hashWithSalt` resolvedModule rn
+
+newtype ResolvedId = ResolvedId Word
+  deriving stock (Eq, Ord, Show, Generic)
+
+instance Hashable ResolvedId
+
+firstResolvedId :: ResolvedId
+firstResolvedId = ResolvedId 0
+
+nextResolvedId :: ResolvedId -> ResolvedId
+nextResolvedId (ResolvedId w) = ResolvedId (w + 1)
+
 type ProgVar = Name Values
 
 type TypeVar = Name Types
@@ -166,6 +213,9 @@ pprName n = fold modulePrefix ++ nameUnqualified n
       guard $ not $ isWild n
       guard $ not $ null $ moduleName $ nameModule n
       pure $ moduleName (nameModule n) ++ "."
+
+pprNameResolved :: ResolvedName scope -> String
+pprNameResolved = pprName . nameUnresolved
 
 -- TODO: Check if there is difference in runtime/allocation when switching
 -- between ordered and unorderered maps.
