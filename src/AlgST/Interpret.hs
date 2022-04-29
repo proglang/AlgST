@@ -1,5 +1,8 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiWayIf #-}
@@ -24,6 +27,8 @@ module AlgST.Interpret
     ChannelId,
     Channel (channelId, channelSide),
     Side (..),
+    BuildClosure,
+    buildClosure,
 
     -- * Evaluation settings
     Settings (..),
@@ -61,7 +66,7 @@ import Data.Monoid
 import Data.Void
 import GHC.Stack
 import Lens.Family2
-import Syntax.Base (defaultPos)
+import Syntax.Base (Located (..), defaultPos, unL, (@))
 import System.Console.ANSI
 import System.IO
 import Prelude hiding (log)
@@ -158,8 +163,9 @@ data Side = A | B
   deriving stock (Show)
 
 data Value
-  = -- | The 'String' is a description of the closure value used in the 'Show' instance.
-    Closure String (Pos -> Value -> EvalM Value)
+  = -- | The 'String' is a description of the closure value used in the 'Show'
+    -- instance. The argument is annotated with its origin.
+    Closure String (Located Value -> EvalM Value)
   | -- | A fully applied constructor. This includes pairs. See the 'Pair'
     -- pattern synonym for more information about their representation.
     Con !ProgVar [Value]
@@ -218,7 +224,7 @@ instance Show Value where
           & showParen (p > 10)
 
 data Type a where
-  TClosure :: Type (Pos -> Value -> EvalM Value)
+  TClosure :: Type (Located Value -> EvalM Value)
   TCon :: Type (ProgVar, [Value])
   TChannel :: Type Channel
   TLabel :: Type ProgVar
@@ -342,7 +348,7 @@ programEnvironment p =
             go _ f remaining vs =
               Closure
                 (show remaining ++ "*" ++ show (Con name (DL.toList vs)))
-                (\_ v -> pure $ f (remaining - 1) (vs `DL.snoc` v))
+                (\(_ :@ v) -> pure $ f (remaining - 1) (vs `DL.snoc` v))
          in Just $ Right $ foldr go (\_ -> Con name . DL.toList) args (length args) DL.empty
       ProtocolCon {} ->
         -- Protocol constructors can't appear as values after type checking.
@@ -357,36 +363,31 @@ programEnvironment p =
 builtinsEnv :: Env
 builtinsEnv =
   Map.fromList
-    [ bin "(+)" TNumber TNumber \x y -> Number (x + y),
-      bin "(-)" TNumber TNumber \x y -> Number (x - y),
-      bin "(*)" TNumber TNumber \x y -> Number (x * y),
-      bin "(/)" TNumber TNumber \x y -> Number (x `div` y),
-      bin "(%)" TNumber TNumber \x y -> Number (x `rem` y),
-      bin "(<=)" TNumber TNumber \x y ->
+    [ intFun "(+)" \x y -> Number (x + y),
+      intFun "(-)" \x y -> Number (x - y),
+      intFun "(*)" \x y -> Number (x * y),
+      intFun "(/)" \x y -> Number (x `div` y),
+      intFun "(%)" \x y -> Number (x `rem` y),
+      intFun "(<=)" \x y ->
         if x <= y
           then Con conTrue []
           else Con conFalse [],
-      bin' "send" \(_, val) (p, channel) ->
-        do
-          c <- unwrap p TChannel channel
-          putChannel c val
-          pure channel,
-      unary "receive" \p channel -> do
+      closure "send" \(_ :@ val) (p :@ channel) -> do
+        c <- unwrap p TChannel channel
+        putChannel c val
+        pure channel,
+      closure "receive" \(p :@ channel) -> do
         c <- unwrap p TChannel channel
         v <- readChannel c
         pure $ Pair v channel
     ]
   where
-    unary name f =
-      (mkVar defaultPos name, Right $ Closure name f)
-    bin' name f =
-      unary name \p1 a ->
-        pure $ Closure (name ++ " " ++ show a) (curry (f (p1, a)))
-    bin name t1 t2 f =
-      bin' name \(p1, a) (p2, b) -> do
-        a' <- unwrap p1 t1 a
-        b' <- unwrap p2 t2 b
-        pure $ f a' b'
+    closure name body =
+      (mkVar defaultPos name, Right (buildClosure name body))
+    intFun name f = closure name \(p1 :@ a) (p2 :@ b) -> do
+      a' <- unwrap p1 TNumber a
+      b' <- unwrap p2 TNumber b
+      pure $ f a' b'
 
 evalLiteral :: E.Lit -> Value
 evalLiteral = \case
@@ -408,13 +409,13 @@ eval =
     --
     E.Abs _ bind -> do
       env <- askEnv
-      pure $ closure env bind
+      pure $ bindClosure env bind
 
     --
     E.App _ e1 e2 -> do
       f <- evalAs TClosure e1
       x <- eval e2
-      f (pos e2) x
+      f (e2 @ x)
 
     --
     E.Pair _ e1 e2 -> do
@@ -445,7 +446,7 @@ eval =
       -- Like a lambda abstraction but `v` is bound in the body.
       env <- askEnv
       let env' = Map.insert v (Right val) env
-          val = closure env' $ recBody rl
+          val = bindClosure env' $ recBody rl
       pure val
 
     -- Creates a new channel and returns a pair of the two endpoints.
@@ -456,7 +457,7 @@ eval =
     -- Constructs a function which sends the selected constructor as a label.
     -- The type abstractions are skipped as they correspond to no-ops anyways.
     E.Select _ con -> do
-      pure $ Closure ("\\c -> select " ++ show con ++ " c") \appPos c -> do
+      pure $ Closure ("\\c -> select " ++ show con ++ " c") \(appPos :@ c) -> do
         chan <- unwrap appPos TChannel c
         putChannel chan $ Label con
         pure c
@@ -552,10 +553,10 @@ recBody :: E.RecLam Tc -> E.Bind Tc
 recBody (E.RecTermAbs _ bind) = bind
 recBody (E.RecTypeAbs _ (K.Bind _ _ _ rl)) = recBody rl
 
-closure :: Env -> TcBind -> Value
-closure env bind@(E.Bind _ _ v _ body) =
-  Closure (show bind) \_ a -> do
-    let env' = Map.insert v (Right a) env
+bindClosure :: Env -> TcBind -> Value
+bindClosure env bind@(E.Bind _ _ v _ body) =
+  buildClosure (show bind) \(_ :@ !a) -> do
+    let !env' = Map.insert v (Right a) env
     localEnv (const env') $ eval body
 
 -- Establish a set of bindings locally.
@@ -606,3 +607,19 @@ unwrap p ty v =
 unmatchableConstructor :: Pos -> ProgVar -> EvalM a
 unmatchableConstructor p c = failInterpet p $ "unmatchable constructor " ++ show c
 {-# NOINLINE unmatchableConstructor #-}
+
+class BuildClosure a where
+  buildClosureS :: ShowS -> a -> Value
+
+instance a ~ Value => BuildClosure (Located Value -> EvalM a) where
+  buildClosureS d = Closure (d "")
+
+instance
+  BuildClosure (Located Value -> a) =>
+  BuildClosure (Located Value -> Located Value -> a)
+  where
+  buildClosureS d body = Closure (d "") \arg ->
+    pure $ buildClosureS (d . showChar ' ' . showsPrec 11 (unL arg)) (body arg)
+
+buildClosure :: BuildClosure a => String -> a -> Value
+buildClosure = buildClosureS . showString
