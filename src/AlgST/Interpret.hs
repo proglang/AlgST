@@ -7,6 +7,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
@@ -51,6 +52,7 @@ import AlgST.Util.Lenses
 import AlgST.Util.Output
 import Control.Concurrent
 import Control.Concurrent.Async
+import Control.Concurrent.STM
 import Control.Exception
 import Control.Monad.Eta
 import Control.Monad.Reader
@@ -66,6 +68,7 @@ import Data.Monoid
 import Data.Void
 import GHC.Stack
 import Lens.Family2
+import Numeric.Natural (Natural)
 import Syntax.Base (Located (..), defaultPos, unL, (@))
 import System.Console.ANSI
 import System.IO
@@ -83,14 +86,16 @@ type Env = Map.Map ProgVar (Either TcExp Value)
 -- | A list of spawned threads.
 type ThreadList = [Async ()]
 
-newtype Settings = Settings
-  { evalDebugMessages :: Maybe OutputMode
+data Settings = Settings
+  { evalDebugMessages :: !(Maybe OutputMode),
+    evalBufferSize :: !(Maybe Natural)
   }
 
 defaultSettings :: Settings
 defaultSettings =
   Settings
-    { evalDebugMessages = Nothing
+    { evalDebugMessages = Nothing,
+      evalBufferSize = Just 0
     }
 
 data EvalInfo = EvalInfo
@@ -145,14 +150,8 @@ _ChannelId = coerced
 data Channel = Channel
   { channelId :: !ChannelId,
     channelSide :: !Side,
-    -- | Filled by the sender, emptied by the receiving side.
-    channelVar :: !(MVar Value),
-    -- | Filled by the receiving side, emptied by the sender to synchronize the
-    -- two endpoints.
-    --
-    -- To avoid deadlocks the operation on 'channelSync' should always happen
-    -- after the operation on 'channelVar'.
-    channelSync :: !(MVar ())
+    channelSend :: Value -> IO (),
+    channelRecv :: IO Value
   }
 
 instance Show Channel where
@@ -451,7 +450,7 @@ eval =
 
     -- Creates a new channel and returns a pair of the two endpoints.
     E.New _ _ -> do
-      (c1, c2) <- newChannel
+      (c1, c2) <- newChannelPair
       pure $ Pair (Endpoint c1) (Endpoint c2)
 
     -- Constructs a function which sends the selected constructor as a label.
@@ -465,7 +464,7 @@ eval =
     -- Forks the evaluation of `e` and sends the result over a new channel. In
     -- the current thread it evaluates to that new channel.
     E.Fork _ e -> do
-      (c1, c2) <- newChannel
+      (c1, c2) <- newChannelPair
       forkEval e (putChannel c2)
       pure $ Endpoint c1
 
@@ -509,29 +508,91 @@ evalBranch b vs =
   localBinds (zip (toList (E.branchBinds b)) vs) do
     eval $ E.branchExp b
 
-newChannel :: EvalM (Channel, Channel)
-newChannel = do
-  ref <- askState
-  cid <- liftIO $ atomicModifyIORef' ref \st ->
+newChannelPair :: EvalM (Channel, Channel)
+newChannelPair = do
+  env <- EvalM ask
+  cid <- liftIO $ atomicModifyIORef (evalState env) \st ->
     ( st & stNextChannelL . _ChannelId +~ 1,
       st ^. stNextChannelL
     )
-  v1 <- liftIO newEmptyMVar
-  v2 <- liftIO newEmptyMVar
-  pure (Channel cid A v1 v2, Channel cid B v1 v2)
+  liftIO $ makeChannelPair (evalBufferSize (evalSettings env)) $! cid
+  where
+    makeChannelPair = \case
+      Just 0 ->
+        -- No buffering at all. Create a synchronous pair.
+        newSyncChannelPair
+      Just 1 ->
+        -- Use simple MVars to simulate a buffer of one.
+        -- (This is an optimization over the STM bounded queue.)
+        newChannelPair'
+          newEmptyMVar
+          putMVar
+          takeMVar
+      Just n ->
+        -- Use a bounded queue for any bigger buffer.
+        newChannelPair'
+          (newTBQueueIO n)
+          (fmap atomically . writeTBQueue)
+          (atomically . readTBQueue)
+      Nothing ->
+        -- Use an unbounded channel.
+        newChannelPair'
+          newChan
+          writeChan
+          readChan
+
+-- | Creates a pair of synchronous channels. It uses one 'MVar' to transfer the
+-- value either way, and a second 'MVar' to signal that the value was received.
+newSyncChannelPair :: ChannelId -> IO (Channel, Channel)
+newSyncChannelPair !cid = do
+  valueVar <- newEmptyMVar
+  syncVar <- newEmptyMVar
+  let send v =
+        putMVar valueVar v
+          <* takeMVar syncVar
+  let recv =
+        takeMVar valueVar
+          <* putMVar syncVar ()
+  pure (Channel cid A send recv, Channel cid B send recv)
+
+-- | Generalized function to create a pair of channels with any buffer with
+-- size of at least /one./
+--
+-- This function creates two @queue@s using the provided action and constructs
+-- the 'Channel's such that one writes into one queue and reads from the other
+-- and the second 'Channel' does vice versa.
+newChannelPair' ::
+  -- | Action to create one queue. Executed twice.
+  IO queue ->
+  -- | Action to write a value into the queue.
+  (queue -> Value -> IO ()) ->
+  -- | Action to read the first value from the queue.
+  (queue -> IO Value) ->
+  ChannelId ->
+  IO (Channel, Channel)
+newChannelPair' mkQueue writeQueue readQueue !cid = do
+  q1 <- mkQueue
+  q2 <- mkQueue
+  let channel :: (forall a. a -> a -> a) -> Channel
+      channel sel =
+        Channel
+          { channelId = cid,
+            channelSide = sel A B,
+            channelSend = writeQueue (sel q1 q2),
+            channelRecv = readQueue (sel q2 q1)
+          }
+  pure (channel const, channel (const id))
 
 putChannel :: Channel -> Value -> EvalM ()
 putChannel c v = do
   debugLogM $ "╔ send@" ++ show c ++ ": " ++ show v
-  liftIO $ putMVar (channelVar c) v
-  liftIO $ takeMVar (channelSync c)
+  liftIO $ channelSend c v
   debugLogM $ "╚ send@" ++ show c
 
 readChannel :: Channel -> EvalM Value
 readChannel c = do
   debugLogM $ "╭ recv@" ++ show c
-  v <- liftIO $ takeMVar (channelVar c)
-  liftIO $ putMVar (channelSync c) ()
+  v <- liftIO $ channelRecv c
   debugLogM $ "╰ recv@" ++ show c ++ ": " ++ show v
   pure v
 
