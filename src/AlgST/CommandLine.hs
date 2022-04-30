@@ -14,8 +14,10 @@ module AlgST.CommandLine
   )
 where
 
+import AlgST.Interpret qualified as I
 import AlgST.Util.Output
 import Control.Applicative
+import Numeric.Natural (Natural)
 import Options.Applicative qualified as O
 import System.FilePath
 
@@ -104,7 +106,8 @@ data RunOpts = RunOpts
   { optsSource :: !Source,
     optsOutputMode :: !(Maybe OutputMode),
     optsActions :: ![Action],
-    optsDebugEval :: !Bool
+    optsDebugEval :: !Bool,
+    optsBufferSize :: !Natural
   }
   deriving (Show)
 
@@ -113,6 +116,7 @@ optsParser = do
   optsOutputMode <- optional modeParser
   optsSource <- sourceParser
   optsActions <- many actionParser
+  optsBufferSize <- bufSizeParser
   optsDebugEval <- debugParser
   pure RunOpts {..}
 
@@ -143,6 +147,18 @@ debugParser =
         O.short 'd',
         O.help "Output debug messages during evaluation."
       ]
+
+bufSizeParser :: O.Parser Natural
+bufSizeParser =
+  O.option O.auto . mconcat $
+    [ O.long "buffer-size",
+      O.short 'B',
+      O.value (I.evalBufferSize I.defaultSettings),
+      O.help
+        "The buffer size of channels when interpreted. ‘0’ specifies \
+        \fully synchronous communication.",
+      O.showDefault
+    ]
 
 getOptions :: IO RunOpts
 getOptions = O.execParser $ O.info (optsParser <**> O.helper) mempty

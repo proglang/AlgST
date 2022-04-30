@@ -69,7 +69,9 @@ main = do
           { evalDebugMessages =
               if optsDebugEval runOpts
                 then Just (stdoutMode opts)
-                else Nothing
+                else Nothing,
+            evalBufferSize =
+              optsBufferSize runOpts
           }
   case Map.lookup (mkVar defaultPos "main") (programValues checked) of
     Just (Right (D.ValueDecl {D.valueBody})) -> do
