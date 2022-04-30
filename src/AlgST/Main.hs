@@ -11,8 +11,8 @@ import AlgST.Parse.Parser
 import AlgST.Parse.Phase
 import AlgST.Rename
 import AlgST.Syntax.Decl qualified as D
+import AlgST.Syntax.Name
 import AlgST.Syntax.Program
-import AlgST.Syntax.Variable
 import AlgST.Typing
 import AlgST.Util.Error
 import AlgST.Util.Output
@@ -25,7 +25,6 @@ import Control.Monad.Trans.Maybe
 import Data.Foldable
 import Data.Map.Strict qualified as Map
 import Data.Traversable.WithIndex
-import Syntax.Base (defaultPos)
 import System.Console.ANSI
 import System.Exit
 import System.IO
@@ -73,7 +72,14 @@ main = do
             evalBufferSize =
               optsBufferSize runOpts
           }
-  case Map.lookup (mkVar defaultPos "main") (programValues checked) of
+  let mainModule =
+        -- TODO: Use the actual module here!
+        Module ""
+      mainVar =
+        Name {nameModule = mainModule, nameUnqualified = "main"}
+      mainDecl =
+        Map.lookup mainVar (programValues checked)
+  case mainDecl of
     Just (Right (D.ValueDecl {D.valueBody})) -> do
       v <- runStage @[] opts "Evaluating ›main‹" do
         Right . unsafePerformIO $ do

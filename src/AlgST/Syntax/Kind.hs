@@ -20,9 +20,9 @@ module AlgST.Syntax.Kind
   )
 where
 
+import AlgST.Syntax.Name
 import Language.Haskell.TH.Syntax (Lift)
 import Syntax.Base
-import Syntax.TypeVariable
 
 data Basic = Session | Message | Top
   -- Ordering is important for correctness of the subkind check (<=?)!

@@ -20,14 +20,13 @@ where
 import AlgST.Parse.Unparser
 import AlgST.Syntax.Expression as E
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Name
 import AlgST.Syntax.Type qualified as T
 import AlgST.Util.Output
 import Data.Coerce
 import Data.DList qualified as DL
 import Data.List (intercalate)
 import Syntax.Base
-import Syntax.ProgramVariable
-import Syntax.TypeVariable
 import System.Console.ANSI
 
 -- | Error class and instances
@@ -80,6 +79,10 @@ instance ErrorMsg DiagKind where
 instance Position Diagnostic where
   pos = diagnosticPos
 
+instance ErrorMsg a => ErrorMsg (Located a) where
+  msg = msg . unL
+  msgStyling = msgStyling . unL
+
 instance Unparse (T.XType x) => ErrorMsg (T.Type x) where
   msg = show
   msgStyling _ = redFGStyling
@@ -92,12 +95,8 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => ErrorMsg (E.Exp x) where
   msg = show
   msgStyling _ = redFGStyling
 
-instance ErrorMsg ProgVar where
-  msg = show
-  msgStyling _ = redFGStyling
-
-instance ErrorMsg TypeVar where
-  msg = show
+instance ErrorMsg (Name s) where
+  msg = pprName
   msgStyling _ = redFGStyling
 
 instance (ErrorMsg a, ErrorMsg b) => ErrorMsg (Either a b) where

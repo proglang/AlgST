@@ -21,9 +21,9 @@ import AlgST.Parse.Unparser ()
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Name
 import AlgST.Syntax.Program
 import AlgST.Syntax.Type qualified as T
-import AlgST.Syntax.Variable
 import Control.Category ((>>>))
 import Data.Foldable
 import Data.Functor.Identity
@@ -62,11 +62,8 @@ instance LabeledTree Pos where
 instance LabeledTree K.Kind where
   labeledTree = pure . leaf . show
 
-instance LabeledTree TypeVar where
-  labeledTree v = [leaf (intern v)]
-
-instance LabeledTree ProgVar where
-  labeledTree v = [leaf (intern v)]
+instance LabeledTree (Name s) where
+  labeledTree v = [leaf (pprName v)]
 
 instance LabeledTree E.Lit where
   labeledTree =
@@ -82,11 +79,11 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (E.Ex
       E.Lit x l ->
         tree "Exp.Lit" [labeledTree x, labeledTree l]
       E.Var x v ->
-        tree ("Exp.Var " ++ intern v) [labeledTree x]
+        tree ("Exp.Var " ++ pprName v) [labeledTree x]
       E.Con x v ->
-        tree ("Exp.Con " ++ intern v) [labeledTree x]
+        tree ("Exp.Con " ++ pprName v) [labeledTree x]
       E.Abs x1 (E.Bind x2 m v t e) ->
-        let label = unwords ["Exp.Abs", show m, intern v]
+        let label = unwords ["Exp.Abs", show m, pprName v]
          in tree label [labeledTree x1, labeledTree x2, labeledTree t, labeledTree e]
       E.App x e1 e2 ->
         tree "Exp.App" [labeledTree x, labeledTree e1, labeledTree e2]
@@ -103,7 +100,7 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (E.Ex
         tree "Exp.TypeApp" [labeledTree x, labeledTree e, labeledTree t]
       E.UnLet x v mty e1 e2 ->
         tree
-          ("Exp.UnLet " ++ intern v)
+          ("Exp.UnLet " ++ pprName v)
           [ labeledTree x,
             foldMap labeledTree mty,
             labeledTree e1,
@@ -111,22 +108,22 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (E.Ex
           ]
       E.PatLet x c vs e1 e2 ->
         tree
-          ("Exp.PatLet " ++ unwords (intern <$> c : vs))
+          ("Exp.PatLet " ++ unwords (pprName . unL <$> defaultPos :@ c : vs))
           [ labeledTree x,
             labeledTree e1,
             labeledTree e2
           ]
       E.Rec x v ty e ->
         tree
-          ("Exp.Rec " ++ intern v)
+          ("Exp.Rec " ++ pprName v)
           [ labeledTree x,
             labeledTree ty,
             labeledTree (E.RecAbs e)
           ]
       E.New x t ->
         tree "Exp.New" [labeledTree x, labeledTree t]
-      E.Select x c ->
-        tree ("Exp.Select " ++ show c) [labeledTree x]
+      E.Select x (_ :@ c) ->
+        tree ("Exp.Select " ++ pprName c) [labeledTree x]
       E.Fork x e ->
         tree "Exp.Fork" [labeledTree x, labeledTree e]
       E.Fork_ x e ->
@@ -161,10 +158,10 @@ instance T.ForallX LabeledTree x => LabeledTree (T.Type x) where
         let t = kbindNode "Type.Forall" b
          in t {subForest = labeledTree x ++ subForest t}
       T.Var x v ->
-        let label = "Type.Var " ++ intern v
+        let label = "Type.Var " ++ pprName v
          in tree label [labeledTree x]
       T.Con x v ->
-        let label = "Type.Con " ++ intern v
+        let label = "Type.Con " ++ pprName v
          in tree label [labeledTree x]
       T.App x t1 t2 ->
         tree
@@ -227,11 +224,11 @@ nominalDeclTree f D.TypeNominal {..} =
   [ Node "kind" [leaf (show nominalKind)],
     Node "parameters" (paramsTree nominalParams),
     Node "constructors" $
-      labeledMapTree (const . show) (\_ -> concatMap f . snd) nominalConstructors
+      labeledMapTree (const . pprName) (\_ -> concatMap f . snd) nominalConstructors
   ]
 
 paramsTree :: D.Params -> [LabTree]
-paramsTree ps = [leaf $ "(" ++ show p ++ ":" ++ show k ++ ")" | (p, k) <- ps]
+paramsTree ps = [leaf $ "(" ++ pprName p ++ ":" ++ show k ++ ")" | (_ :@ p, k) <- ps]
 
 instance (T.ForallX LabeledTree x) => LabeledTree (D.SignatureDecl x) where
   labeledTree D.SignatureDecl {signatureOrigin = origin, signatureType = ty} =
@@ -242,19 +239,19 @@ instance (T.ForallX LabeledTree x) => LabeledTree (D.SignatureDecl x) where
 instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (D.ValueDecl x) where
   labeledTree vd =
     [ Node "type" $ labeledTree $ D.valueType vd,
-      Node "params" $ leaf . param <$> D.valueParams vd,
+      Node "params" $ leaf . param . unL <$> D.valueParams vd,
       Node "definition" $ labeledTree $ D.valueBody vd
     ]
     where
-      param (Left pvar) = intern pvar
-      param (Right tvar) = "[" ++ intern tvar ++ "]"
+      param (Left tvar) = "[" ++ pprName tvar ++ "]"
+      param (Right pvar) = pprName pvar
 
 instance (D.ForallConX LabeledTree x, T.ForallX LabeledTree x) => LabeledTree (D.ConstructorDecl x) where
   labeledTree =
     pure . \case
       D.DataCon x parent params mul items ->
         tree
-          ("Decl.DataCon (" ++ show parent ++ ")")
+          ("Decl.DataCon (" ++ pprName parent ++ ")")
           [ labeledTree x,
             [Node "parameters" (paramsTree params)],
             [Node "multiplicity" [leaf (show mul)]],
@@ -262,7 +259,7 @@ instance (D.ForallConX LabeledTree x, T.ForallX LabeledTree x) => LabeledTree (D
           ]
       D.ProtocolCon x parent params items ->
         tree
-          ("Decl.ProtocolCon (" ++ show parent ++ ")")
+          ("Decl.ProtocolCon (" ++ pprName parent ++ ")")
           [ labeledTree x,
             [Node "parameters" (paramsTree params)],
             [tree "items" (labeledTree <$> items)]
@@ -273,17 +270,17 @@ instance ForallX LabeledTree x => LabeledTree (Program x) where
     where
       types =
         labeledMapTree
-          (\tv _ -> intern tv)
+          (\tv _ -> pprName tv)
           (\_ td -> labeledTree td)
           (programTypes pp)
       imports =
         labeledMapTree
-          (\pv _ -> intern pv)
+          (\pv _ -> pprName pv)
           (\_ sig -> labeledTree sig)
           (programImports pp)
       values =
         labeledMapTree
-          (\pv _ -> intern pv)
+          (\pv _ -> pprName pv)
           (\_ d -> either labeledTree labeledTree d)
           (programValues pp)
 
@@ -296,7 +293,7 @@ labeledMapTree f g = fmap (\(a, b) -> Node (f a b) (g a b)) . Map.toList
 
 kbindNode :: LabeledTree a => String -> K.Bind a -> LabTree
 kbindNode con (K.Bind _ v k a) =
-  let label = unwords [con, intern v ++ ":" ++ show k]
+  let label = unwords [con, pprName v ++ ":" ++ show k]
    in Node label $ labeledTree a
 
 fieldMapTree ::
@@ -307,13 +304,13 @@ fieldMapTree m = conCases ++ wildCases
   where
     conCases =
       labeledMapTree
-        (\v b -> unwords [intern x | x <- v : toList (E.branchBinds b)])
+        (\v b -> unwords [pprName x | _ :@ x <- defaultPos :@ v : toList (E.branchBinds b)])
         (\_ b -> labeledTree $ E.branchExp b)
         (E.casesPatterns m)
     wildCases =
-      [ Node (intern x) (labeledTree e)
+      [ Node (pprName x) (labeledTree e)
         | E.CaseBranch
-            { branchBinds = Identity x,
+            { branchBinds = Identity (_ :@ x),
               branchExp = e
             } <-
             toList (E.casesWildcard m)

@@ -18,10 +18,9 @@ where
 
 import AlgST.Syntax.Expression as E
 import AlgST.Syntax.Kind qualified as K
-import AlgST.Syntax.Operators hiding (Precedence)
+import AlgST.Syntax.Name
 import AlgST.Syntax.Operators qualified as Op
 import AlgST.Syntax.Type qualified as T
-import AlgST.Syntax.Variable
 import Data.Foldable
 import Data.Functor.Identity
 import Data.List (intercalate)
@@ -40,10 +39,10 @@ showArrow :: Multiplicity -> String
 showArrow Lin = " -o "
 showArrow Un = " -> "
 
-showSortedVar :: (Show a, Show b) => a -> b -> String
-showSortedVar x t = "(" ++ show x ++ ":" ++ show t ++ ")"
+showSortedVar :: Show a => Name s -> a -> String
+showSortedVar x t = "(" ++ pprName x ++ ":" ++ show t ++ ")"
 
-showKind :: (Show a, Show b, Show c) => a -> b -> String -> c -> String
+showKind :: (Show a, Show b) => Name s -> a -> String -> b -> String
 showKind var sort arrow term =
   showSortedVar var sort ++ arrow ++ show term
 
@@ -75,7 +74,8 @@ type Fragment = (Rator, String)
 
 operatorRator :: ProgVar -> Maybe Rator
 operatorRator op =
-  ((,) <$> POp . Op.opPrec <*> Op.opAssoc) <$> Map.lookup (show op) Op.knownOperators
+  ((,) <$> POp . Op.opPrec <*> Op.opAssoc)
+    <$> Map.lookup (pprName op) Op.knownOperators
 
 minRator, inRator, dotRator, arrowRator, dualofRator, appRator, maxRator :: Rator
 inRator = (PIn, Op.R)
@@ -105,8 +105,8 @@ unparseApp s = go (maxRator, s) . fmap unparse
   where
     go x [] = x
     go x (y : ys) =
-      let l = bracket x L appRator
-          r = bracket y R appRator
+      let l = bracket x Op.L appRator
+          r = bracket y Op.R appRator
        in go (appRator, l ++ " " ++ r) ys
 
 instance Unparse (T.XType x) => Show (T.Type x) where
@@ -114,32 +114,32 @@ instance Unparse (T.XType x) => Show (T.Type x) where
 
 instance Unparse (T.XType x) => Unparse (T.Type x) where
   unparse (T.Unit _) = (maxRator, "()")
-  unparse (T.Var _ a) = (maxRator, show a)
-  unparse (T.Con _ a) = (maxRator, show a)
+  unparse (T.Var _ a) = (maxRator, pprName a)
+  unparse (T.Con _ a) = (maxRator, pprName a)
   unparse (T.Session _ p t u) = (dotRator, show p ++ t' ++ "." ++ u')
     where
-      t' = bracket (unparse t) L dotRator
-      u' = bracket (unparse u) R dotRator
+      t' = bracket (unparse t) Op.L dotRator
+      u' = bracket (unparse u) Op.R dotRator
   unparse (T.End _) = (maxRator, "end")
   unparse (T.Arrow _ m t u) = (arrowRator, l ++ showArrow m ++ r)
     where
-      l = bracket (unparse t) L arrowRator
-      r = bracket (unparse u) R arrowRator
+      l = bracket (unparse t) Op.L arrowRator
+      r = bracket (unparse u) Op.R arrowRator
   unparse (T.Pair _ t u) = (maxRator, "(" ++ l ++ ", " ++ r ++ ")")
     where
-      l = bracket (unparse t) L minRator
-      r = bracket (unparse u) R minRator
+      l = bracket (unparse t) Op.L minRator
+      r = bracket (unparse u) Op.R minRator
   unparse (T.Forall _ b) = (arrowRator, "∀" ++ showBindType b) -- ++ "=>" ++ s)
   unparse (T.Negate _ t) = (dualofRator, "-" ++ s)
     where
-      s = bracket (unparse t) R dualofRator
+      s = bracket (unparse t) Op.R dualofRator
   unparse (T.Dualof _ t) = (dualofRator, "dual " ++ s)
     where
-      s = bracket (unparse t) R dualofRator
+      s = bracket (unparse t) Op.R dualofRator
   unparse (T.App _ a b) = (appRator, l ++ " " ++ r)
     where
-      l = bracket (unparse a) L appRator
-      r = bracket (unparse b) R appRator
+      l = bracket (unparse a) Op.L appRator
+      r = bracket (unparse b) Op.R appRator
   unparse (T.Type x) = unparse x
 
 instance (Unparse (E.XExp x), Unparse (T.XType x)) => Show (Exp x) where
@@ -148,24 +148,24 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Show (Exp x) where
 instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Exp x) where
   -- Basic values
   unparse (E.Lit _ l) = unparse l
-  unparse (E.Var _ x) = (maxRator, show x)
-  unparse (E.Con _ x) = (maxRator, show x)
+  unparse (E.Var _ x) = (maxRator, pprName x)
+  unparse (E.Con _ x) = (maxRator, pprName x)
   -- Abstraction intro and elim
   unparse (E.Abs _ b) = (arrowRator, "λ" ++ show b)
   unparse (E.App _ (E.App _ (E.Var _ x) e1) e2)
     | Just rator <- operatorRator x =
-      let l = bracket (unparse e1) L rator
-          r = bracket (unparse e2) R rator
+      let l = bracket (unparse e1) Op.L rator
+          r = bracket (unparse e2) Op.R rator
        in (rator, l ++ showOp x ++ r)
   unparse (E.App _ e1 e2) = (appRator, l ++ " " ++ r)
     where
-      l = bracket (unparse e1) L appRator
-      r = bracket (unparse e2) R appRator
+      l = bracket (unparse e1) Op.L appRator
+      r = bracket (unparse e2) Op.R appRator
   -- Pair intro and elim
   unparse (E.Pair _ e1 e2) = (maxRator, "(" ++ l ++ ", " ++ r ++ ")")
     where
-      l = bracket (unparse e1) L minRator
-      r = bracket (unparse e2) R minRator
+      l = bracket (unparse e1) Op.L minRator
+      r = bracket (unparse e2) Op.R minRator
   -- Datatype elim
   unparse (E.Case _ e m) = unparseCase e m
   -- Type Abstraction intro and elim
@@ -175,34 +175,38 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Exp x) where
   unparse (E.Cond _ e1 e2 e3) =
     (inRator, "if " ++ s1 ++ " then " ++ s2 ++ " else " ++ s3)
     where
-      s1 = bracket (unparse e1) L inRator
-      s2 = bracket (unparse e2) NA inRator
-      s3 = bracket (unparse e3) R inRator
+      s1 = bracket (unparse e1) Op.L inRator
+      s2 = bracket (unparse e2) Op.NA inRator
+      s3 = bracket (unparse e3) Op.R inRator
   -- Unary Let
   unparse (E.UnLet _ x Nothing (E.Rec _ x' ty e1) e2)
     | x == x' =
-      (inRator, "let rec " ++ show x ++ " : " ++ show ty ++ " = " ++ l ++ " in " ++ r)
+      (inRator, "let rec " ++ pprName x ++ " : " ++ show ty ++ " = " ++ l ++ " in " ++ r)
     where
-      l = bracket (unparse (E.RecAbs e1)) L inRator
-      r = bracket (unparse e2) R inRator
+      l = bracket (unparse (E.RecAbs e1)) Op.L inRator
+      r = bracket (unparse e2) Op.R inRator
   unparse (E.UnLet _ x mty e1 e2) =
-    (inRator, "let " ++ show x ++ annot ++ " = " ++ l ++ " in " ++ r)
+    (inRator, "let " ++ pprName x ++ annot ++ " = " ++ l ++ " in " ++ r)
     where
       annot = case mty of
         Nothing -> ""
         Just ty -> " : " ++ show ty
-      l = bracket (unparse e1) L inRator
-      r = bracket (unparse e2) R inRator
+      l = bracket (unparse e1) Op.L inRator
+      r = bracket (unparse e2) Op.R inRator
   unparse (E.PatLet _ x xs e1 e2) =
-    (inRator, "let " ++ unwords (show <$> x : xs) ++ " = " ++ l ++ " in " ++ r)
+    (inRator, unwords s)
     where
-      l = bracket (unparse e1) L inRator
-      r = bracket (unparse e2) R inRator
+      s =
+        "let" :
+        (pprName . unL <$> defaultPos :@ x : xs)
+          ++ ["=", l, "in", r]
+      l = bracket (unparse e1) Op.L inRator
+      r = bracket (unparse e2) Op.R inRator
   unparse (E.Rec _ x ty r) =
-    (inRator, "rec " ++ show x ++ " : " ++ show ty ++ " = " ++ show (E.RecAbs r))
+    (inRator, "rec " ++ pprName x ++ " : " ++ show ty ++ " = " ++ show (E.RecAbs r))
   -- Session expressions
   unparse (E.New _ t) = (appRator, "new [" ++ show t ++ "]")
-  unparse (E.Select _ con) = (appRator, "select " ++ show con)
+  unparse (E.Select _ (_ :@ con)) = (appRator, "select " ++ pprName con)
   -- Forking
   unparse (E.Fork _ e) = unparseApp "fork" [e]
   unparse (E.Fork_ _ e) = unparseApp "fork_" [e]
@@ -225,7 +229,7 @@ unparseCase ::
 unparseCase e m =
   (inRator, "case " ++ s ++ " of {" ++ showCaseMap m ++ "}")
   where
-    s = bracket (unparse e) NA inRator
+    s = bracket (unparse e) Op.NA inRator
 
 showCaseMap ::
   (Unparse (E.XExp x), Unparse (T.XType x), Foldable f, Foldable g) =>
@@ -236,10 +240,12 @@ showCaseMap m =
     map showAssoc (Map.toList (casesPatterns m))
       ++ [showWild b | b <- toList (casesWildcard m)]
   where
-    showAssoc (c, b) =
-      unwords (map show (c : toList (branchBinds b))) ++ " -> " ++ show (branchExp b)
-    showWild CaseBranch {branchBinds = Identity a, branchExp = v} =
-      show a ++ " -> " ++ show v
+    showAssoc (c, CaseBranch {branchBinds = binds, branchExp = e}) =
+      unwords (pprName . unL <$> defaultPos :@ c : toList binds)
+        ++ " -> "
+        ++ show e
+    showWild CaseBranch {branchBinds = Identity (_ :@ a), branchExp = e} =
+      pprName a ++ " -> " ++ show e
 
 showOp :: ProgVar -> String
-showOp x = " " ++ tail (init $ show x) ++ " "
+showOp x = " " ++ tail (init $ pprName x) ++ " "

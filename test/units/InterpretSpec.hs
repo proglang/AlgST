@@ -10,8 +10,8 @@ import AlgST.Interpret
 import AlgST.Parse.Parser
 import AlgST.Rename
 import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Name
 import AlgST.Syntax.Program
-import AlgST.Syntax.Variable
 import AlgST.Typing
 import AlgST.Util.Error
 import Control.Category ((>>>))
@@ -44,7 +44,7 @@ runProgram :: TcProgram -> IO Value
 runProgram p = runEval env (eval mainExpr)
   where
     env = programEnvironment p
-    mainExpr = E.Var defaultPos (mkVar defaultPos "main")
+    mainExpr = E.Var defaultPos (Name (Module "") "main")
 
 dir :: FilePath
 dir = dropExtension __FILE__

@@ -9,15 +9,16 @@ import AlgST.Parse.Unparser
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Name
 import AlgST.Syntax.Program (Program)
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
 import AlgST.Syntax.Type qualified as T
-import AlgST.Syntax.Variable
 import AlgST.Typing.Equality
 import Data.Functor.Const
 import Data.Functor.Identity
 import Data.Void
+import Syntax.Base
 
 -- | Typing phase token.
 --
@@ -98,7 +99,7 @@ instance VarTraversable TypeRef Tc where
         }
 
 instance Unparse TypeRef where
-  unparse r = unparseApp (show (typeRefName r)) (typeRefArgs r)
+  unparse r = unparseApp (pprName (typeRefName r)) (typeRefArgs r)
 
 instance LabeledTree TypeRef where
   -- We can't include the whole typeRefDecl since the type graph might be
@@ -106,7 +107,7 @@ instance LabeledTree TypeRef where
   -- structures.
   labeledTree ref =
     pure . Node "TypeRef" $
-      leaf (show (typeRefName ref)) :
+      leaf (pprName (typeRefName ref)) :
       concatMap labeledTree (typeRefArgs ref)
 
 -- | Returns the types kind.

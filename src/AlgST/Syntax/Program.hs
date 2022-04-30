@@ -1,5 +1,6 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -21,19 +22,17 @@ module AlgST.Syntax.Program
   )
 where
 
-import Data.Bifunctor
+import AlgST.Syntax.Decl qualified as D
+import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Name
+import AlgST.Syntax.Type qualified as T
 import Data.Kind qualified as Hs
-import Data.Map.Strict ((\\))
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
+import GHC.Conc
 import Instances.TH.Lift ()
 import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2
-import AlgST.Syntax.Decl qualified as D
-import AlgST.Syntax.Expression qualified as E
-import AlgST.Syntax.Type qualified as T
-import Syntax.ProgramVariable (ProgVar)
-import Syntax.TypeVariable (TypeVar)
 
 -- | Groups the @ForallX@ constraint synonym from "AlgST.Syntax.Decl",
 -- "AlgST.Syntax.Type", and "AlgST.Syntax.Expression".
@@ -75,7 +74,7 @@ programOrigins f p = do
 --
 -- Note that merging programs after renaming or typechecking will usually
 -- invalidate the guarantees made by these stages.
-mergePrograms :: Program x -> Program x -> (Program x, Set.Set TypeVar, Set.Set ProgVar)
+mergePrograms :: Program x -> Program x -> (Program x, NameSet Types, NameSet Values)
 mergePrograms p1 p2 =
   ( Program
       { programTypes = programTypes p1 <> programTypes p2,
@@ -95,13 +94,16 @@ mergePrograms p1 p2 =
 
 importProgram :: Program x -> Program x
 importProgram p =
-  Program
-    { programTypes = programTypes p,
-      programValues = cons,
-      programImports = vals
-    }
+  cons
+    `par` vals
+    `pseq` Program
+      { programTypes = programTypes p,
+        programValues = cons,
+        programImports = vals
+      }
   where
-    (cons, vals) = Map.mapEither (bimap Left valueSigDecl) (programValues p)
+    cons = Map.mapMaybe (either (Just . Left) (const Nothing)) (programValues p)
+    vals = Map.mapMaybe (either (const Nothing) (Just . valueSigDecl)) (programValues p)
     valueSigDecl vd = D.SignatureDecl (vd ^. D.originL) (D.valueType vd)
 
 -- | @deleteProgramDefinitions p1 p2@ removes all definitions from @p1@ which
@@ -113,13 +115,16 @@ withoutProgramDefinitions p1 p2 =
       programValues = programValues p1 \\ programValues p2,
       programImports = programImports p1 \\ programImports p2
     }
+  where
+    (\\) :: NameMap s v -> NameMap s v' -> NameMap s v
+    (\\) = Map.difference
 
 -- | Mapping between type names and the type declarations.
-type TypesMap x = Map.Map TypeVar (D.TypeDecl x)
+type TypesMap x = NameMap Types (D.TypeDecl x)
 
 -- | Mapping between value names and their declaration, which is either a
 -- constructor or a value/function binding.
-type ValuesMap x = Map.Map ProgVar (Either (D.ConstructorDecl x) (D.ValueDecl x))
+type ValuesMap x = NameMap Values (Either (D.ConstructorDecl x) (D.ValueDecl x))
 
 -- | Mapping between value/function names and their signatures.
-type SignaturesMap x = Map.Map ProgVar (D.SignatureDecl x)
+type SignaturesMap x = NameMap Values (D.SignatureDecl x)

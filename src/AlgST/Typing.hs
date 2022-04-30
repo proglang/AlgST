@@ -1,11 +1,11 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
@@ -56,18 +56,17 @@ module AlgST.Typing
   )
 where
 
-import AlgST.Builtins qualified as Builtins
-import AlgST.Parse.ParseUtils (pairConId, pattern PairConId)
+import AlgST.Builtins.Names
 import AlgST.Parse.Phase
 import AlgST.Rename
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind ((<=?))
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Name
 import AlgST.Syntax.Program
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Type qualified as T
-import AlgST.Syntax.Variable
 import AlgST.Typing.Equality qualified as Eq
 import AlgST.Typing.Error qualified as Error
 import AlgST.Typing.Monad
@@ -96,13 +95,12 @@ import Data.Monoid (Endo (..))
 import Data.Proxy
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
+import Data.Singletons
 import Data.These
-import Data.Traversable.WithIndex
 import Data.Tuple qualified as Tuple
 import Data.Void
 import Lens.Family2
 import Lens.Family2.State.Strict
-import Lens.Family2.Stock
 import Syntax.Base hiding (Variable)
 import Prelude hiding (lookup, truncate)
 
@@ -156,7 +154,9 @@ checkWithProgram prog k = runExceptT $ do
       KiTypingEnv
         { tcKindEnv = mempty,
           tcExpansionStack = mempty,
-          tcContext = prog
+          tcContext = prog,
+          -- TODO: Use the actual module here!
+          tcModule = Module ""
         }
     st0 =
       KiSt
@@ -293,32 +293,31 @@ embedTypeM env m = do
     Left errs -> refute errs
     Right a -> pure a
 
-checkAlignedBinds :: TcType -> [PTVar] -> RnExp -> TypeM TcExp
+checkAlignedBinds :: TcType -> [Located AName] -> RnExp -> TypeM TcExp
 checkAlignedBinds fullTy allVs e = go fullTy fullTy allVs
   where
-    go a b c = etaTcM $ go' a b c
-
-    go' _ t [] = tycheck e t
-    go' _ (T.Arrow k mul t u) (Left pv : vs) = do
-      withProgVarBind (unrestrictedLoc k mul) pv t do
+    go :: TcType -> TcType -> [Located AName] -> TypeM TcExp
+    go _ t [] = tycheck e t
+    go _ (T.Arrow k mul t u) (p :@ Right pv : vs) = do
+      withProgVarBind (unrestrictedLoc k mul) p pv t do
         E.Abs defaultPos . E.Bind defaultPos mul pv t <$> go u u vs
-    go' _ t0@(T.Forall _ (K.Bind _ sigVar k t)) vs0@(v : vs) = do
+    go _ t0@(T.Forall _ (K.Bind _ sigVar k t)) vs0@(p :@ v : vs) = do
       let subBind tv = substituteType @_ @Tc (Map.singleton sigVar (T.Var k tv))
-      let wrapAbs tv = E.TypeAbs @Tc defaultPos . K.Bind (pos tv) tv k
+      let wrapAbs tv = E.TypeAbs @Tc defaultPos . K.Bind p tv k
       case v of
-        Left _ -> do
-          -- Skip the type abstraction by binding a wildcard pattern. Keep the
-          -- expected type for the error message.
-          wildTV <- liftRn $ bindOne @Rn Proxy (mkVar @TypeVar defaultPos "_") pure
-          wrapAbs wildTV <$> go t0 (subBind wildTV t) vs0
-        Right tv -> do
+        Left tv -> do
           local (bindTyVar tv k) do
             wrapAbs tv <$> go t (subBind tv t) vs
-    go' t _ (v : _) = do
+        Right _ -> do
+          -- Skip the type abstraction by binding a wildcard pattern. Keep the
+          -- expected type for the error message.
+          wildTV <- liftRn $ bindOne @Rn Proxy Wildcard pure
+          wrapAbs wildTV <$> go t0 (subBind wildTV t) vs0
+    go t _ (v : _) = do
       -- The bind ›v‹ does not align with the expected type. While trying to
       -- align it the expected type got more and more destructured. The first
       -- argument to 'go' is the un-destructured expected type.
-      addFatalError $ Error.mismatchedBind v t
+      addFatalError $ uncurryL Error.mismatchedBind v t
 
 expectNominalKind ::
   MonadValidate Errors m => Pos -> String -> TypeVar -> K.Kind -> NonEmpty (Pos -> K.Kind) -> m K.Kind
@@ -336,7 +335,7 @@ expectNominalKind loc nomKind name actual allowed' = do
 lookupTypeAlias ::
   (HasKiEnv env, HasKiSt s) => TypeVar -> MaybeT (TcM env s) (TypeAlias Tc, K.Kind)
 lookupTypeAlias name = do
-  alias <- MaybeT $ use $ kiStL . tcAliasesL . at' name
+  alias <- MaybeT $ use $ kiStL . tcAliasesL . to (Map.lookup name)
   lift case alias of
     CheckedAlias ta k ->
       pure (ta, k)
@@ -360,12 +359,12 @@ lookupTypeAlias name = do
             >>> toList
             >>> drop depth
             >>> buildRecsError
-      let diagnosed = Map.fromSet (const $ RecursiveAlias recs) names
+      let diagnosed = Map.fromSet (const (RecursiveAlias recs)) names
       kiStL . tcAliasesL %= Map.union diagnosed
       refute $ That recs
   where
     setAlias a =
-      kiStL . tcAliasesL . at' name .= Just a
+      kiStL . tcAliasesL %= Map.insert name a
     noteExpansion pos alias env =
       env
         & kiEnvL . tcExpansionStackL %~ (Seq.|> (pos, name, alias))
@@ -397,7 +396,7 @@ typeAppBase = flip go
 kisynthTypeCon ::
   (HasKiEnv env, HasKiSt st) => Pos -> TypeVar -> [RnType] -> TcM env st (TcType, K.Kind)
 kisynthTypeCon loc name args =
-  runMaybeT (alias <|> decl) >>= maybeError (Error.undeclaredCon name)
+  runMaybeT (alias <|> decl) >>= maybeError (Error.undeclaredCon loc name)
   where
     alias = do
       (alias, k) <- lookupTypeAlias name
@@ -437,7 +436,7 @@ zipTypeParams ::
 zipTypeParams loc name ps0 ts0 = go 0 ps0 ts0
   where
     go !_ [] [] = pure []
-    go !n ((v, k) : ps) (a : as) =
+    go !n ((_ :@ v, k) : ps) (a : as) =
       liftA2
         (:)
         ((v,) <$> kicheck a k)
@@ -454,7 +453,7 @@ zipTypeParams loc name ps0 ts0 = go 0 ps0 ts0
 typeRefSubstitutions :: TypeDecl Tc -> TypeRef -> Substitutions Tc
 typeRefSubstitutions decl ref =
   typeSubstitions . Map.fromList $
-    zip (fst <$> declParams decl) (typeRefArgs ref)
+    zip (unL . fst <$> declParams decl) (typeRefArgs ref)
 
 -- | Applies a substitution to a 'TypeDecl'.
 --
@@ -476,7 +475,7 @@ kisynth =
       pure (T.Unit p, K.MU p)
     T.Var p v -> do
       mk <- asks $ view kiEnvL >>> tcKindEnv >>> Map.lookup v
-      k <- flip K.relocate p <$> maybeError (Error.unboundVar v) mk
+      k <- flip K.relocate p <$> maybeError (Error.unboundVar p v) mk
       pure (T.Var k v, k)
     T.Con p v -> do
       kisynthTypeCon p v []
@@ -562,11 +561,11 @@ tysynth =
 
     --
     E.Var p v -> do
-      synthVariable p v >>= maybeError (Error.unboundVar v)
+      synthVariable p v >>= maybeError (Error.unboundVar p v)
 
     --
     E.Con p v -> do
-      synthVariable p v >>= maybeError (Error.undeclaredCon v)
+      synthVariable p v >>= maybeError (Error.undeclaredCon p v)
 
     --
     E.Abs p bnd -> do
@@ -628,7 +627,7 @@ tysynth =
       -- Check for TU is deliberate here. It is unclear if a linear value would
       -- be well behaved.
       ty' <- kicheck ty (K.TU p)
-      withProgVarBind Nothing v ty' do
+      withProgVarBind Nothing p v ty' do
         (r', rTy) <- tysynthRecLam r
         requireEqual (E.RecAbs r) ty' rTy
         pure (E.Rec p v ty' r', ty')
@@ -636,12 +635,12 @@ tysynth =
     -- 'let' __without__ a type signature.
     E.UnLet p v Nothing e body -> do
       (e', eTy) <- tysynth e
-      withProgVarBind Nothing v eTy do
+      withProgVarBind Nothing p v eTy do
         (body', bodyTy) <- tysynth body
         let branch =
               E.CaseBranch
                 { branchPos = p,
-                  branchBinds = Identity v,
+                  branchBinds = Identity (p :@ v),
                   branchExp = body'
                 }
         let caseMap =
@@ -655,12 +654,12 @@ tysynth =
     E.UnLet p v (Just ty) e body -> do
       ty' <- kicheck ty (K.TL p)
       e' <- tycheck e ty'
-      withProgVarBind Nothing v ty' do
+      withProgVarBind Nothing p v ty' do
         (body', bodyTy) <- tysynth body
         let branch =
               E.CaseBranch
                 { branchPos = p,
-                  branchBinds = Identity v,
+                  branchBinds = Identity (p :@ v),
                   branchExp = body'
                 }
         let caseMap =
@@ -676,7 +675,7 @@ tysynth =
       pat <- extractMatchableType "Pattern let expression" (pos e) eTy
       let branch =
             E.CaseBranch
-              { branchPos = pos c,
+              { branchPos = p,
                 branchExp = body,
                 branchBinds = vs
               }
@@ -703,8 +702,8 @@ tysynth =
 
       let branches =
             Map.fromList
-              [ (Builtins.conTrue, E.CaseBranch (pos eThen) [] eThen'),
-                (Builtins.conFalse, E.CaseBranch (pos eElse) [] eElse')
+              [ (ConTrue, E.CaseBranch (pos eThen) [] eThen'),
+                (ConFalse, E.CaseBranch (pos eElse) [] eElse')
               ]
       let eCase =
             E.Exp . ValueCase p e' $
@@ -721,27 +720,28 @@ tysynth =
       checkPatternExpression p e' cases pat
 
     --
-    E.Select p con@(UserNamed PairConId) -> do
-      let tyvar x = mkVar defaultPos x :: TypeVar
-      liftRn $ bind @_ @Rn Proxy (tyvar <$> Two ("a", "b")) \(Two (v1, v2)) -> do
+    E.Select p lcon@(_ :@ PairCon) -> do
+      m <- currentModule
+      liftRn $ withLocalNames m (Two ("a", "b")) \(Two (v1, v2)) -> do
         let tyX = T.Var @Tc kiX
             kiX = K.TL defaultPos
-        let params = [(v1, kiX), (v2, kiX)]
+        let params = [(p :@ v1, kiX), (p :@ v2, kiX)]
             pairTy = T.Pair defaultPos (tyX v1) (tyX v2)
-        ty <- buildSelectType p params pairTy [tyX v1, tyX v2]
-        pure (E.Select p con, ty)
+        ty <- buildSelectType p m params pairTy [tyX v1, tyX v2]
+        pure (E.Select p lcon, ty)
 
     --
-    E.Select p con -> do
+    E.Select p lcon@(_ :@ con) -> do
+      m <- currentModule
       let findConDecl = runMaybeT do
             ValueCon conDecl <- MaybeT $ asks $ tcCheckedValues >>> Map.lookup con
             parentDecl <- MaybeT $ asks $ tcCheckedTypes >>> Map.lookup (conParent conDecl)
             pure (conDecl, parentDecl)
-      (conDecl, parentDecl) <- maybeError (Error.undeclaredCon con) =<< findConDecl
+      (conDecl, parentDecl) <- maybeError (uncurryL Error.undeclaredCon lcon) =<< findConDecl
       instantiateDeclRef defaultPos (conParent conDecl) parentDecl \params ref -> do
         let sub = applySubstitutions (typeRefSubstitutions parentDecl ref)
-        ty <- buildSelectType p params (T.Type ref) (sub <$> conItems conDecl)
-        pure (E.Select p con, ty)
+        ty <- buildSelectType p m params (T.Type ref) (sub <$> conItems conDecl)
+        pure (E.Select p lcon, ty)
 
     --
     e@(E.Exp (BuiltinNew _)) -> do
@@ -756,15 +756,16 @@ tysynth =
     E.Fork x _ -> absurd x
     E.Fork_ x _ -> absurd x
 
-buildSelectType :: Pos -> Params -> TcType -> [TcType] -> RnM TcType
-buildSelectType p params t us = bindOne @Rn Proxy (mkVar defaultPos "s") \varS -> do
-  let tyS = T.Var @Tc kiS varS
-      kiS = K.SL defaultPos
-  let foralls = buildForallType params . buildForallType [(varS, kiS)]
-  let arrLhs = buildSessionType defaultPos T.Out [t]
-      arrRhs = buildSessionType defaultPos T.Out us
-  let ty = foralls $ T.Arrow p Un (arrLhs tyS) (arrRhs tyS)
-  pure ty
+buildSelectType :: Pos -> Module -> Params -> TcType -> [TcType] -> RnM TcType
+buildSelectType p m params t us =
+  withLocalNames m (Identity "s") \(Identity varS) -> do
+    let tyS = T.Var @Tc kiS varS
+        kiS = K.SL defaultPos
+    let foralls = buildForallType params . buildForallType [(p :@ varS, kiS)]
+    let arrLhs = buildSessionType defaultPos T.Out [t]
+        arrRhs = buildSessionType defaultPos T.Out us
+    let ty = foralls $ T.Arrow p Un (arrLhs tyS) (arrRhs tyS)
+    pure ty
 
 data PatternType
   = PatternRef TypeRef
@@ -776,14 +777,15 @@ originalPatternType = \case
   PatternRef r -> T.Type r
   PatternPair x t1 t2 -> T.Pair x t1 t2
 
-patternBranches :: PatternType -> TypeM (Map.Map ProgVar [TcType])
+patternBranches :: PatternType -> TypeM (NameMap Values [TcType])
 patternBranches = \case
   PatternRef ref -> do
     let subst d = substituteTypeConstructors (typeRefSubstitutions d ref) d
     mdecl <- asks $ tcCheckedTypes >>> Map.lookup (typeRefName ref)
-    fmap snd . subst <$> maybeError (Error.undeclaredCon (typeRefName ref)) mdecl
+    fmap (fmap snd . subst) $
+      maybeError (Error.undeclaredCon (typeRefPos ref) (typeRefName ref)) mdecl
   PatternPair _ t1 t2 ->
-    pure $ Map.singleton (pairConId defaultPos) [t1, t2]
+    pure $ Map.singleton PairCon [t1, t2]
 
 data MatchableType
   = MatchValue PatternType
@@ -818,7 +820,7 @@ isBoolType ty env
   | -- Is it a reference to some parameter-less type named "Bool"?
     T.Type
       TypeRef
-        { typeRefName = name@(UserNamed "Bool"),
+        { typeRefName = name@(Builtin "Bool"),
           typeRefArgs = []
         } <-
       ty,
@@ -835,8 +837,9 @@ synthVariable :: Pos -> ProgVar -> TypeM (Maybe (TcExp, TcType))
 synthVariable p name = runMaybeT (useLocal <|> useGlobal)
   where
     useLocal = do
-      info <- MaybeT $ use $ tcTypeEnvL . at' name
-      tcTypeEnvL . at' name <~ Just <$> useVar p name info
+      info <- MaybeT $ gets $ tcTypeEnv >>> Map.lookup name
+      used <- useVar p name info
+      tcTypeEnvL %= Map.insert name used
       pure (E.Var p name, varType info)
 
     useGlobal = do
@@ -861,7 +864,7 @@ instantiateDeclRef p name decl f =
         { typeRefName = name,
           typeRefKind = tcDeclKind decl,
           typeRefPos = p,
-          typeRefArgs = (\(tv, k) -> T.Var k tv) <$> params
+          typeRefArgs = (\(_ :@ tv, k) -> T.Var k tv) <$> params
         }
 
 -- | Tries to destructure a type into into domain and codomain of an arrow.
@@ -872,7 +875,7 @@ appArrow = go id Set.empty
   where
     go prependPushed pushed = \case
       T.Arrow _ _ t u
-        | not (liftVarSet pushed `anyFree` t) ->
+        | not (liftNameSet pushed `anyFree` t) ->
           Just (t, prependPushed u)
       T.Forall x (K.Bind x' v k t) ->
         go
@@ -921,8 +924,8 @@ checkStandardCase loc cases patTy =
 buildForallType :: Params -> TcType -> TcType
 buildForallType = foldMap (Endo . mkForall) >>> appEndo
   where
-    mkForall :: (TypeVar, K.Kind) -> TcType -> TcType
-    mkForall (tv, k) = T.Forall defaultPos . K.Bind (pos tv) tv k
+    mkForall :: (Located TypeVar, K.Kind) -> TcType -> TcType
+    mkForall (p :@ tv, k) = T.Forall defaultPos . K.Bind p tv k
 
 buildDataConType ::
   Pos -> TypeVar -> TypeDecl Tc -> Multiplicity -> [TcType] -> TcM env s TcType
@@ -954,7 +957,7 @@ checkCaseExpr ::
   Bool ->
   RnCaseMap ->
   PatternType ->
-  (ProgVar -> [TcType] -> E.CaseBranch [] Rn -> TypeM (f (ProgVar, TcType))) ->
+  (ProgVar -> [TcType] -> E.CaseBranch [] Rn -> TypeM (f (Located ProgVar, TcType))) ->
   TypeM (TcCaseMap f Maybe, TcType)
 checkCaseExpr loc allowWild cmap patTy typedBinds = etaTcM do
   allBranches <- patternBranches patTy
@@ -968,7 +971,7 @@ checkCaseExpr loc allowWild cmap patTy typedBinds = etaTcM do
 
   -- Handles a single (written by the user) branch.
   let go :: ProgVar -> E.CaseBranch [] Rn -> BranchT TcType TypeM (E.CaseBranch f Tc)
-      go con branch = liftBranchT con \mty -> do
+      go con branch = liftBranchT (Error.PatternBranch (pos branch) con) \mty -> do
         let branchError =
               Error.mismatchedCaseConstructor
                 (pos branch)
@@ -1018,7 +1021,7 @@ data BranchSt r = forall b.
   BranchSt
   { -- | Variables which have been consumed in at least one of the encountered
     -- branches.
-    branchesConsumed :: !(Map.Map ProgVar BranchConsumed),
+    branchesConsumed :: !(NameMap Values BranchConsumed),
     -- | A previously encountered branch.
     --
     -- Used in error messages in the likes of /… variable is consumed there
@@ -1069,7 +1072,7 @@ runBranchT p (BranchT m) = do
 --
 -- @env1@ and @env2@ should be related in that @env2@ should be derived from
 -- @env1@. Any variables whicha appear only in one environment are discarded.
-filterAdditionalConsumed :: TypeEnv -> TypeEnv -> Map.Map ProgVar (Var, Pos)
+filterAdditionalConsumed :: TypeEnv -> TypeEnv -> NameMap Values (Var, Pos)
 filterAdditionalConsumed = Merge.merge Merge.dropMissing Merge.dropMissing (Merge.zipWithMaybeMatched f)
   where
     -- Returns @Just (var, usageLoc)@ iff the variable is unused in the outer
@@ -1083,7 +1086,7 @@ filterAdditionalConsumed = Merge.merge Merge.dropMissing Merge.dropMissing (Merg
 -- | @markConsumed p env vars@ marks all variables in @env@ which appear also
 -- as keys in @vars@ as used at @p@. Variables which appear in @vars@ but not
 -- in @env@ are ignored.
-markConsumed :: Pos -> TypeEnv -> Map.Map ProgVar a -> TypeEnv
+markConsumed :: Pos -> TypeEnv -> NameMap Values a -> TypeEnv
 markConsumed !p = Merge.merge Merge.preserveMissing Merge.dropMissing (Merge.zipWithMatched mark)
   where
     mark _ v _ = v {varUsage = LinUsed p}
@@ -1099,9 +1102,9 @@ markConsumed !p = Merge.merge Merge.preserveMissing Merge.dropMissing (Merge.zip
 -- might not actually be the branches in which the variables were consumed.
 checkConsumedOverlap ::
   (Error.BranchSpec a, Error.BranchSpec b, MonadValidate Errors m) =>
-  Map.Map ProgVar BranchConsumed ->
+  NameMap Values BranchConsumed ->
   a ->
-  Map.Map ProgVar BranchConsumed ->
+  NameMap Values BranchConsumed ->
   b ->
   m ()
 checkConsumedOverlap m1 other1 m2 other2 = addErrors errors
@@ -1110,15 +1113,15 @@ checkConsumedOverlap m1 other1 m2 other2 = addErrors errors
       errs m1 m2 other2 ++ errs m2 m1 other1
     errs x y other =
       [ Error.branchedConsumeDifference name var consume loc other
-        | (name, BranchConsumed consume var loc) <- Map.toList (x Map.\\ y)
+        | (name, BranchConsumed consume var loc) <- Map.toList (x `Map.difference` y)
       ]
 
 litType :: Pos -> E.Lit -> TcType
 litType p = \case
   E.Unit -> T.Unit p
-  E.Int _ -> builtinRef Builtins.typeInt
-  E.Char _ -> builtinRef Builtins.typeChar
-  E.String _ -> builtinRef Builtins.typeString
+  E.Int _ -> builtinRef TypeInt
+  E.Char _ -> builtinRef TypeChar
+  E.String _ -> builtinRef TypeString
   where
     builtinRef name =
       T.Type @Tc
@@ -1134,7 +1137,7 @@ litType p = \case
 tysynthBind :: Pos -> E.Bind Rn -> TypeM (E.Bind Tc, TcType)
 tysynthBind absLoc (E.Bind p m v ty e) = do
   ty' <- kicheck ty (K.TL defaultPos)
-  (e', eTy) <- withProgVarBind (unrestrictedLoc absLoc m) v ty' (tysynth e)
+  (e', eTy) <- withProgVarBind (unrestrictedLoc absLoc m) p v ty' (tysynth e)
 
   -- Construct the resulting type.
   let funTy = T.Arrow absLoc m ty' eTy
@@ -1162,6 +1165,16 @@ unrestrictedLoc :: Position a => a -> Multiplicity -> Maybe Pos
 unrestrictedLoc p Un = Just $! pos p
 unrestrictedLoc _ Lin = Nothing
 
+withLocalNames ::
+  (Traversable f, SingI scope) =>
+  Module ->
+  f String ->
+  (f (Name scope) -> RnM a) ->
+  RnM a
+withLocalNames m idents body = do
+  let names = Name m <$> idents
+  bind @_ @Rn Proxy names body
+
 -- | Establishes a set of bindings for a nested scope.
 --
 -- If the nested scope establishes an unrestricted context (such as an
@@ -1171,36 +1184,26 @@ unrestrictedLoc _ Lin = Nothing
 -- introduces the /unrestricted/ context. 'unrestrictedLoc' can be used as a
 -- helper function.
 withProgVarBinds ::
-  Maybe Pos -> [(ProgVar, TcType)] -> TypeM a -> TypeM a
+  Maybe Pos -> [(Located ProgVar, TcType)] -> TypeM a -> TypeM a
 withProgVarBinds !mUnArrLoc vtys action = etaTcM do
-  let mkVar i (v, ty) = etaTcM do
+  let mkVar (p :@ v, ty) = etaTcM do
         let ki = typeKind ty
         usage <- case K.multiplicity ki of
-          Just Lin -> pure LinUnunsed
+          Just Lin
+            | isWild v -> undefined "add an error, then use UnUsage here"
+            | otherwise -> pure LinUnunsed
           Just Un -> pure UnUsage
           Nothing -> UnUsage <$ addError (Error.unexpectedKind ty ki [K.TL defaultPos])
         let var =
               Var
                 { varUsage = usage,
                   varType = ty,
-                  varLocation = pos v
+                  varLocation = p
                 }
-        -- Prefix wildcards in the same set of var bindings with a unique id.
-        -- This makes sure that in case of multiple wildcards there is no
-        -- shadowing which would allow linear variables to be ignored.
-        --
-        -- We can't prefix all variables since then it becomes impossible to
-        -- refer to them without some additional bookkeeping on our part.
-        --
-        -- We assume that the parser already verified that other variable names
-        -- are not duplicated.
-        let name
-              | isWild v = mkNewVar i v
-              | otherwise = v
-        pure (name, var)
+        pure (v, var)
 
   outerVars <- gets tcTypeEnv
-  newVars <- Map.fromList <$> itraverse mkVar vtys
+  newVars <- Map.fromList <$> traverse mkVar vtys
   tcTypeEnvL <>= newVars
   a <- action
   resultVars <- gets tcTypeEnv
@@ -1222,12 +1225,12 @@ withProgVarBinds !mUnArrLoc vtys action = etaTcM do
 
   -- Continue with the variables as returned from the inner computation because
   -- a linear context may have consumed linear variables from the outer scope.
-  tcTypeEnvL .= resultVars Map.\\ newVars
+  tcTypeEnvL .= resultVars `Map.difference` newVars
   pure a
 
 -- | Like 'withProgVarBinds' but for a single binding.
-withProgVarBind :: Maybe Pos -> ProgVar -> TcType -> TypeM a -> TypeM a
-withProgVarBind mp pv ty = withProgVarBinds mp [(pv, ty)]
+withProgVarBind :: Maybe Pos -> Pos -> ProgVar -> TcType -> TypeM a -> TypeM a
+withProgVarBind mp varLoc pv ty = withProgVarBinds mp [(varLoc :@ pv, ty)]
 
 tycheck :: RnExp -> TcType -> TypeM TcExp
 tycheck e u = do
@@ -1250,10 +1253,10 @@ normalize t = case nf t of
   Nothing -> addFatalError (Error.noNormalform t)
 
 bindTyVar :: HasKiEnv env => TypeVar -> K.Kind -> env -> env
-bindTyVar v k = bindParams [(v, k)]
+bindTyVar v k = kiEnvL . tcKindEnvL %~ Map.insert v k
 
 bindParams :: HasKiEnv env => Params -> env -> env
-bindParams ps = kiEnvL . tcKindEnvL <>~ Map.fromList ps
+bindParams ps = kiEnvL . tcKindEnvL <>~ Map.fromList (first unL <$> ps)
 
 errorIf :: MonadValidate Errors m => Bool -> Diagnostic -> m ()
 errorIf True e = addError e

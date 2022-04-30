@@ -1,11 +1,12 @@
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -34,10 +35,11 @@ where
 import AlgST.Parse.Phase
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Name
 import AlgST.Syntax.Program
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Type qualified as T
-import AlgST.Syntax.Variable
+import AlgST.Util.Lenses
 import Control.Applicative
 import Control.Category ((>>>))
 import Control.Monad.Cont
@@ -45,15 +47,14 @@ import Control.Monad.Eta
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Data.Bitraversable
+import Data.Functor.Compose
 import Data.Map.Strict qualified as Map
 import Data.Maybe
 import Data.Proxy
+import Data.Singletons
 import Data.Traversable
 import Lens.Family2
 import Lens.Family2.State.Strict
-import Lens.Family2.Stock
-import Lens.Family2.Unchecked (lens)
-import Syntax.Base hiding (Variable)
 import Prelude hiding (lookup)
 
 -- | The rename phase token is only an alias to the 'Parse' token. All
@@ -69,23 +70,22 @@ type RnProgram = Program Rn
 type RnType = T.Type Rn
 {- ORMOLU_ENABLE -}
 
-type Bindings v = Map.Map v v
+-- | A map from the user written name to the renamed version.
+type Bindings s = NameMap s (Name s)
 
 data RenameEnv = RenameEnv
-  { rnTyVars :: !(Bindings TypeVar),
-    rnProgVars :: !(Bindings ProgVar)
+  { rnTyVars :: !(Bindings Types),
+    rnProgVars :: !(Bindings Values)
   }
 
 emptyEnv :: RenameEnv
 emptyEnv = RenameEnv mempty mempty
 
-rnTyVarsL :: Lens' RenameEnv (Bindings TypeVar)
-rnTyVarsL = lens rnTyVars \env vs -> env {rnTyVars = vs}
-{-# INLINE rnTyVarsL #-}
-
-rnProgVarsL :: Lens' RenameEnv (Bindings ProgVar)
-rnProgVarsL = lens rnProgVars \env vs -> env {rnProgVars = vs}
-{-# INLINE rnProgVarsL #-}
+{- ORMOLU_DISABLE -}
+makeLenses ''RenameEnv
+rnTyVarsL :: Lens' RenameEnv (Bindings Types)
+rnProgVarsL :: Lens' RenameEnv (Bindings Values)
+{- ORMOLU_ENABLE -}
 
 type RnSt = Int
 
@@ -99,10 +99,8 @@ type RnM =
   ReaderT RenameEnv (State RnSt)
 
 instance VarTraversal RnM Parse where
-  typeVariable = fmap Right . lookup
-  programVariable = fmap Right . lookup
-
-  bind :: (Traversable t, Variable v) => proxy Parse -> t v -> (t v -> RnM a) -> RnM a
+  typeVariable x = fmap (T.Var x) . lookup
+  valueVariable x = fmap (E.Var x) . lookup
   bind _ = bindingAll
 
 runRename :: RnM a -> a
@@ -113,29 +111,31 @@ withRenamedProgram p f = runRename $ renameProgram p >>= f
 
 -- | Binds all variables traversed over in @f@. If there are duplicate names an
 -- error will be emitted at the provided location.
-bindingAll :: (Traversable f, Variable v) => f v -> (f v -> RnM a) -> RnM a
+bindingAll :: (Traversable t, SingI s) => t (Name s) -> (t (Name s) -> RnM a) -> RnM a
 bindingAll vs = withBindings \x -> traverse x vs
 {-# INLINEABLE bindingAll #-}
 
-bindingAllPTVars :: Traversable f => f PTVar -> (f PTVar -> RnM a) -> RnM a
+bindingAllPTVars :: Traversable f => f AName -> (f AName -> RnM a) -> RnM a
 bindingAllPTVars vs = withBindings \bind ->
   traverse (bitraverse bind bind) vs
 {-# INLINEABLE bindingAllPTVars #-}
 
-varMapL :: forall v. Variable v => Lens' RenameEnv (Bindings v)
-varMapL = chooseVar @v rnProgVarsL rnTyVarsL
+varMapL :: forall s. SingI s => Lens' RenameEnv (Bindings s)
+varMapL = case sing @s of
+  STypes -> rnTyVarsL
+  SValues -> rnProgVarsL
 {-# INLINE varMapL #-}
 
 withBindings ::
-  (forall f. Applicative f => (forall v. Variable v => v -> f v) -> f a) ->
+  (forall f. Applicative f => (forall s. SingI s => Name s -> f (Name s)) -> f a) ->
   (a -> RnM b) ->
   RnM b
 withBindings f k = etaRnM do
-  let bind :: Variable v => v -> StateT RenameEnv RnM v
+  let bind :: SingI s => Name s -> StateT RenameEnv RnM (Name s)
       bind v = do
         n <- lift $ get <* modify' (+ 1)
-        let v' = mkNewVar n v
-        varMapL . at' v .= Just v'
+        let v' = v {nameUnqualified = nameUnqualified v ++ '_' : show n}
+        varMapL %= Map.insert v v'
         pure v'
   (a, binds) <- runStateT (f bind) emptyEnv
 
@@ -149,13 +149,18 @@ withBindings f k = etaRnM do
     (k a)
 {-# INLINE withBindings #-}
 
--- | @lookup mkErr v@ looks for a binding for @v@ and returns the renamed
--- variable. In case the variable is unbound it is assumed to be a global
--- definition. In case it is not the typechecker will emit an error.
-lookup :: Variable v => v -> RnM v
-lookup v = etaRnM do
+-- | @lookup v@ looks for a binding for @v@ and returns the renamed
+-- variable.
+--
+-- In case the variable is unbound it is assumed to be a global definition.
+-- Diagnosing this case is not considered the renamer's responsibility.
+--
+-- TODO: Should diagnosing unbound globals be part of the renamer? Then there
+-- could be one place at which "did you mean ..." hints could be generated.
+lookup :: SingI s => Name s -> RnM (Name s)
+lookup v = do
   env <- ask
-  pure $ fromMaybe v $ env ^. varMapL . at v
+  pure $ fromMaybe v $ env ^. varMapL . to (Map.lookup v)
 
 renameProgram :: Program Parse -> RnM (Program Rn)
 renameProgram p = do
@@ -176,10 +181,11 @@ renameSignature :: D.SignatureDecl Parse -> RnM (D.SignatureDecl Rn)
 renameSignature (D.SignatureDecl x ty) = D.SignatureDecl x <$> renameSyntax ty
 
 renameValueDecl :: D.ValueDecl Parse -> RnM (D.ValueDecl Rn)
-renameValueDecl vd = bindingAllPTVars (D.valueParams vd) \ps -> etaRnM do
-  t <- renameSyntax (D.valueType vd)
-  e <- renameSyntax (D.valueBody vd)
-  pure vd {D.valueParams = ps, D.valueType = t, D.valueBody = e}
+renameValueDecl vd =
+  bindingAllPTVars (Compose $ D.valueParams vd) \(Compose ps) -> etaRnM do
+    t <- renameSyntax (D.valueType vd)
+    e <- renameSyntax (D.valueBody vd)
+    pure vd {D.valueParams = ps, D.valueType = t, D.valueBody = e}
 
 renameConDecl :: D.ConstructorDecl Parse -> RnM (D.ConstructorDecl Rn)
 renameConDecl =
@@ -217,7 +223,7 @@ bindingParams :: D.Params -> (D.Params -> RnM a) -> RnM a
 bindingParams params f =
   etaRnM
     let (ps, ks) = unzip params
-     in bindingAll ps \ps' -> f (zip ps' ks)
+     in bindingAll (Compose ps) \(Compose ps') -> f (zip ps' ks)
 
 renameTypeDecl :: D.TypeDecl Parse -> RnM (D.TypeDecl Rn)
 renameTypeDecl =

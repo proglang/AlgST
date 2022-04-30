@@ -1,4 +1,6 @@
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -48,8 +50,8 @@ where
 
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Name
 import AlgST.Syntax.Type qualified as T
-import AlgST.Syntax.Variable
 import Control.Applicative
 import Control.Category ((>>>))
 import Control.Monad.Eta
@@ -57,89 +59,99 @@ import Control.Monad.Trans.Reader
 import Data.Bitraversable
 import Data.Foldable
 import Data.Functor.Classes
+import Data.Functor.Compose
 import Data.Functor.Identity
 import Data.Map.Strict qualified as Map
+import Data.Maybe
 import Data.Monoid qualified as M
 import Data.Proxy
 import Data.Set qualified as Set
+import Data.Singletons
 import Data.Void
 
 class Applicative f => VarTraversal f x where
-  programVariable :: ProgVar -> f (Either (E.Exp x) ProgVar)
-  typeVariable :: TypeVar -> f (Either (T.Type x) TypeVar)
+  valueVariable :: E.XVar x -> ProgVar -> f (E.Exp x)
+  typeVariable :: T.XVar x -> TypeVar -> f (T.Type x)
 
   -- | Binds a set of variables for the given computation.
-  bind :: (Traversable t, Variable v) => proxy x -> t v -> (t v -> f a) -> f a
+  bind :: (Traversable t, SingI s) => proxy x -> t (Name s) -> (t (Name s) -> f a) -> f a
 
 bindOne ::
-  forall x f v proxy a. (VarTraversal f x, Variable v) => proxy x -> v -> (v -> f a) -> f a
+  forall x s f proxy a.
+  (VarTraversal f x, SingI s) =>
+  proxy x ->
+  Name s ->
+  (Name s -> f a) ->
+  f a
 bindOne proxy v f = bind proxy (Identity v) (f . runIdentity)
 
 newtype CollectFree = CollectFree
   { runCollect ::
       -- Bound variables
-      Set.Set PTVar ->
+      ANameSet ->
       -- Accumulator
-      Set.Set PTVar ->
+      ANameSet ->
       -- Result
-      Set.Set PTVar
+      ANameSet
   }
-  deriving (Monoid) via (Set.Set PTVar -> M.Endo (Set.Set PTVar))
 
 instance Semigroup CollectFree where
-  fv1 <> fv2 = CollectFree $ oneShot \bound -> oneShot \acc ->
-    runCollect fv1 bound (runCollect fv2 bound acc)
+  fv1 <> fv = CollectFree $ oneShot \bound -> oneShot \acc ->
+    runCollect fv1 bound (runCollect fv bound acc)
+
+instance Monoid CollectFree where
+  mempty = CollectFree (const id)
 
 instance VarTraversal (Const CollectFree) x where
-  typeVariable = varCollectFree
-  programVariable = varCollectFree
+  typeVariable _ = varCollectFree
+  valueVariable _ = varCollectFree
 
   bind _ vs f = Const . CollectFree $ oneShot \bound -> oneShot \acc ->
-    let bound' = foldl' (\b v -> Set.insert (liftVar v) b) bound vs
-     in runCollect (getConst $ f vs) bound' acc
+    let !bound' = foldl' (flip $ Set.insert . liftName) bound vs
+     in runCollect (getConst (f vs)) bound' acc
 
 -- Inserts the given variable into the set of free variables.
-varCollectFree :: Variable v => v -> Const CollectFree b
-varCollectFree (liftVar -> v) = Const . CollectFree $ oneShot \bound -> oneShot \acc ->
+varCollectFree :: SingI s => Name s -> Const CollectFree b
+varCollectFree (liftName -> v) = Const . CollectFree $ oneShot \bound -> oneShot \acc ->
   -- Don't include it if it is either bound or already recorded.
   if v `Set.member` bound || v `Set.member` acc
     then acc
     else Set.insert v acc
 
 -- | Collects all free variables.
-collectFree :: forall s x. VarTraversable (s x) x => s x -> Set.Set PTVar
+collectFree :: forall s x. VarTraversable (s x) x => s x -> ANameSet
 collectFree a = runCollect (getConst (traverseVars @_ @x Proxy a)) mempty mempty
 
-newtype Any = Any {runAny :: Set.Set PTVar -> Bool}
-  deriving (Monoid) via (Set.Set PTVar -> M.Any)
+newtype Any = Any {runAny :: ANameSet -> Bool}
+  deriving (Monoid) via (ANameSet -> M.Any)
 
 instance Semigroup Any where
   fv1 <> fv2 = Any $ oneShot \intresting ->
     runAny fv1 intresting || runAny fv2 intresting
 
 instance VarTraversal (Const Any) x where
-  programVariable = anyVariable
-  typeVariable = anyVariable
+  valueVariable _ = anyVariable
+  typeVariable _ = anyVariable
 
   -- When a variable is bound it will be removed from the set of intresting
   -- variables. If the set becomes empty we will short-circuit to False.
   bind _ vs f = Const . Any $ oneShot \intresting -> do
-    let intresting' = foldl' (flip (Set.delete . liftVar)) intresting vs
+    let intresting' = foldl' (flip (Set.delete . liftName)) intresting vs
      in not (Set.null intresting') && runAny (getConst (f vs)) intresting'
 
-anyVariable :: Variable v => v -> Const Any b
-anyVariable = Const . Any . Set.member . liftVar
+anyVariable :: SingI s => Name s -> Const Any a
+anyVariable = Const . Any . Set.member . liftName
 
 -- | Checks if any of the variables in the given set are free in the given
 -- piece of syntax.
-anyFree :: forall s x. VarTraversable (s x) x => Set.Set PTVar -> s x -> Bool
+anyFree :: forall s x. VarTraversable (s x) x => ANameSet -> s x -> Bool
 anyFree vars a
   | Set.null vars = False
   | otherwise = runAny (getConst (traverseVars @_ @x Proxy a)) vars
 
 data Substitutions x = Substitutions
-  { progVarSubs :: !(Map.Map ProgVar (E.Exp x)),
-    typeVarSubs :: !(Map.Map TypeVar (T.Type x))
+  { progVarSubs :: !(NameMap Values (E.Exp x)),
+    typeVarSubs :: !(NameMap Types (T.Type x))
   }
 
 instance
@@ -157,27 +169,27 @@ emptySubstitutions = Substitutions Map.empty Map.empty
 nullSubstitutions :: Substitutions x -> Bool
 nullSubstitutions = (&&) <$> Map.null . progVarSubs <*> Map.null . typeVarSubs
 
-typeSubstitions :: Map.Map TypeVar (T.Type x) -> Substitutions x
+typeSubstitions :: NameMap Types (T.Type x) -> Substitutions x
 typeSubstitions s = emptySubstitutions {typeVarSubs = s}
 
-termSubstitions :: Map.Map ProgVar (E.Exp x) -> Substitutions x
+termSubstitions :: NameMap Values (E.Exp x) -> Substitutions x
 termSubstitions s = emptySubstitutions {progVarSubs = s}
 
 instance Monad m => VarTraversal (ReaderT (Substitutions x) m) x where
-  programVariable = etaReaderT . asks . subVar progVarSubs
-  typeVariable = etaReaderT . asks . subVar typeVarSubs
+  valueVariable x = etaReaderT . asks . subVar (E.Var x) progVarSubs
+  typeVariable x = etaReaderT . asks . subVar (T.Var x) typeVarSubs
 
   -- Remove the bound variables from the maps.
   bind _ vs f = etaReaderT do
     let removeVar subs =
-          liftVar >>> \case
-            Left pv -> subs {progVarSubs = Map.delete pv (progVarSubs subs)}
-            Right tv -> subs {typeVarSubs = Map.delete tv (typeVarSubs subs)}
+          liftName >>> \case
+            Left tv -> subs {typeVarSubs = Map.delete tv (typeVarSubs subs)}
+            Right pv -> subs {progVarSubs = Map.delete pv (progVarSubs subs)}
     local (\s -> foldl' removeVar s vs) do
       f vs
 
-subVar :: Variable v => (Substitutions x -> Map.Map v a) -> v -> Substitutions x -> Either a v
-subVar f v = maybe (Right v) Left . Map.lookup v . f
+subVar :: (Name s -> a) -> (Substitutions x -> NameMap s a) -> Name s -> Substitutions x -> a
+subVar def f v = fromMaybe (def v) . Map.lookup v . f
 
 applySubstitutions :: forall a x. VarTraversable a x => Substitutions x -> a -> a
 applySubstitutions s a
@@ -185,11 +197,11 @@ applySubstitutions s a
   | otherwise = runReader (traverseVars (Proxy @x) a) s
 
 -- | Substitute a single 'TypeVar'.
-substituteType :: VarTraversable a x => Map.Map TypeVar (T.Type x) -> a -> a
+substituteType :: VarTraversable a x => NameMap Types (T.Type x) -> a -> a
 substituteType = applySubstitutions . typeSubstitions
 
 -- | Substitute a single 'ProgVar'.
-substituteTerm :: VarTraversable a x => Map.Map ProgVar (E.Exp x) -> a -> a
+substituteTerm :: VarTraversable a x => NameMap Values (E.Exp x) -> a -> a
 substituteTerm = applySubstitutions . termSubstitions
 
 newtype Two a = Two {getTwo :: (a, a)}
@@ -224,10 +236,9 @@ instance
     e@E.Lit {} ->
       pure e
     E.Var x v ->
-      either id (E.Var x)
-        <$> programVariable v
-    E.Con x v ->
-      pure (E.Con x v)
+      valueVariable x v
+    e@E.Con {} ->
+      pure e
     E.Abs x b ->
       E.Abs x
         <$> traverseVars proxy b
@@ -251,7 +262,7 @@ instance
             E.PatLet x v vs' e' k'
       patLet
         <$> traverseVars proxy e
-        <*> bind proxy vs \vs' -> (vs',) <$> traverseVars proxy k
+        <*> bind proxy (Compose vs) \(Compose vs') -> (vs',) <$> traverseVars proxy k
     E.Rec x v ty e -> do
       let expRec ty' (v', e') =
             E.Rec x v' ty' e'
@@ -310,13 +321,14 @@ instance
   (VarTraversable (E.XExp x) x, VarTraversable (T.XType x) x, Traversable f) =>
   VarTraversable (E.CaseBranch f x) x
   where
-  traverseVars proxy b = bind proxy (E.branchBinds b) \binds -> do
-    e <- traverseVars proxy (E.branchExp b)
-    pure
-      b
-        { E.branchBinds = binds,
-          E.branchExp = e
-        }
+  traverseVars proxy b =
+    bind proxy (Compose (E.branchBinds b)) \(Compose binds) -> do
+      e <- traverseVars proxy (E.branchExp b)
+      pure
+        b
+          { E.branchBinds = binds,
+            E.branchExp = e
+          }
 
 instance
   (VarTraversable (E.XExp x) x, VarTraversable (T.XType x) x) =>
@@ -351,8 +363,7 @@ instance VarTraversable (T.XType x) x => VarTraversable (T.Type x) x where
       T.Forall x
         <$> traverseVars proxy b
     T.Var x v ->
-      either id (T.Var x)
-        <$> typeVariable v
+      typeVariable x v
     T.Con x v ->
       pure (T.Con x v)
     T.App x t u ->

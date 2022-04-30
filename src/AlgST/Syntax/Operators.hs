@@ -1,5 +1,7 @@
 module AlgST.Syntax.Operators where
 
+import AlgST.Builtins.Names
+import AlgST.Syntax.Name
 import Data.Function
 import Data.Map.Strict qualified as Map
 
@@ -23,15 +25,18 @@ data Precedence
 data Associativity = L | R | NA
   deriving (Eq)
 
-data Info = Info
-  { opName :: !String,
+data Info s = Info
+  { opName :: !s,
     opAssoc :: !Associativity,
     opPrec :: !Precedence
   }
 
 -- | A map from operator names (parenthesized and unparenthesized) to operator
 -- 'Info'. The 'opName' fields always contain the parenthesized version.
-knownOperators :: Map.Map String Info
+--
+-- Note that since this uses the operators' unqualified names as keys we
+-- currently are not able to support user defined operators.
+knownOperators :: Map.Map String (Info ProgVar)
 knownOperators = Map.unions (opMap <$> ops)
   where
     ops =
@@ -52,12 +57,14 @@ knownOperators = Map.unions (opMap <$> ops)
         Info "<|" R PBackward
       ]
 
-    opMap :: Info -> Map.Map String Info
+    opMap :: Info String -> Map.Map String (Info ProgVar)
     opMap op =
-      let op' = op {opName = operatorValueName (opName op)}
+      let name1 = opName op
+          name2 = operatorValueName (opName op)
+          opNamed = op {opName = Builtin name2}
        in Map.empty
-            & Map.insert (opName op) op'
-            & Map.insert (opName op') op'
+            & Map.insert name1 opNamed
+            & Map.insert name2 opNamed
 
 -- | Wraps a symbolic operator in parentheses.
 operatorValueName :: String -> String

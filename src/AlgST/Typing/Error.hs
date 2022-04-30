@@ -6,14 +6,15 @@
 
 module AlgST.Typing.Error where
 
+import AlgST.Builtins.Names
 import AlgST.Parse.Phase
 import AlgST.Parse.Unparser
 import AlgST.Rename
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Name
 import AlgST.Syntax.Type qualified as T
-import AlgST.Syntax.Variable
 import AlgST.Typing.Equality qualified as Eq
 import AlgST.Typing.Monad
 import AlgST.Typing.Phase
@@ -22,6 +23,7 @@ import AlgST.Util.ErrorMessage
 import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty, nonEmpty)
 import Data.List.NonEmpty qualified as NE
+import Data.Singletons
 import Syntax.Base hiding (Variable)
 import Prelude hiding (truncate)
 
@@ -87,7 +89,7 @@ expectedBool p ty =
       Error "with expected type",
       ErrLine,
       Error "  ",
-      Error $ T.Con @Rn defaultPos $ mkVar defaultPos "Bool",
+      Error $ T.Con @Rn defaultPos $ Builtin "Bool",
       ErrLine,
       Error "A suitable ‘Bool’ type must have exactly two nullary constructors named ‘True’ and ‘False’."
     ]
@@ -238,9 +240,9 @@ invalidNominalKind loc nomKind name actual allowed =
     ]
 {-# NOINLINE invalidNominalKind #-}
 
-mismatchedBind :: PTVar -> TcType -> Diagnostic
-mismatchedBind var t =
-  PosError (pos var) $
+mismatchedBind :: Pos -> AName -> TcType -> Diagnostic
+mismatchedBind loc var t =
+  PosError loc $
     Error (choose "Binding of variable" "Binding of type variable") :
     Error var :
     Error "does not align with type" :
@@ -309,11 +311,16 @@ emptyCaseExpr :: Pos -> Diagnostic
 emptyCaseExpr loc = PosError loc [Error "Empty case expression."]
 {-# NOINLINE emptyCaseExpr #-}
 
+data PatternBranch = PatternBranch Pos ProgVar
+
+instance Position PatternBranch where
+  pos (PatternBranch p _) = p
+
 class Position a => BranchSpec a where
   displayBranchError :: a -> [ErrorMessage]
 
-instance BranchSpec ProgVar where
-  displayBranchError p = [Error "branch", Error p]
+instance BranchSpec PatternBranch where
+  displayBranchError (PatternBranch _ p) = [Error "branch", Error p]
   {-# INLINE displayBranchError #-}
 
 newtype WildcardBranch = WildcardBranch Pos
@@ -419,27 +426,27 @@ builtinMissingApp e expected =
     ]
 {-# NOINLINE builtinMissingApp #-}
 
-unboundVar :: forall v. (Variable v, ErrorMsg v) => v -> Diagnostic
-unboundVar v =
+unboundVar :: forall s. SingI s => Pos -> Name s -> Diagnostic
+unboundVar loc v =
   PosError
-    (pos v)
+    loc
     [ Error "Unbound",
-      Error $ chooseVar @v @String "variable" "type variable",
+      Error $ id @String $ eitherName @s "type variable" "variable",
       Error v
     ]
-{-# SPECIALIZE unboundVar :: ProgVar -> Diagnostic #-}
-{-# SPECIALIZE unboundVar :: TypeVar -> Diagnostic #-}
+{-# SPECIALIZE unboundVar :: Pos -> ProgVar -> Diagnostic #-}
+{-# SPECIALIZE unboundVar :: Pos -> TypeVar -> Diagnostic #-}
 
-undeclaredCon :: forall v. (Variable v, ErrorMsg v) => v -> Diagnostic
-undeclaredCon v =
+undeclaredCon :: forall s. SingI s => Pos -> Name s -> Diagnostic
+undeclaredCon loc v =
   PosError
-    (pos v)
+    loc
     [ Error "Undeclared",
-      Error $ chooseVar @v @String "constructor" "type",
+      Error $ id @String $ eitherName @s "type" "constructor",
       Error v
     ]
-{-# SPECIALIZE undeclaredCon :: ProgVar -> Diagnostic #-}
-{-# SPECIALIZE undeclaredCon :: TypeVar -> Diagnostic #-}
+{-# SPECIALIZE undeclaredCon :: Pos -> ProgVar -> Diagnostic #-}
+{-# SPECIALIZE undeclaredCon :: Pos -> TypeVar -> Diagnostic #-}
 
 showType :: TcType -> Maybe TcType -> [ErrorMessage]
 showType t mNF

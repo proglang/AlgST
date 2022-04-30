@@ -34,6 +34,7 @@ import           Data.Monoid
 import           Data.Proxy
 import           Data.Sequence                 (Seq(..))
 import qualified Data.Sequence                 as Seq
+import           AlgST.Builtins.Names
 import           AlgST.Parse.Lexer
 import           AlgST.Parse.Operators
 import           AlgST.Parse.ParseUtils
@@ -41,10 +42,9 @@ import           AlgST.Parse.Phase
 import           AlgST.Syntax.Decl
 import           AlgST.Syntax.Expression       as E
 import qualified AlgST.Syntax.Kind             as K
-import           AlgST.Syntax.Operators
+import           AlgST.Syntax.Name
 import           AlgST.Syntax.Program
 import qualified AlgST.Syntax.Type             as T
-import           AlgST.Syntax.Variable
 import           AlgST.Util
 import           AlgST.Util.Error
 import           AlgST.Util.ErrorMessage
@@ -138,70 +138,75 @@ Decl :: { ProgBuilder }
       programValueBinding $1 $2 $4
     }
   -- Type abbreviation
-  | type KindedTVarM TypeParams '=' Type {% do
+  | type KindedTVar TypeParams '=' Type {% do
       let (name, mkind) = $2
       let decl = AliasDecl (OriginUser (pos $1)) TypeAlias
-            { aliasParams = toList $3
+            { aliasParams = $3
             , aliasKind = mkind
             , aliasType = $5
             }
-      pure $ programTypeDecl name decl
+      pure $ programTypeDecl (unL name) decl
     }
   -- Datatype declaration
   | data KindedTVar TypeParams {% do
-      let (name, kind) = $2 K.TU
+      let (name, mkind) = $2
       let decl = DataDecl (OriginUser (pos $1)) TypeNominal
-            { nominalParams = toList $3
-            , nominalKind = kind
+            { nominalParams = $3
+            , nominalKind = K.TU (pos name) `fromMaybe` mkind
             , nominalConstructors = mempty
             }
-      pure $ programTypeDecl name decl
+      pure $ programTypeDecl (unL name) decl
     }
   | data KindedTVar TypeParams '=' DataCons {% do
-      let (name, kind) = $2 K.TU
+      let (name, mkind) = $2
       let decl = DataDecl (OriginUser (pos $1)) TypeNominal
-            { nominalParams = toList $3
-            , nominalKind = kind
+            { nominalParams = $3
+            , nominalKind = K.TU (pos name) `fromMaybe` mkind
             , nominalConstructors = $5
             }
-      pure $ programTypeDecl name decl
+      pure $ programTypeDecl (unL name) decl
     }
   | protocol KindedTVar TypeParams '=' DataCons {% do
-      let (name, kind) = $2 K.P
+      let (name, mkind) = $2
       let decl = ProtoDecl (OriginUser (pos $1)) TypeNominal
-            { nominalParams = toList $3
-            , nominalKind = kind
+            { nominalParams = $3
+            , nominalKind = K.P (pos name) `fromMaybe` mkind
             , nominalConstructors = $5
             }
-      pure $ programTypeDecl name decl
+      pure $ programTypeDecl (unL name) decl
     }
 
 TySig :: { PType }
   : ':' Type     { $2 }
 
-TypeParams :: { [(TypeVar, K.Kind)] }
-  : bindings(KindBind)  {% $1 \(tv, _) -> Identity tv }
+TypeParams :: { [(Located TypeVar, K.Kind)] }
+  : {- empty -}   { [] }
+  | TypeParams1   { toList $1 }
+
+-- A `forall` requires a non-empty list of type var bindings.
+TypeParams1 :: { NonEmpty (Located TypeVar, K.Kind) }
+  : bindings1(KindBind) {% $1 \(locName, _) -> Identity locName }
 
 DataCons :: { Constructors PType }
   : DataCon              {  uncurry Map.singleton $1 }
   | DataCons '|' DataCon {% uncurry insertNoDuplicates $3 $1 }
 
 DataCon :: { (ProgVar, (Pos, [PType])) }
-  : Constructor TypeSeq { ($1, (pos $1, DL.toList $2)) }
+  : Constructor TypeSeq { (unL $1, (pos $1, DL.toList $2)) }
 
-ValueParams :: { [PTVar] }
+ValueParams :: { [Located AName] }
   : bindings(ValueParam) {%
-      let isPTWild = either isWild isWild
-       in concat `fmap` $1 (filter (not . isPTWild))
+      let isAWildcard = either isWild isWild . unL
+       in concat `fmap` $1 (filter (not . isAWildcard))
     }
 
-ValueParam :: { [PTVar] }
-  : ProgVarWild         { [Left $1] }
+ValueParam :: { [Located AName] }
+  : ProgVarWild         { [fmap liftName $1] }
   | '[' TyVarList ']'   { DL.toList $2 }
 
-TyVarList :: { DL.DList PTVar }
-  : wildcard(TypeVar)                       { DL.singleton (Right $1) }
-  | TyVarList ',' wildcard(TypeVar)         { $1 `DL.snoc` Right $3 }
+TyVarList :: { DL.DList (Located AName) }
+  : wildcard(TypeVar)                       { DL.singleton (fmap liftName $1) }
+  | TyVarList ',' wildcard(TypeVar)         { $1 `DL.snoc` fmap liftName $3 }
 
 ----------------
 -- EXPRESSION --
@@ -212,9 +217,9 @@ EAtom :: { PExp }
   | CHAR                           { let (TokenChar p x) = $1   in E.Lit p $ E.Char   x }
   | STR                            { let (TokenString p x) = $1 in E.Lit p $ E.String x }
   | '()'                           { E.Lit (pos $1) E.Unit }
-  | '(,)'                          {% fatalError $ errorMisplacedPairCon @ProgVar (pos $1) Proxy }
-  | ProgVar                        { E.Var (pos $1) $1 }
-  | Constructor                    { E.Con (pos $1) $1 }
+  | '(,)'                          {% fatalError $ errorMisplacedPairCon @Values (pos $1) Proxy }
+  | ProgVar                        { uncurryL E.Var $1 }
+  | Constructor                    { uncurryL E.Con $1 }
   | '(' ExpInner ')'               {% $2 InParens }
   | '(' Exp ',' Exp ')'            { E.Pair (pos $1) $2 $4 }
   | case Exp of Cases              { E.Case (pos $1) $2 $4 }
@@ -236,7 +241,7 @@ EApp :: { PExp }
   | EApp EAtom                     { E.App (pos $1) $1 $2 }
   | EApp '[' TypeApps ']'          { E.foldTypeApps (const pos) $1 $3 }
   | select Constructor             { E.Select (pos $1) $2 }
-  | select '(,)'                   { E.Select (pos $1) (pairConId (pos $2)) }
+  | select '(,)'                   { E.Select (pos $1) ($2 @- PairCon) }
 
 EAppTail :: { PExp }
   : EApp                           { $1 }
@@ -263,13 +268,16 @@ TypeApps :: { DL.DList PType }
 RecExp :: { forall a. (Pos -> ProgVar -> PType -> E.RecLam Parse -> a) -> ParseM a }
   : rec ProgVar TySig '=' Exp {
       \f -> case $5 of
-        E.RecAbs r -> pure $ f (pos $1) $2 $3 r
+        E.RecAbs r -> pure $ f (pos $1) (unL $2) $3 r
         _ -> fatalError $ errorRecNoTermLambda (pos $5)
     }
 
 LetBind :: { Pos -> PExp -> PExp -> PExp }
-  : ProgVarWild optional(TySig)   { \p -> E.UnLet p $1 $2 }
-  | Pattern                       { \p -> uncurry (E.PatLet p) $1 }
+  : ProgVarWild optional(TySig)   { \p -> E.UnLet p (unL $1) $2 }
+  | Pattern                       { \p -> do
+      let (pat, binds) = $1
+      E.PatLet p (unL pat) binds
+    }
 
 LamExp :: { PExp }
   : lambda Abs Arrow Exp {% do
@@ -282,9 +290,9 @@ LamExp :: { PExp }
 
 Abs :: { (Multiplicity -> Endo PExp, Any) }
   : bindings1(Abs1) {% do
-      binds <- $1 $ snd >>> \case
-            Left (v, _) | not (isWild v) -> Just (Left v)
-            Right (v, _) | not (isWild v) -> Just (Right v)
+      binds <- $1 $ \case
+            (p, Left (v, _)) | not (isWild v) -> Just (p @- Left v)
+            (p, Right (v, _)) | not (isWild v) -> Just (p @- Right v)
             _ -> Nothing
       let termAbs loc (v, t) =
             ( \m -> Endo $ E.Abs @Parse loc . E.Bind loc m v t
@@ -300,8 +308,8 @@ Abs :: { (Multiplicity -> Endo PExp, Any) }
     }
 
 Abs1 :: { (Pos, Either (ProgVar, PType) (TypeVar, K.Kind)) } 
-  : '(' wildcard(ProgVar) ':' Type ')' { (pos $1, Left ($2, $4)) }
-  | '[' wildcard(TypeVar) ':' Kind ']' { (pos $1, Right ($2, $4)) }
+  : '(' wildcard(ProgVar) ':' Type ')' { (pos $1, Left (unL $2, $4)) }
+  | '[' wildcard(TypeVar) ':' Kind ']' { (pos $1, Right (unL $2, $4)) }
 
 Cases :: { PCaseMap }
   : -- An empty case is not allowed. Accepting it here allows us to provide
@@ -323,7 +331,7 @@ Case :: { PCaseMap -> ParseM PCaseMap }
             , branchBinds = binds
             , branchExp = $3
             }
-      cases <- insertNoDuplicates con branch (E.casesPatterns pcm)
+      cases <- insertNoDuplicates (unL con) branch (E.casesPatterns pcm)
       pure pcm{ E.casesPatterns = cases }
     }
   | ProgVarWild '->' Exp { \pcm -> do
@@ -337,36 +345,36 @@ Case :: { PCaseMap -> ParseM PCaseMap }
       pure pcm{ E.casesWildcard = Just wildBranch }
     }
 
-Pattern :: { (ProgVar, [ProgVar]) }
+Pattern :: { (Located ProgVar, [Located ProgVar]) }
   : Constructor ProgVarWildSeq            { ($1, $2) }
-  | '(,)' ProgVarWildSeq                  { (pairConId (pos $1), $2) }
+  | '(,)' ProgVarWildSeq                  { ($1 @- PairCon, $2) }
   | '(' ProgVarWild ',' ProgVarWild ')'   {% do
-      when ($2 == $4 && not (isWild $2)) do
+      when (onUnL (==) $2 $4 && not (isWild (unL $2))) do
         addErrors [errorDuplicateBind $2 (pos $2) (pos $4)]
-      pure $ (pairConId (pos $1), [$2, $4])
+      pure ($1 @- PairCon, [$2, $4])
     }
 
-ProgVarWildSeq :: { [ProgVar] }
+ProgVarWildSeq :: { [Located ProgVar] }
   : bindings(ProgVarWild)   {% $1 \v ->
       -- Only check for duplicates if it is not a wildcard.
-      if isWild v
+      if isWild (unL v)
       then Nothing
       else Just v
     }
 
-Op :: { ProgVar }
-  : OPERATOR  { mkVar (pos $1) (getText $1) }
-  | '+'       { mkVar (pos $1) "+" }
-  | '-'       { mkVar (pos $1) "-" }
+Op :: { Located ProgVar }
+  : OPERATOR  {% ($1 @-) `fmap` mkName (getText $1) }
+  | '+'       {% ($1 @-) `fmap` mkName "+" }
+  | '-'       {% ($1 @-) `fmap` mkName "-" }
 
-OpTys :: { (ProgVar, [PType]) }
+OpTys :: { (Located ProgVar, [PType]) }
   : OpTys_                    { DL.toList `fmap` $1 }
 
-OpTys_ :: { (ProgVar, DL.DList PType) }
+OpTys_ :: { (Located ProgVar, DL.DList PType) }
   : Op                        { ($1, DL.empty) }
   | OpTys_ '[' TypeApps ']'   { let (op, tys) = $1 in (op, tys <> $3) }
 
-OpsExp :: { OpSeq OpsExp (ProgVar, [PType]) }
+OpsExp :: { OpSeq OpsExp (Located ProgVar, [PType]) }
   : EApp OpTys           { Operand $1 $ Operator $2 Nil }
   | EApp OpTys EAppTail  { Operand $1 $ Operator $2 $ Operand $3 Nil }
   | EApp OpTys OpsExp    { Operand $1 $ Operator $2 $3 }
@@ -384,11 +392,11 @@ polarised(t)
 
 TypeAtom :: { PType }
   : '()'                          { T.Unit (pos $1) }
-  | '(,)'                         {% fatalError $ errorMisplacedPairCon @TypeVar (pos $1) Proxy }
+  | '(,)'                         {% fatalError $ errorMisplacedPairCon @Types (pos $1) Proxy }
   | '(' Type ',' TupleType ')'    { T.Pair (pos $1) $2 $4 }
   | end                           { T.End (pos $1) }
-  | TypeVar                       { T.Var (pos $1) $1 }
-  | TypeName                      { T.Con (pos $1) $1 }
+  | TypeVar                       { uncurryL T.Var $1 }
+  | TypeName                      { uncurryL T.Con $1 }
   | '(' Type ')'                  { $2 }
 
 Type1 :: { PType }
@@ -415,9 +423,9 @@ Type :: { PType }
   : Type5                         { $1 }
 
 Forall :: { PType -> PType }
-  : forall KindBind TypeParams '.' { do
-      let bind (v, k) = Endo $ T.Forall @Parse (pos $1) . K.Bind (pos v) v k
-      appEndo $ foldMap bind ($2 : toList $3)
+  : forall TypeParams1 '.' { do
+      let bind (v, k) = Endo $ T.Forall @Parse (pos $1) . uncurryL K.Bind v k
+      appEndo $ foldMap bind $2
     }
 
 TupleType :: { PType }
@@ -450,31 +458,31 @@ Kind :: { K.Kind }
 
 -- PROGRAM VARIABLE
 
-ProgVar :: { ProgVar }
-  : LOWER_ID { mkVar (pos $1) (getText $1) }
+ProgVar :: { Located ProgVar }
+  : LOWER_ID {% ($1 @-) `fmap` mkName (getText $1) }
 
-Constructor :: { ProgVar }
-  : UPPER_ID { mkVar (pos $1) (getText $1) }
-  | KIND     { mkVar (pos $1) (show $1) }
+Constructor :: { Located ProgVar }
+  : UPPER_ID {% ($1 @-) `fmap` mkName (getText $1) }
+  | KIND     {% ($1 @-) `fmap` mkName (show $1) }
 
-ProgVarWild :: { ProgVar }
+ProgVarWild :: { Located ProgVar }
   : wildcard(ProgVar)   { $1 }
 
 -- bindings(p) :
---   (Foldable f, Ord a, Position a, ErrorMsg a) => (p -> f a) -> ParseM [p]
+--   (Foldable f, Eq a, Hashable a, ErrorMsg a) => (p -> f (Located a)) -> ParseM [p]
 --
 -- Parses a sequence of `p` and ensures that the extracted `a`s are different.
 bindings(p)
   : bindings_(p) { fmap DL.toList . $1 Map.empty }
 
 -- bindings1(p) :
---   (Foldable f, Ord a, Position a, ErrorMsg a) => (p -> f a) -> ParseM (NonEmpty p)
+--   (Foldable f, Eq a, Hashable a, ErrorMsg a) => (p -> f (Located a)) -> ParseM (NonEmpty p)
 --
 -- Like `bindings` but for a non-empty sequence.
 bindings1(p)
   : p bindings_(p) { \extractAs -> do
       bound <- foldM
-        (flip \a -> insertNoDuplicates a (pos a))
+        (flip \(p :@ a) -> insertNoDuplicates a p)
         Map.empty
         (extractAs $1)
       ps <- $2 bound extractAs
@@ -486,41 +494,44 @@ bindings_(p)
       pure $ DL.empty
     }
   | bindings_(p) p { \bound extractAs -> do
-      bound' <- foldM (flip \a -> insertNoDuplicates a (pos a)) bound (extractAs $2)
+      bound' <- foldM
+        (flip \(p :@ a) -> insertNoDuplicates a p)
+        bound
+        (extractAs $2)
       ps <- $1 bound' extractAs
       pure $ ps `DL.snoc` $2
     }
 
--- wildcard(v) : Variable v => v
+-- wildcard(v) : v ~ Located s => Located (Name s)
 wildcard(v)
   : v     { $1 }
-  | '_'   { mkVar (pos $1) "_" }
+  | '_'   { $1 @- Wildcard }
+
+-- TYPE VARIABLE
+
+TypeVar :: { Located TypeVar }
+  : LOWER_ID {% ($1 @-) `fmap` mkName (getText $1) }
+
+TypeName :: { Located TypeVar }
+  : UPPER_ID {% ($1 @-) `fmap` mkName (getText $1) }
+  | KIND     {% ($1 @-) `fmap` mkName (show $1) }
+
+KindBind :: { (Located TypeVar, K.Kind) }
+  : '(' TypeVar ':' Kind ')'  { ($2, $4) }
+  | '(' TypeVar ')'           { ($2, K.TU (pos $2)) }
+  | TypeVar                   { ($1, K.TU (pos $1)) }
+
+KindedTVar :: { (Located TypeVar, Maybe K.Kind) }
+  : TypeName ':' Kind { ($1, Just $3) }
+  | TypeName          { ($1, Nothing) }
+
+-- GENERIC HELPERS
 
 -- optional(t) : Maybe t
 optional(t)
   : {- empty -}  { Nothing }
   | t            { Just $1 }
 
--- TYPE VARIABLE
-
-TypeVar :: { TypeVar }
-  : LOWER_ID { mkVar (pos $1) (getText $1) }
-
-TypeName :: { TypeVar }
-  : UPPER_ID { mkVar (pos $1) (getText $1) }
-  | KIND     { mkVar (pos $1) (show $1) }
-
-KindBind :: { (TypeVar, K.Kind) }
-  : '(' TypeVar ':' Kind ')'  { ($2, $4) }
-  | '(' TypeVar ')'           { ($2, K.TU (pos $2)) }
-  | TypeVar                   { ($1, K.TU (pos $1)) }
-
-KindedTVarM :: { (TypeVar, Maybe K.Kind) }
-  : TypeName ':' Kind { ($1, Just $3) }
-  | TypeName          { ($1, Nothing) }
-
-KindedTVar ::  { (Pos -> K.Kind) -> (TypeVar, K.Kind) }
-  : KindedTVarM       { \k -> let (v, mk) = $1 in (v, k (pos v) `fromMaybe` mk) }
 
 {
 newtype Parser a = Parser ([Token] -> ParseM a)
@@ -544,7 +555,8 @@ feedParser :: Parser a -> String -> ParseM a
 feedParser = flip lexer
 
 runParser :: Parser a -> String -> Either (NonEmpty Diagnostic) a
-runParser parser = runParseM . feedParser parser
+runParser parser = runParseM (Module "") . feedParser parser
+-- TODO: Pass in the actual module.
 
 -- | Runs a parser with the contents of the provided file. This function may
 -- throw for all of the reasons 'readFile' may throw.

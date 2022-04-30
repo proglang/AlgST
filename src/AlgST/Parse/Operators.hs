@@ -17,10 +17,11 @@ module AlgST.Parse.Operators
   )
 where
 
+import AlgST.Builtins.Names
 import AlgST.Parse.Phase
 import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Name
 import AlgST.Syntax.Operators
-import AlgST.Syntax.Variable
 import AlgST.Util.ErrorMessage
 import Control.Category ((>>>))
 import Control.Monad
@@ -48,7 +49,7 @@ deriving instance Traversable (OpSeq first)
 parseOperators ::
   MonadValidate [Diagnostic] m =>
   Parenthesized ->
-  OpSeq first (ProgVar, [PType]) ->
+  OpSeq first (Located ProgVar, [PType]) ->
   m PExp
 parseOperators ps = resolveOperators >=> (groupOperators >>> foldGroupedOperators ps)
 
@@ -66,12 +67,13 @@ data OpGrouping = OpGrouping
 data ResolvedOp = ResolvedOp
   { -- | unparenthesized name
     operatorName :: ProgVar,
+    operatorLoc :: Pos,
     operatorTyArgs :: [PType],
-    operatorInfo :: Info
+    operatorInfo :: Info ProgVar
   }
 
 instance Position ResolvedOp where
-  pos = operatorName >>> pos
+  pos = operatorLoc
 
 data Prec = MinPrec | Prec !Precedence | MaxPrec
   deriving (Eq, Ord, Show)
@@ -86,7 +88,7 @@ foldGroupedOperators ps = \case
   OpGrouping Nothing [] Nothing ->
     error "internal parsing error: empty operator sequence"
   OpGrouping Nothing [] (Just op) ->
-    refute [errorMissingBothOperands $ operatorName op]
+    refute [errorMissingBothOperands (operatorLoc op) (operatorName op)]
   OpGrouping Nothing ((op, _) : _) Nothing
     | InParens <- ps -> refute [errorUnsupportedRightSection op]
     | otherwise -> refute [errorMissingOperand Left [] op]
@@ -198,18 +200,18 @@ foldOperators e0 ops0 = \case
 
 buildOpApplication :: ResolvedOp -> PExp -> Maybe PExp -> PExp
 buildOpApplication op lhs mrhs
-  | UserNamed "<|" <- operatorName op,
+  | Builtin "<|" <- operatorName op,
     null (operatorTyArgs op),
     Just rhs <- mrhs =
     -- Desugar operator to direct function application.
     E.App (pos op) lhs rhs
-  | UserNamed "|>" <- operatorName op,
+  | Builtin "|>" <- operatorName op,
     null (operatorTyArgs op),
     Just rhs <- mrhs =
     -- Desugar operator to (flipped) direct function application.
     E.App (pos op) rhs lhs
   | otherwise = do
-    let opVar = E.Var (pos op) $ mkVar (pos op) $ opName $ operatorInfo op
+    let opVar = E.Var (pos op) $ opName $ operatorInfo op
     let opExp = E.foldTypeApps (const pos) opVar (operatorTyArgs op)
     let appLhs = E.App (pos lhs) opExp lhs
     maybe appLhs (E.App <$> pos <*> pure appLhs <*> id) mrhs
@@ -220,19 +222,20 @@ resolveOperators ::
   ( MonadValidate [Diagnostic] m,
     Traversable f
   ) =>
-  f (ProgVar, [PType]) ->
+  f (Located ProgVar, [PType]) ->
   m (f ResolvedOp)
-resolveOperators = traverse \(v, tys) ->
-  case Map.lookup (intern v) knownOperators of
-    Nothing ->
-      refute [errorUnknownOperator v]
-    Just i ->
+resolveOperators = traverse \case
+  (op@(_ :@ Builtin vUnqual), tys)
+    | Just i <- Map.lookup vUnqual knownOperators ->
       pure
         ResolvedOp
-          { operatorName = v,
+          { operatorName = unL op,
+            operatorLoc = pos op,
             operatorTyArgs = tys,
             operatorInfo = i
           }
+  (op, _) ->
+    refute [uncurryL errorUnknownOperator op]
 
 groupOperators :: forall first. OpSeq first ResolvedOp -> OpGrouping
 groupOperators = \case
@@ -261,16 +264,17 @@ groupOperators = \case
       Operator op (Operand e ops) ->
         go mLhs (DL.snoc groupedOps (op, e)) ops
 
-errorMissingBothOperands :: ProgVar -> Diagnostic
-errorMissingBothOperands v =
+errorMissingBothOperands :: Pos -> ProgVar -> Diagnostic
+errorMissingBothOperands loc v =
   PosError
-    (pos v)
+    loc
     [ Error "Operator",
       Error v,
       Error "is missing its operands.",
       ErrLine,
-      Error $ "Write it as ‘(" ++ show v ++ ")’ to use it as a function value."
+      Error $ "Write it as ‘(" ++ pprName v ++ ")’ to use it as a function value."
     ]
+{-# NOINLINE errorMissingBothOperands #-}
 
 errorMissingOperand ::
   -- | 'Left' or 'Right', whichever operand is missing.
@@ -287,7 +291,7 @@ errorMissingOperand side additionalMsgs v = PosError (pos v) (msgs ++ additional
         Error $ "is missing its " ++ select side "left" "right" ++ " operand.",
         ErrLine,
         Error "Write it as",
-        Error $ "‘(" ++ show (operatorName v) ++ ")’",
+        Error $ "‘(" ++ pprName (operatorName v) ++ ")’",
         Error "to use it as a function value."
       ]
 
@@ -303,14 +307,16 @@ errorUnsupportedRightSection =
     [ ErrLine,
       Error "Right sections are not (yet) supported."
     ]
+{-# NOINLINE errorUnsupportedRightSection #-}
 
-errorUnknownOperator :: ProgVar -> Diagnostic
-errorUnknownOperator v =
+errorUnknownOperator :: Pos -> ProgVar -> Diagnostic
+errorUnknownOperator loc v =
   PosError
-    (pos v)
+    loc
     [ Error "Unknown operator",
       Error v
     ]
+{-# NOINLINE errorUnknownOperator #-}
 
 errorNonAssocOperators :: ResolvedOp -> ResolvedOp -> Diagnostic
 errorNonAssocOperators v1 v2 =
@@ -333,3 +339,4 @@ errorNonAssocOperators v1 v2 =
       ErrLine,
       Error "Use parentheses to explicitly specify the associativity."
     ]
+{-# NOINLINE errorNonAssocOperators #-}

@@ -40,13 +40,12 @@ module AlgST.Interpret
   )
 where
 
-import AlgST.Builtins
-import AlgST.Parse.ParseUtils (pairConId, pattern PairConId)
+import AlgST.Builtins.Names
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Name
 import AlgST.Syntax.Program
-import AlgST.Syntax.Variable
 import AlgST.Typing.Phase (Tc, TcBind, TcExp, TcExpX (..), TcProgram)
 import AlgST.Util.Lenses
 import AlgST.Util.Output
@@ -58,7 +57,6 @@ import Control.Monad.Eta
 import Control.Monad.Reader
 import Data.DList qualified as DL
 import Data.Foldable
-import Data.Functor.Identity (Identity (runIdentity))
 import Data.Hashable
 import Data.IORef
 import Data.List qualified as List
@@ -69,7 +67,7 @@ import Data.Void
 import GHC.Stack
 import Lens.Family2
 import Numeric.Natural (Natural)
-import Syntax.Base (Located (..), defaultPos, unL, (@))
+import Syntax.Base
 import System.Console.ANSI
 import System.IO
 import Prelude hiding (log)
@@ -180,10 +178,7 @@ data Value
 
 -- | Pairs are represented through the 'Con' constructor with a name of 'PairConId'.
 pattern Pair :: Value -> Value -> Value
-pattern Pair a b <-
-  Con (UserNamed PairConId) [a, b]
-  where
-    Pair a b = Con (pairConId defaultPos) [a, b]
+pattern Pair a b = Con PairCon [a, b]
 
 instance Show Value where
   showsPrec p =
@@ -199,7 +194,7 @@ instance Show Value where
         ]
       Con c vs ->
         [ showString "Con",
-          showsPrec 11 c,
+          showString (pprName c),
           showsPrec 11 vs
         ]
       Endpoint c ->
@@ -207,7 +202,10 @@ instance Show Value where
           showsPrec 11 (channelId c),
           showsPrec 11 (channelSide c)
         ]
-      Label lbl -> unary "Label" lbl
+      Label lbl ->
+        [ showString "Label",
+          showString (pprName lbl)
+        ]
       Number n -> unary "Number" n
       String s -> unary "String" s
       Char c -> unary "Char" c
@@ -369,8 +367,8 @@ builtinsEnv =
       intFun "(%)" \x y -> Number (x `rem` y),
       intFun "(<=)" \x y ->
         if x <= y
-          then Con conTrue []
-          else Con conFalse [],
+          then Con ConTrue []
+          else Con ConFalse [],
       closure "send" \(_ :@ val) (p :@ channel) -> do
         c <- unwrap p TChannel channel
         putChannel c val
@@ -382,7 +380,7 @@ builtinsEnv =
     ]
   where
     closure name body =
-      (mkVar defaultPos name, Right (buildClosure name body))
+      (Builtin name, Right (buildClosure name body))
     intFun name f = closure name \(p1 :@ a) (p2 :@ b) -> do
       a' <- unwrap p1 TNumber a
       b' <- unwrap p2 TNumber b
@@ -414,7 +412,7 @@ eval =
     E.App _ e1 e2 -> do
       f <- evalAs TClosure e1
       x <- eval e2
-      f (e2 @ x)
+      f (e2 @- x)
 
     --
     E.Pair _ e1 e2 -> do
@@ -455,8 +453,8 @@ eval =
 
     -- Constructs a function which sends the selected constructor as a label.
     -- The type abstractions are skipped as they correspond to no-ops anyways.
-    E.Select _ con -> do
-      pure $ Closure ("\\c -> select " ++ show con ++ " c") \(appPos :@ c) -> do
+    E.Select _ (_ :@ con) -> do
+      pure $ Closure ("select " ++ pprName con) \(appPos :@ c) -> do
         chan <- unwrap appPos TChannel c
         putChannel chan $ Label con
         pure c
@@ -500,12 +498,12 @@ eval =
         E.casesPatterns cases
           & Map.lookup l
           & maybe (unmatchableConstructor p l) pure
-      localBinds [(runIdentity (E.branchBinds b), chanVal)] do
+      localBinds [(v, chanVal) | _ :@ v <- toList (E.branchBinds b)] do
         eval $ E.branchExp b
 
 evalBranch :: Foldable f => E.CaseBranch f Tc -> [Value] -> EvalM Value
 evalBranch b vs =
-  localBinds (zip (toList (E.branchBinds b)) vs) do
+  localBinds (zip (unL <$> toList (E.branchBinds b)) vs) do
     eval $ E.branchExp b
 
 newChannelPair :: EvalM (Channel, Channel)
@@ -626,7 +624,7 @@ lookupEnv p v =
     >>= maybe (failInterpet p err) pure . Map.lookup v
     >>= either eval pure
   where
-    err = show v ++ " is not bound."
+    err = pprName v ++ " is not bound."
 
 -- | Evaluates the given expression and extracts the expected type.
 evalAs :: Type a -> TcExp -> EvalM a
@@ -660,7 +658,7 @@ unwrap p ty v =
       TClosure -> "a closure"
 
 unmatchableConstructor :: Pos -> ProgVar -> EvalM a
-unmatchableConstructor p c = failInterpet p $ "unmatchable constructor " ++ show c
+unmatchableConstructor p c = failInterpet p $ "unmatchable constructor " ++ pprName c
 {-# NOINLINE unmatchableConstructor #-}
 
 class BuildClosure a where

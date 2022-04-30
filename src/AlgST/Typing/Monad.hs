@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -6,8 +7,8 @@ module AlgST.Typing.Monad where
 import AlgST.Rename
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Name
 import AlgST.Syntax.Program
-import AlgST.Syntax.Variable
 import AlgST.Typing.Phase
 import AlgST.Util.ErrorMessage (Diagnostic)
 import AlgST.Util.Lenses
@@ -16,11 +17,11 @@ import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.Validate
 import Data.DList.DNonEmpty (DNonEmpty)
-import Data.Map.Strict qualified as Map
+import Data.Map qualified as Map
 import Data.Sequence (Seq)
-import Data.Set qualified as Set
 import Data.These
 import Lens.Family2
+import Syntax.Base
 
 -- | A @Var@ tracks a 'ProgVar's type, declaration location and usage
 -- information.
@@ -38,9 +39,9 @@ data Usage
   | -- | A used 'Lin' variable, associated with the usage location.
     LinUsed Pos
 
-type TypeEnv = Map.Map ProgVar Var
+type TypeEnv = NameMap Values Var
 
-type KindEnv = Map.Map TypeVar K.Kind
+type KindEnv = NameMap Types K.Kind
 
 -- | Enivronment for all typing operations.
 --
@@ -57,7 +58,9 @@ data KiTypingEnv = KiTypingEnv
     tcContext :: RnProgram,
     -- | The stack of type aliases we are expanding. The first two tuple
     -- elements are declaration location and name.
-    tcExpansionStack :: Seq (Pos, TypeVar, TypeAlias Rn)
+    tcExpansionStack :: Seq (Pos, TypeVar, TypeAlias Rn),
+    -- | The module being checked at the moment.
+    tcModule :: Module
   }
 
 data TcValue
@@ -65,7 +68,7 @@ data TcValue
   | ValueCon (ConstructorDecl Tc)
 
 -- | Like 'ValuesMap' but the values in the map are of type 'TcValue'.
-type TcValuesMap = Map.Map ProgVar TcValue
+type TcValuesMap = NameMap Values TcValue
 
 data TyTypingEnv = TyTypingEnv
   { tcKiTypingEnv :: KiTypingEnv,
@@ -75,10 +78,10 @@ data TyTypingEnv = TyTypingEnv
     --
     -- 'Left' values represent protocol constructors. These don't form valid
     -- expressions. The associated value is the parent type's name.
-    tcCheckedValues :: Map.Map ProgVar TcValue
+    tcCheckedValues :: NameMap Values TcValue
   }
 
-newtype KiSt = KiSt {tcAliases :: Map.Map TypeVar Alias}
+newtype KiSt = KiSt {tcAliases :: NameMap Types Alias}
 
 -- | State during type checking of expressions. The main part is the 'TypeEnv'
 -- which maps the variables in scope to their 'Usage' status.
@@ -100,9 +103,9 @@ data Alias
 
 data RecursiveSets
   = RecursiveSets
-      (Set.Set TypeVar)
+      (NameSet Types)
       [(Pos, TypeVar, TypeAlias Rn)]
-      !(Map.Map (Set.Set TypeVar) [(Pos, TypeVar, TypeAlias Rn)])
+      !(Map.Map (NameSet Types) [(Pos, TypeVar, TypeAlias Rn)])
 
 instance Semigroup RecursiveSets where
   RecursiveSets a b recs <> RecursiveSets _ _ recs' =
@@ -117,7 +120,7 @@ makeLenses ['tcKiTypingEnv] ''TyTypingEnv
 tcKiTypingEnvL :: Lens' TyTypingEnv KiTypingEnv
 
 makeLenses ''KiSt
-tcAliasesL :: Lens' KiSt (Map.Map TypeVar Alias)
+tcAliasesL :: Lens' KiSt (NameMap Types Alias)
 
 makeLenses ''TySt
 tcTypeEnvL :: Lens' TySt TypeEnv
@@ -158,3 +161,6 @@ liftRn = etaTcM . lift . lift . lift
 etaTcM :: TcM env s a -> TcM env s a
 etaTcM = etaValidateT . mapValidateT (etaStateT . mapStateT (etaReaderT . mapReaderT etaRnM))
 {-# INLINE etaTcM #-}
+
+currentModule :: HasKiEnv env => TcM env s Module
+currentModule = asks $ tcModule . view kiEnvL

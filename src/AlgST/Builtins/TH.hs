@@ -4,9 +4,11 @@
 
 module AlgST.Builtins.TH where
 
+import AlgST.Builtins.Names
 import AlgST.Parse.Parser
 import AlgST.Parse.Phase
 import AlgST.Syntax.Decl
+import AlgST.Syntax.Name
 import AlgST.Syntax.Program
 import AlgST.Util
 import Control.Monad
@@ -14,25 +16,23 @@ import Data.List.NonEmpty (nonEmpty)
 import Data.Map.Strict qualified as Map
 import Data.Maybe
 import Data.Set qualified as Set
-import Language.Haskell.TH
+import Language.Haskell.TH hiding (Name)
 import Language.Haskell.TH.CodeDo qualified as Code
-import Syntax.Base
-import Syntax.ProgramVariable
 
 parseStatic :: [(String, String)] -> [String] -> CodeQ PProgram
 parseStatic = parseStatic' emptyProgram
 
 parseStatic' :: PProgram -> [(String, String)] -> [String] -> CodeQ PProgram
 parseStatic' baseProg sigs lines = Code.do
-  let showVar :: Show a => a -> String
-      showVar a = "‘" ++ show a ++ "’"
+  let showVar :: Name s -> String
+      showVar a = "‘" ++ pprName a ++ "’"
   let parseSig (name, sig) = do
         case runParserSimple parseType sig of
           Left err -> do
             reportError $ "Can't parse signature of ‘" ++ name ++ "’:" ++ err
             pure Nothing
           Right ty -> do
-            pure $ Just (mkVar defaultPos name :: ProgVar, ty)
+            pure $ Just (Builtin name, ty)
   let addSig sigsMap (name, sig)
         | name `Map.member` sigsMap = do
           reportError $ "Multiple definitions of " ++ showVar name

@@ -27,6 +27,7 @@ dependencies:
 - monad-validate
 - mtl >= 2.2.1
 - optparse-applicative
+- singletons-th
 - stm
 - template-haskell
 - th-lift-instances

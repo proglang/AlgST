@@ -1,19 +1,21 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
 module AlgST.Typing.NormalForm (nf) where
 
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Name
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Type
-import AlgST.Syntax.Variable
 import AlgST.Typing.Phase
 import Control.Category ((<<<), (>>>))
 import Data.Functor.Compose
 import Data.Set qualified as Set
 import Data.Tuple
 import Data.Void
+import Syntax.Base (Position (..))
 
 -- | Calcuates the positive normal form.
 nf :: TcType -> Maybe TcType
@@ -68,7 +70,7 @@ nfs = go
         negate x t
       Forall tyK (K.Bind p' v k t)
         | (prepend', vs, Arrow arrK m t u) <- collectForalls t,
-          not (liftVarSet (Set.insert v vs) `anyFree` t) ->
+          not (liftNameSet (Set.insert v vs) `anyFree` t) ->
           let (t1, _) = go t
               (u1, _) = go (prepend (prepend' u))
            in (Arrow arrK m <$> t1 <*> u1, Nothing)
@@ -86,8 +88,8 @@ nfs = go
 Potential for optimization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* A consecutive set of foralls is destructured on reconstrucuted multiple times
-  during NF calculation.
+* A consecutive set of foralls is destructured and reconstrucuted multiple
+  times during NF calculation.
 
 * Instead of pushing foralls down as far as possible we could gather them at
   the top level, eliminating the need for `anyFree` checks.
@@ -95,7 +97,7 @@ Potential for optimization
 * Check and probably improve strictness of the `nf` algorithm.
 -}
 
-collectForalls :: TcType -> (TcType -> TcType, Set.Set TypeVar, TcType)
+collectForalls :: TcType -> (TcType -> TcType, NameSet Types, TcType)
 collectForalls = go id mempty
   where
     go f vs = \case

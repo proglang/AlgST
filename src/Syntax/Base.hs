@@ -16,8 +16,10 @@ module Syntax.Base
   ( Variable (..),
     Pos (..),
     Located (..),
-    (@),
+    (@-),
     unL,
+    uncurryL,
+    onUnL,
     Position (..),
     Multiplicity (..),
     defaultPos,
@@ -36,16 +38,26 @@ data Pos = Pos !Int !Int
 -- | Attaches a position to a value of type @a@.
 --
 -- Ordering/Equality is not defined for this type to avoid confusion wether the
--- position is considered or not.
+-- position is considered or not. The function 'onUnL' is provided to
+-- simplify comparing and similar functions which do not consider the
+-- position.
 data Located a = !Pos :@ a
   deriving stock (Lift)
   deriving stock (Functor, Foldable, Traversable)
 
+infix 9 :@, @-
+
 unL :: Located a -> a
 unL (_ :@ a) = a
 
-(@) :: Position p => p -> a -> Located a
-p @ a = pos p :@ a
+uncurryL :: (Pos -> a -> b) -> Located a -> b
+uncurryL f (p :@ a) = f p a
+
+onUnL :: (a -> a -> b) -> Located a -> Located a -> b
+onUnL f (_ :@ x) (_ :@ y) = f x y
+
+(@-) :: Position p => p -> a -> Located a
+p @- a = pos p :@ a
 
 class Position t where
   pos :: t -> Pos

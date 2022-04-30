@@ -1,8 +1,10 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -49,16 +51,15 @@ module AlgST.Syntax.Expression
 where
 
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Name
 import AlgST.Syntax.Type qualified as T
 import Control.Applicative
+import Data.Foldable
 import Data.Functor.Identity
 import Data.Kind qualified as HS
-import Data.Map.Strict qualified as Map
 import Instances.TH.Lift ()
 import Language.Haskell.TH.Syntax (Lift)
 import Syntax.Base
-import Syntax.ProgramVariable
-import Data.Foldable
 
 {- ORMOLU_DISABLE -}
 type family XLit x
@@ -138,13 +139,13 @@ data Exp x
     --
     -- The first 'ProgVar' should be constructor name, the remaining 'ProgVar's
     -- should be variable names or wildcards.
-    PatLet (XPatLet x) !ProgVar [ProgVar] (Exp x) (Exp x)
+    PatLet (XPatLet x) !ProgVar [Located ProgVar] (Exp x) (Exp x)
   | -- | > Rec _ x t r                ~ rec x : t = r
     Rec (XRec x) !ProgVar (T.Type x) (RecLam x)
   | -- | > New _ t                    ~ new [t]
     New (XNew x) (T.Type x)
   | -- | > Select _ c                 ~ select c
-    Select (XSelect x) !ProgVar
+    Select (XSelect x) !(Located ProgVar)
   | -- | > Fork _ e                   ~ fork e
     Fork (XFork x) (Exp x)
   | -- | > Fork_ _ e                  ~ fork_ e
@@ -192,25 +193,29 @@ type CaseMap x = CaseMap' [] Maybe x
 -- | A map from constructor names to 'CaseBranch'es, plus potentially a wildcard
 -- branch.
 data CaseMap' f g x = CaseMap
-  { casesPatterns :: Map.Map ProgVar (CaseBranch f x),
+  { casesPatterns :: NameMap Values (CaseBranch f x),
     casesWildcard :: g (CaseBranch Identity x)
   }
 
 deriving stock instance
-  (ForallX Lift x, T.ForallX Lift x, Lift (f ProgVar), Lift (g (CaseBranch Identity x))) =>
+  ( ForallX Lift x,
+    T.ForallX Lift x,
+    forall a. Lift a => Lift (f a),
+    forall a. Lift a => Lift (g a)
+  ) =>
   Lift (CaseMap' f g x)
 
 emptyCaseMap :: Alternative g => CaseMap' f g x
-emptyCaseMap = CaseMap Map.empty empty
+emptyCaseMap = CaseMap mempty empty
 
 data CaseBranch f x = CaseBranch
   { branchPos :: !Pos,
-    branchBinds :: !(f ProgVar),
+    branchBinds :: !(f (Located ProgVar)),
     branchExp :: Exp x
   }
 
 deriving stock instance
-  (ForallX Lift x, T.ForallX Lift x, Lift (f ProgVar)) =>
+  (ForallX Lift x, T.ForallX Lift x, forall a. Lift a => Lift (f a)) =>
   Lift (CaseBranch f x)
 
 instance Position (CaseBranch f x) where

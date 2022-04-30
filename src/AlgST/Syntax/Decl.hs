@@ -1,5 +1,6 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -14,8 +15,8 @@ module AlgST.Syntax.Decl where
 
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Name
 import AlgST.Syntax.Type qualified as T
-import AlgST.Syntax.Variable
 import Control.Category ((>>>))
 import Data.Functor.Identity
 import Data.Kind qualified as Hs
@@ -67,9 +68,9 @@ data TypeNominal c = TypeNominal
   }
   deriving (Lift)
 
-type Params = [(TypeVar, K.Kind)]
+type Params = [(Located TypeVar, K.Kind)]
 
-type Constructors a = Map.Map ProgVar (Pos, [a])
+type Constructors a = NameMap Values (Pos, [a])
 
 mapConstructors ::
   (ProgVar -> a -> b) -> Constructors a -> Constructors b
@@ -143,7 +144,7 @@ declConstructors ::
   (XProtocolDecl x -> Pos -> XProtoCon x) ->
   TypeVar ->
   TypeDecl x ->
-  Map.Map ProgVar (ConstructorDecl x)
+  NameMap Values (ConstructorDecl x)
 declConstructors xData xProto name d = case d of
   AliasDecl _ _ ->
     Map.empty
@@ -184,7 +185,7 @@ instance Position (SignatureDecl x) where
 data ValueDecl x = ValueDecl
   { valueOrigin :: Origin,
     valueType :: T.Type x,
-    valueParams :: [PTVar],
+    valueParams :: [Located AName],
     valueBody :: E.Exp x
   }
 

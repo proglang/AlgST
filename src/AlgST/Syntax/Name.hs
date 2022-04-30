@@ -2,9 +2,11 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
@@ -14,22 +16,33 @@
 {-# LANGUAGE TypeOperators #-}
 
 module AlgST.Syntax.Name
-  ( -- * Names
+  ( -- * Type/Value Names
     Name (..),
-    pattern Global,
-    isGlobal,
-    pattern Local,
-    isLocal,
+    pattern Wildcard,
+    isWild,
+    pattern PairCon,
 
     -- ** Abbreviations
     ProgVar,
     TypeVar,
+    NameMap,
+    NameSet,
+
+    -- ** Unscoped Names
+    AName,
+    ANameMap,
+    ANameSet,
+    ANameLike (..),
+    liftName,
+    liftNameSet,
+    liftNameMap,
+    eitherName,
 
     -- ** Pretty-printing
     pprName,
 
     -- * Modules
-    Module,
+    Module (..),
     moduleName,
     modulePath,
     moduleFromPath,
@@ -43,10 +56,12 @@ module AlgST.Syntax.Name
 where
 
 import Control.Category ((>>>))
+import Control.Monad
+import Data.Foldable
 import Data.Hashable
 import Data.Kind
-import Data.List qualified as List
-import Data.Maybe
+import Data.Map.Strict qualified as Map
+import Data.Set qualified as Set
 import Data.Singletons.TH
 import GHC.Generics (Generic)
 import Language.Haskell.TH.Syntax (Lift)
@@ -105,33 +120,87 @@ type ProgVar = Name Values
 
 type TypeVar = Name Types
 
+-- | TODO: Describe why every name has a module
+--
+-- > data T a = T a
+--
+-- > foo : forall (a:TU). ...
+-- > foo [a] =
+-- >  let x = T [a -> a] in
+-- >  ...
+--
+-- @x@ has type @...@ but it should look like @...@
 type Name :: Scope -> Type
 data Name scope = Name
-  { nameModule :: Maybe Module,
+  { nameModule :: Module,
     nameUnqualified :: String
   }
   deriving stock (Eq, Ord, Show, Generic, Lift)
 
 instance Hashable (Name scope)
 
-pattern Local :: String -> Name scope
-pattern Local s = Name {nameModule = Nothing, nameUnqualified = s}
+pattern Wildcard :: Name scope
+pattern Wildcard =
+  Name
+    { nameModule = Module "",
+      nameUnqualified = "_"
+    }
 
-pattern Global :: Module -> String -> Name scope
-pattern Global m s = Name {nameModule = Just m, nameUnqualified = s}
+pattern PairCon :: Name scope
+pattern PairCon =
+  Name
+    { nameModule = Module "",
+      nameUnqualified = "(,)"
+    }
 
-{-# COMPLETE Global, Local #-}
-
-isGlobal :: Name scope -> Bool
-isGlobal Global {} = True
-isGlobal _ = False
-
-isLocal :: Name scope -> Bool
-isLocal = not . isGlobal
+-- | Checks wether the given name is a wildcard pattern.
+isWild :: Name scope -> Bool
+isWild Wildcard = True
+isWild _ = False
 
 pprName :: Name scope -> String
-pprName n =
-  List.intercalate "." . catMaybes $
-    [ moduleName <$> nameModule n,
-      Just (nameUnqualified n)
-    ]
+pprName n = fold modulePrefix ++ nameUnqualified n
+  where
+    modulePrefix :: Maybe String
+    modulePrefix = do
+      guard $ not $ isWild n
+      guard $ not $ null $ moduleName $ nameModule n
+      pure $ moduleName (nameModule n) ++ "."
+
+-- TODO: Check if there is difference in runtime/allocation when switching
+-- between ordered and unorderered maps.
+
+type NameMap s = Map.Map (Name s)
+
+type NameSet s = Set.Set (Name s)
+
+type AName = Either TypeVar ProgVar
+
+-- | A map which can have type and value names as its keys.
+type ANameMap = Map.Map AName
+
+-- | A set which can contain type and value names.
+type ANameSet = Set.Set AName
+
+class ANameLike name where
+  foldName :: (TypeVar -> a) -> (ProgVar -> a) -> name -> a
+
+instance SingI s => ANameLike (Name s) where
+  foldName f g n = eitherName @s (f n) (g n)
+
+instance ANameLike AName where
+  foldName = either
+
+eitherName :: forall s a. SingI s => (s ~ Types => a) -> (s ~ Values => a) -> a
+eitherName tv pv = case sing @s of
+  STypes -> tv
+  SValues -> pv
+
+liftName :: ANameLike name => name -> AName
+liftName = foldName Left Right
+
+liftNameSet :: SingI s => NameSet s -> ANameSet
+liftNameSet = Set.mapMonotonic liftName
+
+liftNameMap :: SingI s => NameMap s v -> ANameMap v
+liftNameMap = Map.mapKeysMonotonic liftName

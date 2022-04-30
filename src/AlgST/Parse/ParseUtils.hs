@@ -1,8 +1,10 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -11,6 +13,7 @@ module AlgST.Parse.ParseUtils
   ( -- * Parse monad
     ParseM,
     runParseM,
+    mkName,
 
     -- * Errors
     addError,
@@ -28,8 +31,6 @@ module AlgST.Parse.ParseUtils
     resolveOpSeq,
 
     -- * Type declarations
-    pairConId,
-    pattern PairConId,
     typeConstructors,
 
     -- * Assembling of programs
@@ -50,25 +51,33 @@ import AlgST.Parse.Operators
 import AlgST.Parse.Phase
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Name
 import AlgST.Syntax.Program
-import AlgST.Syntax.Variable
 import AlgST.Util.ErrorMessage
 import Control.Arrow
+import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Validate
 import Data.DList.DNonEmpty (DNonEmpty)
 import Data.DList.DNonEmpty qualified as DL
+import Data.Function
 import Data.Functor.Identity
 import Data.List.NonEmpty (NonEmpty (..))
-import Data.Map.Merge.Strict qualified as Map
+import Data.Map.Merge.Strict qualified as Merge
 import Data.Map.Strict qualified as Map
+import Data.Maybe
+import Data.Singletons
+import Syntax.Base
 
-type ParseM = Validate (DNonEmpty Diagnostic)
+type ParseM = ValidateT (DNonEmpty Diagnostic) (Reader Module)
 
 -- | Evaluates a value in the 'ParseM' monad producing a list of errors and
 -- maybe a result.
-runParseM :: ParseM a -> Either (NonEmpty Diagnostic) a
-runParseM = mapErrors DL.toNonEmpty >>> runValidate
+runParseM :: Module -> ParseM a -> Either (NonEmpty Diagnostic) a
+runParseM m = mapErrors DL.toNonEmpty >>> runValidateT >>> flip runReader m
+
+mkName :: String -> ParseM (Name s)
+mkName s = Name <$> ask <*> pure s
 
 addError :: Pos -> [ErrorMessage] -> ParseM ()
 addError !p err = addErrors [PosError p err]
@@ -80,22 +89,16 @@ addErrors (e : es) = dispute $ DL.fromNonEmpty $ e :| es
 fatalError :: Diagnostic -> ParseM a
 fatalError = refute . DL.singleton
 
-resolveOpSeq :: Parenthesized -> OpSeq first (ProgVar, [PType]) -> ParseM PExp
+resolveOpSeq :: Parenthesized -> OpSeq first (Located ProgVar, [PType]) -> ParseM PExp
 resolveOpSeq ps = mapErrors DL.fromList . parseOperators ps
-
-pattern PairConId :: String
-pattern PairConId = "(,)"
-
-pairConId :: Variable v => Pos -> v
-pairConId p = mkVar p PairConId
 
 typeConstructors ::
   TypeVar ->
   TypeDecl Parse ->
-  Map.Map ProgVar (ConstructorDecl Parse)
+  NameMap Values (ConstructorDecl Parse)
 typeConstructors = declConstructors originAt originAt
 
-type IncompleteValueDecl = Maybe (ProgVar, PType)
+type IncompleteValueDecl = Maybe (Located ProgVar, PType)
 
 type ProgBuilder =
   Kleisli (StateT IncompleteValueDecl ParseM) PProgram PProgram
@@ -110,27 +113,30 @@ completePrevious = Kleisli \p -> do
   case msig of
     Nothing ->
       pure p
-    Just (name, sig) -> do
+    Just (loc :@ name, sig) -> do
       put Nothing
-      let decl = SignatureDecl (OriginUser (pos name)) sig
+      let decl = SignatureDecl (OriginUser loc) sig
       imports <- lift $ insertNoDuplicates name decl (programImports p)
       pure p {programImports = imports}
 
-programValueDecl :: ProgVar -> PType -> ProgBuilder
-programValueDecl v ty =
+programValueDecl :: Located ProgVar -> PType -> ProgBuilder
+programValueDecl valueName ty =
   completePrevious >>> Kleisli \p -> do
-    put $ Just (v, ty)
+    put $ Just (valueName, ty)
     pure p
 
-programValueBinding :: ProgVar -> [PTVar] -> PExp -> ProgBuilder
-programValueBinding v params e = Kleisli \p0 -> do
+programValueBinding :: Located ProgVar -> [Located AName] -> PExp -> ProgBuilder
+programValueBinding valueName params e = Kleisli \p0 -> do
   mincomplete <- get
   p <-
     -- If there is an incomplete definition which does not match the current
     -- variable, we have to add it to the "imported" signatures.
-    if fmap fst mincomplete == Just v
-      then pure p0
-      else runKleisli completePrevious p0
+    if
+        | Just (prevName, _) <- mincomplete,
+          onUnL (/=) valueName prevName ->
+          runKleisli completePrevious p0
+        | otherwise ->
+          pure p0
 
   -- Re-read the incomplete binding, might be changed by the call to
   -- 'validateNotIncomplete' and remember that there is no incomplete binding
@@ -139,23 +145,27 @@ programValueBinding v params e = Kleisli \p0 -> do
   case mincomplete' of
     Nothing -> lift do
       addError
-        (pos v)
+        (pos valueName)
         [ Error "Binding of",
-          Error v,
+          Error valueName,
           Error "should be preceeded by its declaration."
         ]
       pure p
-    Just (v', ty) -> lift do
+    Just (defLoc :@ _, ty) -> lift do
       let decl =
             ValueDecl
-              { valueOrigin = OriginUser (pos v'),
+              { valueOrigin = OriginUser defLoc,
                 valueType = ty,
                 valueParams = params,
                 valueBody = e
               }
-      parsedValues' <- insertNoDuplicates v (Right decl) (programValues p)
-      when (v `Map.member` programImports p) do
-        addErrors [errorImportShadowed v]
+      parsedValues' <-
+        insertNoDuplicates
+          (unL valueName)
+          (Right decl)
+          (programValues p)
+      when (unL valueName `Map.member` programImports p) do
+        addErrors [uncurryL errorImportShadowed valueName]
       pure p {programValues = parsedValues'}
 
 programTypeDecl :: TypeVar -> TypeDecl Parse -> ProgBuilder
@@ -170,17 +180,27 @@ programTypeDecl v tydecl =
 -- value under that key an error as with 'errorMultipleDeclarations' is added
 -- and the value is not changed.
 insertNoDuplicates ::
-  (Ord k, DuplicateError k v) => k -> v -> Map.Map k v -> ParseM (Map.Map k v)
-insertNoDuplicates k v m = mergeNoDuplicates m (Map.singleton k v)
+  (DuplicateError k v, Ord k) => k -> v -> Map.Map k v -> ParseM (Map.Map k v)
+insertNoDuplicates k v m = mergeNoDuplicates m $ Map.singleton k v
 
--- | Merges two maps, if any keys overlap an error as with
--- 'errorMultipleDeclarations' is added and the value from the left map is
--- preserved.
-mergeNoDuplicates :: (Ord k, DuplicateError k v) => Map.Map k v -> Map.Map k v -> ParseM (Map.Map k v)
-mergeNoDuplicates =
-  Map.mergeA Map.preserveMissing Map.preserveMissing $ Map.zipWithAMatched \k v1 v2 -> do
-    addErrors [duplicateError k v1 v2]
-    pure v1
+-- | Merges two maps, for any overlapping keys an error as with
+-- 'errorMultipleDeclarations' is added.
+--
+-- In case of any merge duplicates the unmerged map will be returned.
+mergeNoDuplicates ::
+  (DuplicateError k v, Ord k) => Map.Map k v -> Map.Map k v -> ParseM (Map.Map k v)
+mergeNoDuplicates m new =
+  merge m new
+    & tolerate
+    & fmap (fromMaybe m)
+  where
+    merge =
+      Merge.mergeA
+        Merge.preserveMissing
+        Merge.preserveMissing
+        (Merge.zipWithAMatched dupError)
+    dupError k v1 v2 =
+      fatalError $ duplicateError k v1 v2
 
 class DuplicateError k a where
   duplicateError :: k -> a -> a -> Diagnostic
@@ -260,14 +280,15 @@ errorDuplicateBranch name (pos -> p1) (pos -> p2) =
       Error (max p1 p2)
     ]
 
-errorImportShadowed :: ProgVar -> Diagnostic
-errorImportShadowed name =
+errorImportShadowed :: Pos -> ProgVar -> Diagnostic
+errorImportShadowed loc name =
   PosError
-    (pos name)
+    loc
     [ Error "Declaration of",
       Error name,
       Error "shadows an import/builtin of the same name."
     ]
+{-# NOINLINE errorImportShadowed #-}
 
 -- | An error message for when a lambda binds only type variables but uses the
 -- linear arrow @-o@. This combination does not make sense, therefore we do not
@@ -317,17 +338,18 @@ errorMultipleWildcards x y =
         else (y, x)
 
 errorMisplacedPairCon ::
-  forall v proxy. (Variable v, ErrorMsg v) => Pos -> proxy v -> Diagnostic
-errorMisplacedPairCon p _ =
+  forall (s :: Scope) proxy. SingI s => Pos -> proxy s -> Diagnostic
+errorMisplacedPairCon loc _ =
   PosError
-    p
+    loc
     [ Error "Pair constructor",
-      Error $ pairConId @v p,
+      Error $ PairCon @s,
       Error "cannot be used as",
-      choose "an expression." "a type constructor.",
+      Error . id @String $
+        eitherName @s
+          "a type constructor."
+          "an expression.",
       ErrLine,
       Error "It can only appear in patterns and with ‘select’."
     ]
-  where
-    choose :: String -> String -> ErrorMessage
-    choose x y = Error $ chooseVar @v @String x y
+{-# NOINLINE errorMisplacedPairCon #-}

@@ -32,10 +32,10 @@ module AlgST.Syntax.Type
 where
 
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Name
 import Data.Kind qualified as HS
 import Language.Haskell.TH.Syntax (Lift)
 import Syntax.Base
-import Syntax.TypeVariable (TypeVar)
 
 data Polarity
   = -- | @?@
