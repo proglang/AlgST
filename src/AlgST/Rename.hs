@@ -26,6 +26,8 @@ module AlgST.Rename
     renameSyntax,
     renameProgram,
     bindingParams,
+    freshNC,
+    freshParamsNC,
 
     -- * Internals
     etaRnM,
@@ -109,6 +111,14 @@ runRename = flip runReaderT emptyEnv >>> flip evalState 0
 withRenamedProgram :: PProgram -> (RnProgram -> RnM a) -> a
 withRenamedProgram p f = runRename $ renameProgram p >>= f
 
+freshNC :: Name s -> RnM (Name s)
+freshNC name = do
+  n <- get <* modify' (+ 1)
+  pure name {nameUnqualified = nameUnqualified name ++ '_' : show n}
+
+freshParamsNC :: D.Params -> RnM D.Params
+freshParamsNC = traverse $ bitraverse (traverse freshNC) pure
+
 -- | Binds all variables traversed over in @f@. If there are duplicate names an
 -- error will be emitted at the provided location.
 bindingAll :: (Traversable t, SingI s) => t (Name s) -> (t (Name s) -> RnM a) -> RnM a
@@ -133,8 +143,7 @@ withBindings ::
 withBindings f k = etaRnM do
   let bind :: SingI s => Name s -> StateT RenameEnv RnM (Name s)
       bind v = do
-        n <- lift $ get <* modify' (+ 1)
-        let v' = v {nameUnqualified = nameUnqualified v ++ '_' : show n}
+        v' <- lift $ freshNC v
         varMapL %= Map.insert v v'
         pure v'
   (a, binds) <- runStateT (f bind) emptyEnv

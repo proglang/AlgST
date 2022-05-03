@@ -94,7 +94,6 @@ import Data.Maybe
 import Data.Monoid (Endo (..))
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
-import Data.Singletons
 import Data.These
 import Data.Tuple qualified as Tuple
 import Data.Void
@@ -720,27 +719,26 @@ tysynth =
 
     --
     E.Select p lcon@(_ :@ PairCon) -> do
-      m <- currentModule
-      liftRn $ withLocalNames m (Two ("a", "b")) \(Two (v1, v2)) -> do
-        let tyX = T.Var @Tc kiX
-            kiX = K.TL defaultPos
-        let params = [(p :@ v1, kiX), (p :@ v2, kiX)]
-            pairTy = T.Pair defaultPos (tyX v1) (tyX v2)
-        ty <- buildSelectType p m params pairTy [tyX v1, tyX v2]
-        pure (E.Select p lcon, ty)
+      v1 <- freshLocal "a"
+      v2 <- freshLocal "b"
+      let tyX = T.Var @Tc kiX
+          kiX = K.TL defaultPos
+      let params = [(p :@ v1, kiX), (p :@ v2, kiX)]
+          pairTy = T.Pair defaultPos (tyX v1) (tyX v2)
+      ty <- buildSelectType p params pairTy [tyX v1, tyX v2]
+      pure (E.Select p lcon, ty)
 
     --
     E.Select p lcon@(_ :@ con) -> do
-      m <- currentModule
       let findConDecl = runMaybeT do
             ValueCon conDecl <- MaybeT $ asks $ tcCheckedValues >>> Map.lookup con
             parentDecl <- MaybeT $ asks $ tcCheckedTypes >>> Map.lookup (conParent conDecl)
             pure (conDecl, parentDecl)
       (conDecl, parentDecl) <- maybeError (uncurryL Error.undeclaredCon lcon) =<< findConDecl
-      instantiateDeclRef defaultPos (conParent conDecl) parentDecl \params ref -> do
-        let sub = applySubstitutions (typeRefSubstitutions parentDecl ref)
-        ty <- buildSelectType p m params (T.Type ref) (sub <$> conItems conDecl)
-        pure (E.Select p lcon, ty)
+      (params, ref) <- instantiateDeclRef defaultPos (conParent conDecl) parentDecl
+      let sub = applySubstitutions (typeRefSubstitutions parentDecl ref)
+      ty <- buildSelectType p params (T.Type ref) (sub <$> conItems conDecl)
+      pure (E.Select p lcon, ty)
 
     --
     e@(E.Exp (BuiltinNew _)) -> do
@@ -755,16 +753,16 @@ tysynth =
     E.Fork x _ -> absurd x
     E.Fork_ x _ -> absurd x
 
-buildSelectType :: Pos -> Module -> Params -> TcType -> [TcType] -> RnM TcType
-buildSelectType p m params t us =
-  withLocalNames m (Identity "s") \(Identity varS) -> do
-    let tyS = T.Var @Tc kiS varS
-        kiS = K.SL defaultPos
-    let foralls = buildForallType params . buildForallType [(p :@ varS, kiS)]
-    let arrLhs = buildSessionType defaultPos T.Out [t]
-        arrRhs = buildSessionType defaultPos T.Out us
-    let ty = foralls $ T.Arrow p Un (arrLhs tyS) (arrRhs tyS)
-    pure ty
+buildSelectType :: HasKiEnv env => Pos -> Params -> TcType -> [TcType] -> TcM env st TcType
+buildSelectType p params t us = do
+  varS <- freshLocal "s"
+  let tyS = T.Var @Tc kiS varS
+      kiS = K.SL defaultPos
+  let foralls = buildForallType params . buildForallType [(p :@ varS, kiS)]
+  let arrLhs = buildSessionType defaultPos T.Out [t]
+      arrRhs = buildSessionType defaultPos T.Out us
+  let ty = foralls $ T.Arrow p Un (arrLhs tyS) (arrRhs tyS)
+  pure ty
 
 data PatternType
   = PatternRef TypeRef
@@ -854,17 +852,18 @@ synthVariable p name = runMaybeT (useLocal <|> useGlobal)
           addFatalError $ Error.protocolConAsValue p name parent
 
 instantiateDeclRef ::
-  Pos -> TypeVar -> TypeDecl Tc -> (Params -> TypeRef -> RnM a) -> TcM env s a
-instantiateDeclRef p name decl f =
-  liftRn $ bindingParams (declParams decl) \params ->
-    f
-      params
+  Pos -> TypeVar -> TypeDecl Tc -> TcM env s (Params, TypeRef)
+instantiateDeclRef p name decl = do
+  params <- liftRn $ freshParamsNC (declParams decl)
+  pure
+    ( params,
       TypeRef
         { typeRefName = name,
           typeRefKind = tcDeclKind decl,
           typeRefPos = p,
           typeRefArgs = (\(_ :@ tv, k) -> T.Var k tv) <$> params
         }
+    )
 
 -- | Tries to destructure a type into into domain and codomain of an arrow.
 -- This includes applying the forall isomorphism to push quantified type
@@ -928,7 +927,8 @@ buildForallType = foldMap (Endo . mkForall) >>> appEndo
 
 buildDataConType ::
   Pos -> TypeVar -> TypeDecl Tc -> Multiplicity -> [TcType] -> TcM env s TcType
-buildDataConType p name decl mul items = instantiateDeclRef p name decl \params ref -> do
+buildDataConType p name decl mul items = do
+  (params, ref) <- instantiateDeclRef p name decl
   let subs = typeRefSubstitutions decl ref
   let conArrow = foldr (T.Arrow defaultPos mul) (T.Type ref) (applySubstitutions subs <$> items)
   pure $ buildForallType params conArrow
@@ -1164,15 +1164,10 @@ unrestrictedLoc :: Position a => a -> Multiplicity -> Maybe Pos
 unrestrictedLoc p Un = Just $! pos p
 unrestrictedLoc _ Lin = Nothing
 
-withLocalNames ::
-  (Traversable f, SingI scope) =>
-  Module ->
-  f String ->
-  (f (Name scope) -> RnM a) ->
-  RnM a
-withLocalNames m idents body = do
-  let names = Name m <$> idents
-  bind (mkPxy () @Parse @Rn) names body
+freshLocal :: HasKiEnv env => String -> TcM env st (Name s)
+freshLocal s = do
+  m <- currentModule
+  liftRn $ freshNC $ Name m s
 
 -- | Establishes a set of bindings for a nested scope.
 --
