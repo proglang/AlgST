@@ -95,7 +95,7 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => ErrorMsg (E.Exp x) where
   msg = show
   msgStyling _ = redFGStyling
 
-instance ErrorMsg (Name s) where
+instance ErrorMsg (Name stage scope) where
   msg = pprName
   msgStyling _ = redFGStyling
 

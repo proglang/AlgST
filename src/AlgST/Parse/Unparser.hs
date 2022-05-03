@@ -39,10 +39,10 @@ showArrow :: Multiplicity -> String
 showArrow Lin = " -o "
 showArrow Un = " -> "
 
-showSortedVar :: Show a => Name s -> a -> String
+showSortedVar :: Show a => Name stage scope -> a -> String
 showSortedVar x t = "(" ++ pprName x ++ ":" ++ show t ++ ")"
 
-showKind :: (Show a, Show b) => Name s -> a -> String -> b -> String
+showKind :: (Show a, Show b) => Name stage scope -> a -> String -> b -> String
 showKind var sort arrow term =
   showSortedVar var sort ++ arrow ++ show term
 

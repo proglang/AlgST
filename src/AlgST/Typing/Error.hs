@@ -425,23 +425,23 @@ builtinMissingApp e expected =
     ]
 {-# NOINLINE builtinMissingApp #-}
 
-unboundVar :: forall s. SingI s => Pos -> Name s -> Diagnostic
+unboundVar :: forall stage scope. SingI scope => Pos -> Name stage scope -> Diagnostic
 unboundVar loc v =
   PosError
     loc
     [ Error "Unbound",
-      Error $ id @String $ eitherName @s "type variable" "variable",
+      Error $ id @String $ eitherName @scope "type variable" "variable",
       Error v
     ]
 {-# SPECIALIZE unboundVar :: Pos -> ProgVar -> Diagnostic #-}
 {-# SPECIALIZE unboundVar :: Pos -> TypeVar -> Diagnostic #-}
 
-undeclaredCon :: forall s. SingI s => Pos -> Name s -> Diagnostic
+undeclaredCon :: forall stage scope. SingI scope => Pos -> Name stage scope -> Diagnostic
 undeclaredCon loc v =
   PosError
     loc
     [ Error "Undeclared",
-      Error $ id @String $ eitherName @s "type" "constructor",
+      Error $ id @String $ eitherName @scope "type" "constructor",
       Error v
     ]
 {-# SPECIALIZE undeclaredCon :: Pos -> ProgVar -> Diagnostic #-}

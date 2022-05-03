@@ -6,10 +6,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module AlgST.Typing
@@ -128,7 +130,10 @@ checkWithProgram ::
   (RunTyM -> RunKiM -> TcProgram -> RnM (Either (NonEmpty Diagnostic) r)) ->
   RnM (Either (NonEmpty Diagnostic) r)
 checkWithProgram prog k = runExceptT $ do
-  let runWrapExcept st m = ExceptT . fmap (first runErrors . sequence) $ runTcM kiEnv st m
+  let runWrapExcept ::
+        s -> TcM KiTypingEnv s a -> ExceptT (NonEmpty Diagnostic) RnM (s, a)
+      runWrapExcept st m =
+        ExceptT . fmap (first runErrors . sequence) $ runTcM kiEnv st m
   (st, (tcTypes, tcValues, tcImports)) <- runWrapExcept st0 checkGlobals
   let importedValues = Map.map (ValueGlobal Nothing . signatureType) tcImports
   let tyEnv =
@@ -137,9 +142,10 @@ checkWithProgram prog k = runExceptT $ do
             tcCheckedValues = tcValues <> importedValues,
             tcKiTypingEnv = kiEnv
           }
-  let -- Not eta-reduced because of the monomorphism restriction.
-      embed m = embedTypeM tyEnv m
-  let mkProg values =
+  let embed :: HasKiSt st => TypeM a -> TcM env st a
+      embed = embedTypeM tyEnv
+  let mkProg :: ValuesMap Tc -> TcProgram
+      mkProg values =
         Program
           { programTypes = tcTypes,
             programValues = values,
@@ -1163,7 +1169,7 @@ unrestrictedLoc :: Position a => a -> Multiplicity -> Maybe Pos
 unrestrictedLoc p Un = Just $! pos p
 unrestrictedLoc _ Lin = Nothing
 
-freshLocal :: HasKiEnv env => String -> TcM env st (Name s)
+freshLocal :: HasKiEnv env => String -> TcM env st (TcName s)
 freshLocal s = do
   m <- currentModule
   liftRn $ freshNC $ Name m $ Unqualified s

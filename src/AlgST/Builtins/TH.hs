@@ -1,5 +1,5 @@
 {-# LANGUAGE QualifiedDo #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskellQuotes #-}
 {-# OPTIONS_GHC -fno-defer-type-errors #-}
 
 module AlgST.Builtins.TH where
@@ -24,7 +24,7 @@ parseStatic = parseStatic' emptyProgram
 
 parseStatic' :: PProgram -> [(String, String)] -> [String] -> CodeQ PProgram
 parseStatic' baseProg sigs lines = Code.do
-  let showVar :: Name s -> String
+  let showVar :: Name stage scope -> String
       showVar a = "‘" ++ pprName a ++ "’"
   let parseSig (name, sig) = do
         case runParserSimple parseType sig of

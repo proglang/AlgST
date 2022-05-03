@@ -1,4 +1,5 @@
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -10,6 +11,7 @@ import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
+import AlgST.Syntax.Phases
 import AlgST.Syntax.Program (Program)
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
@@ -140,11 +142,15 @@ tcDeclKind = \case
   D.ProtoDecl _ d -> D.nominalKind d
 
 {- ORMOLU_DISABLE -}
-type TcExp = E.Exp Tc
-type TcType = T.Type Tc
-type TcBind = E.Bind Tc
-type TcCaseMap f g = E.CaseMap' f g Tc
-type TcProgram = Program Tc
+type TcName                = XName Tc
+type TcExp                 = E.Exp Tc
+type TcType                = T.Type Tc
+type TcBind                = E.Bind Tc
+type TcCaseMap f g         = E.CaseMap' f g Tc
+type TcProgram             = Program Tc
+
+-- TODO: Change to `Resolved`.
+type instance XStage    Tc = Written
 
 type instance E.XLit    Tc = Pos
 type instance E.XVar    Tc = Pos

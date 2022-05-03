@@ -60,7 +60,7 @@ import Lens.Family2.State.Strict
 import Prelude hiding (lookup)
 
 -- | A map from the user written name to the renamed version.
-type Bindings s = NameMap s (Name s)
+type Bindings s = NameMap s (RnName s)
 
 data RenameEnv = RenameEnv
   { rnTyVars :: !(Bindings Types),
@@ -99,18 +99,18 @@ runRename = flip runReaderT emptyEnv >>> flip evalState 0
 withRenamedProgram :: PProgram -> (RnProgram -> RnM a) -> a
 withRenamedProgram p f = runRename $ renameProgram p >>= f
 
-freshNC :: Name s -> RnM (Name s)
+freshNC :: RnName s -> RnM (RnName s)
 freshNC name = do
   n <- get <* modify' (+ 1)
   let Unqualified u = nameUnqualified name
-  pure name {nameUnqualified = Unqualified $ u ++ '_' : show n}
+  pure $ Name (nameWrittenModule name) $ Unqualified $ u ++ '_' : show n
 
 freshParamsNC :: D.Params -> RnM D.Params
 freshParamsNC = traverse $ bitraverse (traverse freshNC) pure
 
 -- | Binds all variables traversed over in @f@. If there are duplicate names an
 -- error will be emitted at the provided location.
-bindingAll :: (Traversable t, SingI s) => t (Name s) -> (t (Name s) -> RnM a) -> RnM a
+bindingAll :: (Traversable t, SingI s) => t (RnName s) -> (t (RnName s) -> RnM a) -> RnM a
 bindingAll vs = withBindings \x -> traverse x vs
 {-# INLINEABLE bindingAll #-}
 
@@ -126,11 +126,11 @@ varMapL = case sing @s of
 {-# INLINE varMapL #-}
 
 withBindings ::
-  (forall f. Applicative f => (forall s. SingI s => Name s -> f (Name s)) -> f a) ->
+  (forall f. Applicative f => (forall s. SingI s => RnName s -> f (RnName s)) -> f a) ->
   (a -> RnM b) ->
   RnM b
 withBindings f k = etaRnM do
-  let bind :: SingI s => Name s -> StateT RenameEnv RnM (Name s)
+  let bind :: SingI s => RnName s -> StateT RenameEnv RnM (RnName s)
       bind v = do
         v' <- lift $ freshNC v
         varMapL %= Map.insert v v'
@@ -155,7 +155,7 @@ withBindings f k = etaRnM do
 --
 -- TODO: Should diagnosing unbound globals be part of the renamer? Then there
 -- could be one place at which "did you mean ..." hints could be generated.
-lookup :: SingI s => Name s -> RnM (Name s)
+lookup :: SingI s => RnName s -> RnM (RnName s)
 lookup v = do
   env <- ask
   pure $ fromMaybe v $ env ^. varMapL . to (Map.lookup v)

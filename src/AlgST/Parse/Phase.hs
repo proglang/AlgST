@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -9,6 +10,8 @@ module AlgST.Parse.Phase where
 import AlgST.Parse.Unparser
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Name
+import AlgST.Syntax.Phases
 import AlgST.Syntax.Program
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
@@ -53,6 +56,9 @@ type PCaseMap = E.CaseMap Parse
 type PProgram = Program Parse
 type PTypesMap = TypesMap Parse
 type PValuesMap = ValuesMap Parse
+
+type PName                    = XName Parse
+type instance XStage    Parse = Written
 
 type instance E.XLit    Parse = Pos
 type instance E.XVar    Parse = Pos

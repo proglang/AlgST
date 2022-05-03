@@ -59,6 +59,7 @@ where
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
+import AlgST.Syntax.Phases
 import AlgST.Syntax.Type qualified as T
 import Control.Applicative
 import Control.Category ((>>>))
@@ -83,46 +84,50 @@ mkPxy :: () -> forall x y. Pxy x y
 mkPxy _ = proxy#
 
 class Applicative f => SynTraversal f x y where
-  valueVariable :: Pxy x y -> E.XVar x -> ProgVar -> f (E.Exp y)
-  typeVariable :: Pxy x y -> T.XVar x -> TypeVar -> f (T.Type y)
+  valueVariable :: Pxy x y -> E.XVar x -> XName x Values -> f (E.Exp y)
+  typeVariable :: Pxy x y -> T.XVar x -> XName x Types -> f (T.Type y)
 
-  useConstructor :: SingI scope => Pxy x y -> Name scope -> f (Name scope)
+  useConstructor ::
+    SingI scope =>
+    Pxy x y ->
+    XName x scope ->
+    f (XName y scope)
 
   -- | Binds a set of variables for the given computation.
   bind ::
     (Traversable t, SingI s) =>
     Pxy x y ->
-    t (Name s) ->
-    (t (Name s) -> f a) ->
+    t (XName x s) ->
+    (t (XName y s) -> f a) ->
     f a
 
 bindOne ::
   forall x s f a y.
   (SynTraversal f x y, SingI s) =>
   Pxy x y ->
-  Name s ->
-  (Name s -> f a) ->
+  XName x s ->
+  (XName y s -> f a) ->
   f a
 bindOne pxy v f = bind pxy (Identity v) (f . runIdentity)
 
-newtype CollectFree = CollectFree
+newtype CollectFree stage = CollectFree
   { runCollect ::
       -- Bound variables
-      ANameSet ->
+      ANameSetG stage ->
       -- Accumulator
-      ANameSet ->
+      ANameSetG stage ->
       -- Result
-      ANameSet
+      ANameSetG stage
   }
 
-instance Semigroup CollectFree where
+instance Semigroup (CollectFree stage) where
   fv1 <> fv = CollectFree $ oneShot \bound -> oneShot \acc ->
     runCollect fv1 bound (runCollect fv bound acc)
 
-instance Monoid CollectFree where
+instance Monoid (CollectFree stage) where
   mempty = CollectFree (const id)
 
-instance x ~ y => SynTraversal (Const CollectFree) x y where
+instance (x ~ y, XStage x ~ stage) => SynTraversal (Const (CollectFree stage)) x y where
   typeVariable _ _ = varCollectFree
   valueVariable _ _ = varCollectFree
   useConstructor _ = pure
@@ -132,7 +137,7 @@ instance x ~ y => SynTraversal (Const CollectFree) x y where
      in runCollect (getConst (f vs)) bound' acc
 
 -- Inserts the given variable into the set of free variables.
-varCollectFree :: SingI s => Name s -> Const CollectFree b
+varCollectFree :: SingI scope => Name stage scope -> Const (CollectFree stage) b
 varCollectFree (liftName -> v) = Const . CollectFree $ oneShot \bound -> oneShot \acc ->
   -- Don't include it if it is either bound or already recorded.
   if v `Set.member` bound || v `Set.member` acc
@@ -140,17 +145,17 @@ varCollectFree (liftName -> v) = Const . CollectFree $ oneShot \bound -> oneShot
     else Set.insert v acc
 
 -- | Collects all free variables.
-collectFree :: forall s x. SynTraversable (s x) x (s x) x => s x -> ANameSet
+collectFree :: forall s x. SynTraversable (s x) x (s x) x => s x -> ANameSetG (XStage x)
 collectFree a = runCollect (getConst (traverseSyntaxIn a a)) mempty mempty
 
-newtype Any = Any {runAny :: ANameSet -> Bool}
-  deriving (Monoid) via (ANameSet -> M.Any)
+newtype Any stage = Any {runAny :: ANameSetG stage -> Bool}
+  deriving (Monoid) via (ANameSetG stage -> M.Any)
 
-instance Semigroup Any where
+instance Semigroup (Any stage) where
   fv1 <> fv2 = Any $ oneShot \intresting ->
     runAny fv1 intresting || runAny fv2 intresting
 
-instance x ~ y => SynTraversal (Const Any) x y where
+instance (x ~ y, XStage x ~ stage) => SynTraversal (Const (Any stage)) x y where
   valueVariable _ _ = anyVariable
   typeVariable _ _ = anyVariable
   useConstructor _ = pure
@@ -161,26 +166,30 @@ instance x ~ y => SynTraversal (Const Any) x y where
     let intresting' = foldl' (flip (Set.delete . liftName)) intresting vs
      in not (Set.null intresting') && runAny (getConst (f vs)) intresting'
 
-anyVariable :: SingI s => Name s -> Const Any a
+anyVariable :: SingI scope => Name stage scope -> Const (Any stage) a
 anyVariable = Const . Any . Set.member . liftName
 
 -- | Checks if any of the variables in the given set are free in the given
 -- piece of syntax.
-anyFree :: forall s x. SynTraversable (s x) x (s x) x => ANameSet -> s x -> Bool
+anyFree :: forall s x. SynTraversable (s x) x (s x) x => ANameSetG (XStage x) -> s x -> Bool
 anyFree vars a
   | Set.null vars = False
   | otherwise = runAny (getConst (traverseSyntaxIn a a)) vars
 
 data Substitutions x = Substitutions
-  { progVarSubs :: !(NameMap Values (E.Exp x)),
-    typeVarSubs :: !(NameMap Types (T.Type x))
+  { progVarSubs :: !(NameMapG (XStage x) Values (E.Exp x)),
+    typeVarSubs :: !(NameMapG (XStage x) Types (T.Type x))
   }
 
+-- TODO: Remove `XStage x ~ Written`.
+-- TODO: Remove `XStage y ~ Written`.
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
     E.SameX x y,
     SynTraversable (T.XType x) x (T.XType y) y,
-    T.SameX x y
+    T.SameX x y,
+    XStage x ~ Written,
+    XStage y ~ Written
   ) =>
   SynTraversable (Substitutions x) x (Substitutions y) y
   where
@@ -195,13 +204,17 @@ emptySubstitutions = Substitutions Map.empty Map.empty
 nullSubstitutions :: Substitutions x -> Bool
 nullSubstitutions = (&&) <$> Map.null . progVarSubs <*> Map.null . typeVarSubs
 
-typeSubstitions :: NameMap Types (T.Type x) -> Substitutions x
+typeSubstitions :: NameMapG (XStage x) Types (T.Type x) -> Substitutions x
 typeSubstitions s = emptySubstitutions {typeVarSubs = s}
 
-termSubstitions :: NameMap Values (E.Exp x) -> Substitutions x
+termSubstitions :: NameMapG (XStage x) Values (E.Exp x) -> Substitutions x
 termSubstitions s = emptySubstitutions {progVarSubs = s}
 
-instance (Monad m, x ~ y) => SynTraversal (ReaderT (Substitutions x) m) x y where
+-- TODO: Remove `XStage x ~ Written`.
+instance
+  (Monad m, x ~ y, XStage x ~ Written) =>
+  SynTraversal (ReaderT (Substitutions x) m) x y
+  where
   valueVariable _ x = etaReaderT . asks . subVar (E.Var x) progVarSubs
   typeVariable _ x = etaReaderT . asks . subVar (T.Var x) typeVarSubs
   useConstructor _ = pure
@@ -215,20 +228,42 @@ instance (Monad m, x ~ y) => SynTraversal (ReaderT (Substitutions x) m) x y wher
     local (\s -> foldl' removeVar s vs) do
       f vs
 
-subVar :: (Name s -> a) -> (Substitutions x -> NameMap s a) -> Name s -> Substitutions x -> a
+subVar ::
+  (Name stage scope -> a) ->
+  (Substitutions x -> NameMapG stage scope a) ->
+  Name stage scope ->
+  Substitutions x ->
+  a
 subVar def f v = fromMaybe (def v) . Map.lookup v . f
 
-applySubstitutions :: forall a x. SynTraversable a x a x => Substitutions x -> a -> a
+-- TODO: Remove `XStage x ~ Written`.
+applySubstitutions ::
+  forall a x.
+  (SynTraversable a x a x, XStage x ~ Written) =>
+  Substitutions x ->
+  (a -> a)
 applySubstitutions s a
   | nullSubstitutions s = a
   | otherwise = runReader (traverseSyntaxIn (Proxy @x) a) s
 
 -- | Substitute a single 'TypeVar'.
-substituteType :: forall x a. SynTraversable a x a x => NameMap Types (T.Type x) -> a -> a
+--
+-- TODO: Remove `XStage x ~ Written`.
+substituteType ::
+  forall x a.
+  (SynTraversable a x a x, XStage x ~ Written) =>
+  NameMap Types (T.Type x) ->
+  (a -> a)
 substituteType = applySubstitutions . typeSubstitions
 
 -- | Substitute a single 'ProgVar'.
-substituteTerm :: forall x a. SynTraversable a x a x => NameMap Values (E.Exp x) -> a -> a
+--
+-- TODO: Remove `XStage x ~ Written`.
+substituteTerm ::
+  forall x a.
+  (SynTraversable a x a x, XStage x ~ Written) =>
+  NameMap Values (E.Exp x) ->
+  (a -> a)
 substituteTerm = applySubstitutions . termSubstitions
 
 newtype Two a = Two {getTwo :: (a, a)}
@@ -270,11 +305,15 @@ instance
   where
   traverseSyntax pxy = bitraverse (traverseSyntax pxy) (traverseSyntax pxy)
 
+-- TODO: Remove `XStage x ~ Written`.
+-- TODO: Remove `XStage y ~ Written`.
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
     E.SameX x y,
     SynTraversable (T.XType x) x (T.XType y) y,
-    T.SameX x y
+    T.SameX x y,
+    XStage x ~ Written,
+    XStage y ~ Written
   ) =>
   SynTraversable (E.Exp x) x (E.Exp y) y
   where
@@ -347,11 +386,15 @@ instance
       E.Exp
         <$> traverseSyntax pxy x
 
+-- TODO: Remove `XStage x ~ Written`.
+-- TODO: Remove `XStage y ~ Written`.
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
     E.SameX x y,
     SynTraversable (T.XType x) x (T.XType y) y,
-    T.SameX x y
+    T.SameX x y,
+    XStage x ~ Written,
+    XStage y ~ Written
   ) =>
   SynTraversable (E.RecLam x) x (E.RecLam y) y
   where
@@ -359,13 +402,17 @@ instance
     E.RecTermAbs x b -> E.RecTermAbs x <$> traverseSyntax pxy b
     E.RecTypeAbs x b -> E.RecTypeAbs x <$> traverseSyntax pxy b
 
+-- TODO: Remove `XStage x ~ Written`.
+-- TODO: Remove `XStage y ~ Written`.
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
     E.SameX x y,
     SynTraversable (T.XType x) x (T.XType y) y,
     T.SameX x y,
     Traversable f,
-    Traversable g
+    Traversable g,
+    XStage x ~ Written,
+    XStage y ~ Written
   ) =>
   SynTraversable (E.CaseMap' f g x) x (E.CaseMap' f g y) y
   where
@@ -374,12 +421,16 @@ instance
       <$> traverse (traverseSyntax pxy) (E.casesPatterns cm)
       <*> traverse (traverseSyntax pxy) (E.casesWildcard cm)
 
+-- TODO: Remove `XStage x ~ Written`.
+-- TODO: Remove `XStage y ~ Written`.
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
     E.SameX x y,
     SynTraversable (T.XType x) x (T.XType y) y,
     T.SameX x y,
-    Traversable f
+    Traversable f,
+    XStage x ~ Written,
+    XStage y ~ Written
   ) =>
   SynTraversable (E.CaseBranch f x) x (E.CaseBranch f y) y
   where
@@ -392,11 +443,15 @@ instance
             E.branchExp = e
           }
 
+-- TODO: Remove `XStage x ~ Written`.
+-- TODO: Remove `XStage y ~ Written`.
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
     E.SameX x y,
     SynTraversable (T.XType x) x (T.XType y) y,
-    T.SameX x y
+    T.SameX x y,
+    XStage x ~ Written,
+    XStage y ~ Written
   ) =>
   SynTraversable (E.Bind x) x (E.Bind y) y
   where
@@ -407,9 +462,13 @@ instance
       <$> traverseSyntax pxy t
       <*> bindOne pxy v (\v' -> (v',) <$> traverseSyntax pxy e)
 
+-- TODO: Remove `XStage x ~ Written`.
+-- TODO: Remove `XStage y ~ Written`.
 instance
   ( SynTraversable (T.XType x) x (T.XType y) y,
-    T.SameX x y
+    T.SameX x y,
+    XStage x ~ Written,
+    XStage y ~ Written
   ) =>
   SynTraversable (T.Type x) x (T.Type y) y
   where
@@ -451,7 +510,15 @@ instance
       T.Type
         <$> traverseSyntax pxy x
 
-instance SynTraversable a x b y => SynTraversable (K.Bind a) x (K.Bind b) y where
+-- TODO: Remove `XStage x ~ Written`.
+-- TODO: Remove `XStage y ~ Written`.
+instance
+  ( SynTraversable a x b y,
+    XStage x ~ Written,
+    XStage y ~ Written
+  ) =>
+  SynTraversable (K.Bind a) x (K.Bind b) y
+  where
   traverseSyntax pxy (K.Bind p v k t) =
     bindOne pxy v \v' ->
       K.Bind p v' k <$> traverseSyntax pxy t

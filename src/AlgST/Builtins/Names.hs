@@ -1,4 +1,6 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module AlgST.Builtins.Names where
 
@@ -8,12 +10,8 @@ import AlgST.Syntax.Name
 pattern BuiltinsModule :: Module
 pattern BuiltinsModule = Module ""
 
-pattern Builtin :: String -> Name s
-pattern Builtin s =
-  Name
-    { nameModule = BuiltinsModule,
-      nameUnqualified = Unqualified s
-    }
+pattern Builtin :: String -> Name Written scope
+pattern Builtin s = Name BuiltinsModule (Unqualified s)
 
 pattern TypeInt :: TypeVar
 pattern TypeInt = Builtin "Int"

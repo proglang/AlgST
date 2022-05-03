@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -19,7 +20,14 @@
 module AlgST.Syntax.Name
   ( -- * Type/Value Names
     Name (..),
+    nameWritten,
+    nameUnqualified,
+    nameWrittenModule,
+    nameResolvedModule,
     pprName,
+    pprResolved,
+
+    -- ** Predefined names
     pattern Wildcard,
     isWild,
     pattern PairCon,
@@ -28,8 +36,6 @@ module AlgST.Syntax.Name
     Unqualified (..),
 
     -- ** Resolved Names
-    ResolvedName (..),
-    pprNameResolved,
     ResolvedId,
     firstResolvedId,
     nextResolvedId,
@@ -50,6 +56,13 @@ module AlgST.Syntax.Name
     liftNameMap,
     eitherName,
 
+    -- ** Stage-generic Abbreviations
+    ANameG,
+    ANameMapG,
+    ANameSetG,
+    NameMapG,
+    NameSetG,
+
     -- * Modules
     Module (..),
     moduleName,
@@ -61,6 +74,9 @@ module AlgST.Syntax.Name
     SScope (..),
     TypesSym0,
     ValuesSym0,
+    Stage (..),
+    WrittenSym0,
+    ResolvedSym0,
   )
 where
 
@@ -70,7 +86,6 @@ import Data.Foldable
 import Data.Hashable
 import Data.Kind
 import Data.Map.Strict qualified as Map
-import Data.Ord
 import Data.Set qualified as Set
 import Data.Singletons.TH
 import GHC.Generics (Generic)
@@ -124,43 +139,21 @@ newtype Unqualified = Unqualified {getUnqualified :: String}
 
 -- | Type level tag to differentiate between type level and value level names.
 data Scope = Types | Values
-  deriving (Eq, Ord, Generic)
+  deriving stock (Eq, Ord, Generic)
 
 instance Hashable Scope
 
-$(genSingletons [''Scope])
+-- | Type level tag to differentiate between names as they were written by the
+-- user and resolved names.
+data Stage = Written | Resolved
+  deriving stock (Eq, Ord, Generic)
 
--- | A resolved name combines information about how a name was written
--- by the user with definitive globally identifying information.
---
--- All type/value constructors and variables are uniquely identified by
--- their origin module and a module-unique 'ResolvedId'.
-type ResolvedName :: Scope -> Type
-data ResolvedName scope = ResolvedName
-  { resolvedModule :: Module,
-    resolvedId :: !ResolvedId,
-    -- | The name as it was written by the user. This name is used when
-    -- shown in diagnostics.
-    --
-    -- This field is not considered for equality, ordering or when
-    -- calculating hash values.
-    nameUnresolved :: Name scope
-  }
-  deriving stock (Show)
+instance Hashable Stage
 
-instance Eq (ResolvedName scope) where
-  a == b = a `compare` b == EQ
-
-instance Ord (ResolvedName scope) where
-  compare = comparing resolvedId <> comparing resolvedModule
-
-instance Hashable (ResolvedName scope) where
-  hashWithSalt s rn =
-    s `hashWithSalt` resolvedId rn
-      `hashWithSalt` resolvedModule rn
+$(genSingletons [''Scope, ''Stage])
 
 newtype ResolvedId = ResolvedId Word
-  deriving stock (Eq, Ord, Show, Generic)
+  deriving stock (Eq, Ord, Show, Generic, Lift)
 
 instance Hashable ResolvedId
 
@@ -170,68 +163,94 @@ firstResolvedId = ResolvedId 0
 nextResolvedId :: ResolvedId -> ResolvedId
 nextResolvedId (ResolvedId w) = ResolvedId (w + 1)
 
-type ProgVar = Name Values
+type ProgVar = Name Written Values
 
-type TypeVar = Name Types
+type TypeVar = Name Written Types
 
--- | TODO: Describe why every name has a module
---
--- > data T a = T a
---
--- > foo : forall (a:TU). ...
--- > foo [a] =
--- >  let x = T [a -> a] in
--- >  ...
---
--- @x@ has type @...@ but it should look like @...@
-type Name :: Scope -> Type
-data Name scope = Name
-  { nameModule :: Module,
-    nameUnqualified :: Unqualified
-  }
-  deriving stock (Eq, Ord, Show, Generic, Lift)
+type Name :: Stage -> Scope -> Type
+data Name stage scope where
+  -- | An unresolved name. Represents the module and unqualified part as they
+  -- were written by the user.
+  Name :: Module -> Unqualified -> Name Written scope
+  -- | A resolved name combines information about how a name was written
+  -- by the user with definitive globally identifying information.
+  --
+  -- All type/value constructors and variables are uniquely identified by
+  -- their origin module and a module-unique 'ResolvedId'.
+  --
+  -- Equalitiy, ordering and hashing does not consider the "written" component,
+  -- it is purely cosmetic.
+  ResolvedName :: Name Written scope -> Module -> !ResolvedId -> Name Resolved scope
 
-instance Hashable (Name scope)
+deriving stock instance Lift (Name stage scope)
 
-pattern Wildcard :: Name scope
-pattern Wildcard =
-  Name
-    { nameModule = Module "",
-      nameUnqualified = Unqualified "_"
-    }
+instance Eq (Name stage scope) where
+  a == b = compare a b == EQ
 
-pattern PairCon :: Name scope
-pattern PairCon =
-  Name
-    { nameModule = Module "",
-      nameUnqualified = Unqualified "(,)"
-    }
+instance Ord (Name stage scope) where
+  compare (Name mod un) (Name mod' un') =
+    compare mod mod' <> compare un un'
+  compare (ResolvedName _ mod ri) (ResolvedName _ mod' ri') =
+    compare ri ri' <> compare mod mod'
+
+instance Hashable (Name stage scope) where
+  hashWithSalt s (Name mod un) =
+    s `hashWithSalt` (1 :: Int)
+      `hashWithSalt` mod
+      `hashWithSalt` un
+  hashWithSalt s (ResolvedName _ mod ri) =
+    s `hashWithSalt` (2 :: Int)
+      `hashWithSalt` mod
+      `hashWithSalt` ri
+
+pattern Wildcard :: Name Written scope
+pattern Wildcard = Name (Module "") (Unqualified "_")
+
+pattern PairCon :: Name Written scope
+pattern PairCon = Name (Module "") (Unqualified "(,)")
 
 -- | Checks wether the given name is a wildcard pattern.
-isWild :: Name scope -> Bool
+isWild :: Name Written scope -> Bool
 isWild Wildcard = True
 isWild _ = False
 
-pprName :: Name scope -> String
-pprName n = fold modulePrefix ++ getUnqualified (nameUnqualified n)
+nameWritten :: Name stage scope -> Name Written scope
+nameWritten n@Name {} = n
+nameWritten (ResolvedName n _ _) = n
+
+nameResolvedModule :: Name Resolved scope -> Module
+nameResolvedModule (ResolvedName _ m _) = m
+
+nameWrittenModule :: Name stage scope -> Module
+nameWrittenModule (nameWritten -> Name m _) = m
+
+nameUnqualified :: Name stage scope -> Unqualified
+nameUnqualified (nameWritten -> Name _ u) = u
+
+pprName :: Name stage scope -> String
+pprName (nameWritten -> n) = fold modulePrefix ++ getUnqualified (nameUnqualified n)
   where
     modulePrefix :: Maybe String
     modulePrefix = do
       guard $ not $ isWild n
-      guard $ not $ null $ moduleName $ nameModule n
-      pure $ moduleName (nameModule n) ++ "."
+      guard $ not $ null $ moduleName $ nameWrittenModule n
+      pure $ moduleName (nameWrittenModule n) ++ "."
 
-pprNameResolved :: ResolvedName scope -> String
-pprNameResolved = pprName . nameUnresolved
+pprResolved :: Name Resolved scope -> String
+pprResolved (ResolvedName _ (Module m) (ResolvedId r)) =
+  m ++ '#' : show r
 
 -- TODO: Check if there is difference in runtime/allocation when switching
 -- between ordered and unorderered maps.
 
-type NameMap s = Map.Map (Name s)
+-- | A map from names in the given scope.
+type NameMap scope = NameMapG Written scope
 
-type NameSet s = Set.Set (Name s)
+-- | A set of names in the given scope.
+type NameSet scope = NameSetG Written scope
 
-type AName = Either TypeVar ProgVar
+-- | Either a value or type name.
+type AName = ANameG Written
 
 -- | A map which can have type and value names as its keys.
 type ANameMap = Map.Map AName
@@ -239,13 +258,22 @@ type ANameMap = Map.Map AName
 -- | A set which can contain type and value names.
 type ANameSet = Set.Set AName
 
-class ANameLike name where
-  foldName :: (TypeVar -> a) -> (ProgVar -> a) -> name -> a
+{- ORMOLU_DISABLE -}
+type NameMapG stage scope = Map.Map (Name stage scope)
+type NameSetG stage scope = Set.Set (Name stage scope)
+type ANameG stage = Either (Name stage Types) (Name stage Values)
+type ANameMapG stage = Map.Map (ANameG stage)
+type ANameSetG stage = Set.Set (ANameG stage)
+{- ORMOLU_ENABLE -}
 
-instance SingI s => ANameLike (Name s) where
-  foldName f g n = eitherName @s (f n) (g n)
+type ANameLike :: Type -> Stage -> Constraint
+class ANameLike name stage where
+  foldName :: (Name stage Types -> a) -> (Name stage Values -> a) -> name -> a
 
-instance ANameLike AName where
+instance SingI scope => ANameLike (Name stage scope) stage where
+  foldName f g n = eitherName @scope (f n) (g n)
+
+instance stage ~ stage' => ANameLike (ANameG stage) stage' where
   foldName = either
 
 eitherName :: forall s a. SingI s => (s ~ Types => a) -> (s ~ Values => a) -> a
@@ -253,11 +281,11 @@ eitherName tv pv = case sing @s of
   STypes -> tv
   SValues -> pv
 
-liftName :: ANameLike name => name -> AName
+liftName :: ANameLike name stage => name -> ANameG stage
 liftName = foldName Left Right
 
-liftNameSet :: SingI s => NameSet s -> ANameSet
+liftNameSet :: SingI scope => NameSetG stage scope -> ANameSetG stage
 liftNameSet = Set.mapMonotonic liftName
 
-liftNameMap :: SingI s => NameMap s v -> ANameMap v
+liftNameMap :: SingI scope => NameMapG stage scope a -> ANameMapG stage a
 liftNameMap = Map.mapKeysMonotonic liftName

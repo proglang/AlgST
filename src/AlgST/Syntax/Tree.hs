@@ -65,8 +65,14 @@ instance LabeledTree a => LabeledTree (Located a) where
 instance LabeledTree K.Kind where
   labeledTree = pure . leaf . show
 
-instance LabeledTree (Name s) where
-  labeledTree v = [leaf (pprName v)]
+instance LabeledTree (Name stage scope) where
+  labeledTree = pure . leaf . describeName
+
+describeName :: Name stage scope -> String
+describeName n =
+  pprName n ++ case n of
+    ResolvedName {} -> " {" ++ pprResolved n ++ "}"
+    _ -> ""
 
 instance LabeledTree E.Lit where
   labeledTree =
@@ -82,11 +88,11 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (E.Ex
       E.Lit x l ->
         tree "Exp.Lit" [labeledTree x, labeledTree l]
       E.Var x v ->
-        tree ("Exp.Var " ++ pprName v) [labeledTree x]
+        tree ("Exp.Var " ++ describeName v) [labeledTree x]
       E.Con x v ->
-        tree ("Exp.Con " ++ pprName v) [labeledTree x]
+        tree ("Exp.Con " ++ describeName v) [labeledTree x]
       E.Abs x1 (E.Bind x2 m v t e) ->
-        let label = unwords ["Exp.Abs", show m, pprName v]
+        let label = unwords ["Exp.Abs", show m, describeName v]
          in tree label [labeledTree x1, labeledTree x2, labeledTree t, labeledTree e]
       E.App x e1 e2 ->
         tree "Exp.App" [labeledTree x, labeledTree e1, labeledTree e2]
@@ -103,7 +109,7 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (E.Ex
         tree "Exp.TypeApp" [labeledTree x, labeledTree e, labeledTree t]
       E.UnLet x v mty e1 e2 ->
         tree
-          ("Exp.UnLet " ++ pprName v)
+          ("Exp.UnLet " ++ describeName v)
           [ labeledTree x,
             foldMap labeledTree mty,
             labeledTree e1,
@@ -111,14 +117,14 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (E.Ex
           ]
       E.PatLet x c vs e1 e2 ->
         tree
-          ("Exp.PatLet " ++ unwords (pprName . unL <$> defaultPos :@ c : vs))
+          ("Exp.PatLet " ++ unwords (describeName . unL <$> defaultPos :@ c : vs))
           [ labeledTree x,
             labeledTree e1,
             labeledTree e2
           ]
       E.Rec x v ty e ->
         tree
-          ("Exp.Rec " ++ pprName v)
+          ("Exp.Rec " ++ describeName v)
           [ labeledTree x,
             labeledTree ty,
             labeledTree (E.RecAbs e)
@@ -126,7 +132,7 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (E.Ex
       E.New x t ->
         tree "Exp.New" [labeledTree x, labeledTree t]
       E.Select x (_ :@ c) ->
-        tree ("Exp.Select " ++ pprName c) [labeledTree x]
+        tree ("Exp.Select " ++ describeName c) [labeledTree x]
       E.Fork x e ->
         tree "Exp.Fork" [labeledTree x, labeledTree e]
       E.Fork_ x e ->
@@ -161,10 +167,10 @@ instance T.ForallX LabeledTree x => LabeledTree (T.Type x) where
         let t = kbindNode "Type.Forall" b
          in t {subForest = labeledTree x ++ subForest t}
       T.Var x v ->
-        let label = "Type.Var " ++ pprName v
+        let label = "Type.Var " ++ describeName v
          in tree label [labeledTree x]
       T.Con x v ->
-        let label = "Type.Con " ++ pprName v
+        let label = "Type.Con " ++ describeName v
          in tree label [labeledTree x]
       T.App x t1 t2 ->
         tree
@@ -227,11 +233,11 @@ nominalDeclTree f D.TypeNominal {..} =
   [ Node "kind" [leaf (show nominalKind)],
     Node "parameters" (paramsTree nominalParams),
     Node "constructors" $
-      labeledMapTree (const . pprName) (\_ -> concatMap f . snd) nominalConstructors
+      labeledMapTree (const . describeName) (\_ -> concatMap f . snd) nominalConstructors
   ]
 
 paramsTree :: D.Params -> [LabTree]
-paramsTree ps = [leaf $ "(" ++ pprName p ++ ":" ++ show k ++ ")" | (_ :@ p, k) <- ps]
+paramsTree ps = [leaf $ "(" ++ describeName p ++ ":" ++ show k ++ ")" | (_ :@ p, k) <- ps]
 
 instance (T.ForallX LabeledTree x) => LabeledTree (D.SignatureDecl x) where
   labeledTree D.SignatureDecl {signatureOrigin = origin, signatureType = ty} =
@@ -246,15 +252,15 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (D.Va
       Node "definition" $ labeledTree $ D.valueBody vd
     ]
     where
-      param (Left tvar) = "[" ++ pprName tvar ++ "]"
-      param (Right pvar) = pprName pvar
+      param (Left tvar) = "[" ++ describeName tvar ++ "]"
+      param (Right pvar) = describeName pvar
 
 instance (D.ForallConX LabeledTree x, T.ForallX LabeledTree x) => LabeledTree (D.ConstructorDecl x) where
   labeledTree =
     pure . \case
       D.DataCon x parent params mul items ->
         tree
-          ("Decl.DataCon (" ++ pprName parent ++ ")")
+          ("Decl.DataCon (" ++ describeName parent ++ ")")
           [ labeledTree x,
             [Node "parameters" (paramsTree params)],
             [Node "multiplicity" [leaf (show mul)]],
@@ -262,7 +268,7 @@ instance (D.ForallConX LabeledTree x, T.ForallX LabeledTree x) => LabeledTree (D
           ]
       D.ProtocolCon x parent params items ->
         tree
-          ("Decl.ProtocolCon (" ++ pprName parent ++ ")")
+          ("Decl.ProtocolCon (" ++ describeName parent ++ ")")
           [ labeledTree x,
             [Node "parameters" (paramsTree params)],
             [tree "items" (labeledTree <$> items)]
@@ -273,17 +279,17 @@ instance ForallX LabeledTree x => LabeledTree (Program x) where
     where
       types =
         labeledMapTree
-          (\tv _ -> pprName tv)
+          (\tv _ -> describeName tv)
           (\_ td -> labeledTree td)
           (programTypes pp)
       imports =
         labeledMapTree
-          (\pv _ -> pprName pv)
+          (\pv _ -> describeName pv)
           (\_ sig -> labeledTree sig)
           (programImports pp)
       values =
         labeledMapTree
-          (\pv _ -> pprName pv)
+          (\pv _ -> describeName pv)
           (\_ d -> either labeledTree labeledTree d)
           (programValues pp)
 
@@ -296,7 +302,7 @@ labeledMapTree f g = fmap (\(a, b) -> Node (f a b) (g a b)) . Map.toList
 
 kbindNode :: LabeledTree a => String -> K.Bind a -> LabTree
 kbindNode con (K.Bind _ v k a) =
-  let label = unwords [con, pprName v ++ ":" ++ show k]
+  let label = unwords [con, describeName v ++ ":" ++ show k]
    in Node label $ labeledTree a
 
 fieldMapTree ::
@@ -307,11 +313,11 @@ fieldMapTree m = conCases ++ wildCases
   where
     conCases =
       labeledMapTree
-        (\v b -> unwords [pprName x | _ :@ x <- defaultPos :@ v : toList (E.branchBinds b)])
+        (\v b -> unwords [describeName x | _ :@ x <- defaultPos :@ v : toList (E.branchBinds b)])
         (\_ b -> labeledTree $ E.branchExp b)
         (E.casesPatterns m)
     wildCases =
-      [ Node (pprName x) (labeledTree e)
+      [ Node (describeName x) (labeledTree e)
         | E.CaseBranch
             { branchBinds = Identity (_ :@ x),
               branchExp = e

@@ -76,7 +76,7 @@ type ParseM = ValidateT (DNonEmpty Diagnostic) (Reader Module)
 runParseM :: Module -> ParseM a -> Either (NonEmpty Diagnostic) a
 runParseM m = mapErrors DL.toNonEmpty >>> runValidateT >>> flip runReader m
 
-mkName :: String -> ParseM (Name s)
+mkName :: String -> ParseM (PName scope)
 mkName s = do
   m <- ask
   pure $ Name m (Unqualified s)
