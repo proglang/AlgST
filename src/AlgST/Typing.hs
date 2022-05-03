@@ -232,7 +232,7 @@ checkTypeDecl name = \case
       kicheck field k
     checkProtoCon ty = do
       (ty', k) <- kisynth ty
-      ty' <$ expectSubkind ty k [K.TL defaultPos, K.P defaultPos]
+      ty' <$ expectSubkind ty k [K.TL, K.P]
 
 -- | Makes sure all aliases are expanded. This step is to make sure all invalid
 -- type aliases are diagnosed even when they are not used.
@@ -261,7 +261,7 @@ checkedConstructors = Map.foldMapWithKey \name ->
 
 checkSignature :: (HasKiEnv env, HasKiSt st) => SignatureDecl Rn -> TcM env st (SignatureDecl Tc)
 checkSignature (SignatureDecl x ty) =
-  SignatureDecl x <$> kicheck ty (K.TU (pos x))
+  SignatureDecl x <$> kicheck ty K.TU
 
 checkValueBodies ::
   (forall a. TypeM a -> TcM env st a) -> TcValuesMap -> TcM env st (ValuesMap Tc)
@@ -300,7 +300,7 @@ checkAlignedBinds fullTy allVs e = go fullTy fullTy allVs
       withProgVarBind (unrestrictedLoc k mul) p pv t do
         E.Abs defaultPos . E.Bind defaultPos mul pv t <$> go u u vs
     go _ t0@(T.Forall _ (K.Bind _ sigVar k t)) vs0@(p :@ v : vs) = do
-      let subBind tv = substituteType @Tc (Map.singleton sigVar (T.Var k tv))
+      let subBind tv = substituteType @Tc (Map.singleton sigVar (T.Var (p @- k) tv))
       let wrapAbs tv = E.TypeAbs @Tc defaultPos . K.Bind p tv k
       case v of
         Left tv -> do
@@ -318,9 +318,8 @@ checkAlignedBinds fullTy allVs e = go fullTy fullTy allVs
       addFatalError $ uncurryL Error.mismatchedBind v t
 
 expectNominalKind ::
-  MonadValidate Errors m => Pos -> String -> TypeVar -> K.Kind -> NonEmpty (Pos -> K.Kind) -> m K.Kind
-expectNominalKind loc nomKind name actual allowed' = do
-  let allowed = ($ defaultPos) <$> allowed'
+  MonadValidate Errors m => Pos -> String -> TypeVar -> K.Kind -> NonEmpty K.Kind -> m K.Kind
+expectNominalKind loc nomKind name actual allowed = do
   if actual `elem` allowed
     then pure actual
     else NE.last allowed <$ addError (Error.invalidNominalKind loc nomKind name actual allowed)
@@ -470,11 +469,11 @@ kisynth :: (HasKiEnv env, HasKiSt st) => RnType -> TcM env st (TcType, K.Kind)
 kisynth =
   etaTcM . \case
     T.Unit p -> do
-      pure (T.Unit p, K.MU p)
+      pure (T.Unit p, K.MU)
     T.Var p v -> do
       mk <- asks $ view kiEnvL >>> tcKindEnv >>> Map.lookup v
-      k <- flip K.relocate p <$> maybeError (Error.unboundVar p v) mk
-      pure (T.Var k v, k)
+      k <- maybeError (Error.unboundVar p v) mk
+      pure (T.Var (p @- k) v, k)
     T.Con p v -> do
       kisynthTypeCon p v []
     T.App _ t u -> do
@@ -484,16 +483,16 @@ kisynth =
       (t1', t2') <-
         -- Applicatively to get error messages from both branches.
         (,)
-          <$> kicheck t1 (K.TL p)
-          <*> kicheck t2 (K.TL p)
-      let k = K.Kind p K.Top m
+          <$> kicheck t1 K.TL
+          <*> kicheck t2 K.TL
+      let k = K.Kind K.Top m
       pure (T.Arrow p m t1' t2', k)
     T.Forall _ (K.Bind p v k t) -> do
       local (bindTyVar v k) do
         (t', tyk) <- kisynth t
         case K.multiplicity tyk of
           Just m -> do
-            let forallK = K.Kind p K.Top m
+            let forallK = K.Kind K.Top m
                 forallT = T.Forall p (K.Bind p v k t')
             pure (forallT, forallK)
           Nothing -> do
@@ -506,28 +505,28 @@ kisynth =
           <*> kisynth t2
 
       -- Make sure none of the components have kind P.
-      expectSubkind t1 k1 [K.TL defaultPos]
-      expectSubkind t2 k2 [K.TL defaultPos]
+      expectSubkind t1 k1 [K.TL]
+      expectSubkind t2 k2 [K.TL]
 
       -- Calculate the pair's kind:   k1 |_| k2 |_| TU
       --
       -- The TU is there so that a pair does not get a M* kind. See section
       -- "Kind polymorphism for pairs".
-      let k = K.leastUpperBound (K.leastUpperBound k1 k2) (K.TU defaultPos)
+      let k = K.leastUpperBound (K.leastUpperBound k1 k2) K.TU
       pure (T.Pair p t1' t2', k)
     T.End p -> do
-      pure (T.End p, K.SU p)
+      pure (T.End p, K.SU)
     T.Session p pol t1 t2 -> do
-      t1' <- kicheck t1 $ K.P p
-      t2' <- kicheck t2 $ K.SL p
-      pure (T.Session p pol t1' t2', K.SL p)
+      t1' <- kicheck t1 K.P
+      t2' <- kicheck t2 K.SL
+      pure (T.Session p pol t1' t2', K.SL)
     T.Dualof p t -> do
       (t', k) <- kisynth t
-      checkSubkind t k (K.SL p)
+      checkSubkind t k K.SL
       pure (T.Dualof p t', k)
     T.Negate p t -> do
-      t' <- kicheck t (K.P p)
-      pure (T.Negate p t', K.P p)
+      t' <- kicheck t K.P
+      pure (T.Negate p t', K.P)
     T.Type x ->
       absurd x
 
@@ -582,8 +581,8 @@ tysynth =
       -- might be shadowed.
       (e', ty) <- tysynth e
       let k = typeKind ty
-      when (not (k <=? K.ML defaultPos)) do
-        addError $ Error.unexpectedForkKind "fork" e ty k $ K.ML defaultPos
+      when (not (k <=? K.ML)) do
+        addError $ Error.unexpectedForkKind "fork" e ty k K.ML
       let resultTy = buildSessionType p T.In [ty] $ T.End p
       pure (E.Fork p e', resultTy)
 
@@ -591,8 +590,8 @@ tysynth =
     E.App p (E.Exp (BuiltinFork_ _)) e -> do
       (e', ty) <- tysynth e
       let k = typeKind ty
-      when (not (k <=? K.TU defaultPos)) do
-        addError $ Error.unexpectedForkKind "fork_" e ty k $ K.TU defaultPos
+      when (not (k <=? K.TU)) do
+        addError $ Error.unexpectedForkKind "fork_" e ty k K.TU
       pure (E.Fork_ p e', T.Unit p)
 
     --
@@ -607,7 +606,7 @@ tysynth =
 
     --
     E.TypeApp _ (E.Exp (BuiltinNew p)) t -> do
-      t' <- kicheck t $ K.SL p
+      t' <- kicheck t K.SL
       let newT = T.Pair p t' (T.Dualof p t')
       pure (E.New p t', newT)
     E.TypeApp p e t -> do
@@ -624,7 +623,7 @@ tysynth =
     E.Rec p v ty r -> do
       -- Check for TU is deliberate here. It is unclear if a linear value would
       -- be well behaved.
-      ty' <- kicheck ty (K.TU p)
+      ty' <- kicheck ty K.TU
       withProgVarBind Nothing p v ty' do
         (r', rTy) <- tysynthRecLam r
         requireEqual (E.RecAbs r) ty' rTy
@@ -650,7 +649,7 @@ tysynth =
 
     -- 'let' __with__ a type signature.
     E.UnLet p v (Just ty) e body -> do
-      ty' <- kicheck ty (K.TL p)
+      ty' <- kicheck ty K.TL
       e' <- tycheck e ty'
       withProgVarBind Nothing p v ty' do
         (body', bodyTy) <- tysynth body
@@ -721,8 +720,8 @@ tysynth =
     E.Select p lcon@(_ :@ PairCon) -> do
       v1 <- freshLocal "a"
       v2 <- freshLocal "b"
-      let tyX = T.Var @Tc kiX
-          kiX = K.TL defaultPos
+      let tyX = T.Var @Tc (p @- kiX)
+          kiX = K.TL
       let params = [(p :@ v1, kiX), (p :@ v2, kiX)]
           pairTy = T.Pair defaultPos (tyX v1) (tyX v2)
       ty <- buildSelectType p params pairTy [tyX v1, tyX v2]
@@ -756,8 +755,8 @@ tysynth =
 buildSelectType :: HasKiEnv env => Pos -> Params -> TcType -> [TcType] -> TcM env st TcType
 buildSelectType p params t us = do
   varS <- freshLocal "s"
-  let tyS = T.Var @Tc kiS varS
-      kiS = K.SL defaultPos
+  let tyS = T.Var @Tc (p @- kiS) varS
+      kiS = K.SL
   let foralls = buildForallType params . buildForallType [(p :@ varS, kiS)]
   let arrLhs = buildSessionType defaultPos T.Out [t]
       arrRhs = buildSessionType defaultPos T.Out us
@@ -861,7 +860,7 @@ instantiateDeclRef p name decl = do
         { typeRefName = name,
           typeRefKind = tcDeclKind decl,
           typeRefPos = p,
-          typeRefArgs = (\(_ :@ tv, k) -> T.Var k tv) <$> params
+          typeRefArgs = (\(p :@ tv, k) -> T.Var (p @- k) tv) <$> params
         }
     )
 
@@ -1128,14 +1127,14 @@ litType p = \case
           { typeRefPos = p,
             typeRefName = name,
             typeRefArgs = [],
-            typeRefKind = K.MU p
+            typeRefKind = K.MU
           }
 
 -- | Synthesizes the 'T.Arrow' type of a @"AlgST.Syntax.Expression".'Bind'@
 -- (/E-LinAbs/ or /E-UnAbs/).
 tysynthBind :: Pos -> E.Bind Rn -> TypeM (E.Bind Tc, TcType)
 tysynthBind absLoc (E.Bind p m v ty e) = do
-  ty' <- kicheck ty (K.TL defaultPos)
+  ty' <- kicheck ty K.TL
   (e', eTy) <- withProgVarBind (unrestrictedLoc absLoc m) p v ty' (tysynth e)
 
   -- Construct the resulting type.
@@ -1187,7 +1186,7 @@ withProgVarBinds !mUnArrLoc vtys action = etaTcM do
             | isWild v -> undefined "add an error, then use UnUsage here"
             | otherwise -> pure LinUnunsed
           Just Un -> pure UnUsage
-          Nothing -> UnUsage <$ addError (Error.unexpectedKind ty ki [K.TL defaultPos])
+          Nothing -> UnUsage <$ addError (Error.unexpectedKind ty ki [K.TL])
         let var =
               Var
                 { varUsage = usage,

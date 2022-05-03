@@ -85,8 +85,8 @@ import           Syntax.Base
   UPPER_ID {TokenUpperId _ _}
   LOWER_ID {TokenLowerId _ _}
   OPERATOR {TokenOperator _ _}
-  KIND     {TokenKind $$}
-  INT      {TokenInt _ _ }
+  KIND     {TokenKind _ _}
+  INT      {TokenInt _ _}
   CHAR     {TokenChar _ _}
   STR      {TokenString _ _}
   rec      {TokenRec _}
@@ -152,7 +152,7 @@ Decl :: { ProgBuilder }
       let (name, mkind) = $2
       let decl = DataDecl (OriginUser (pos $1)) TypeNominal
             { nominalParams = $3
-            , nominalKind = K.TU (pos name) `fromMaybe` mkind
+            , nominalKind = K.TU `fromMaybe` mkind
             , nominalConstructors = mempty
             }
       pure $ programTypeDecl (unL name) decl
@@ -161,7 +161,7 @@ Decl :: { ProgBuilder }
       let (name, mkind) = $2
       let decl = DataDecl (OriginUser (pos $1)) TypeNominal
             { nominalParams = $3
-            , nominalKind = K.TU (pos name) `fromMaybe` mkind
+            , nominalKind = K.TU `fromMaybe` mkind
             , nominalConstructors = $5
             }
       pure $ programTypeDecl (unL name) decl
@@ -170,7 +170,7 @@ Decl :: { ProgBuilder }
       let (name, mkind) = $2
       let decl = ProtoDecl (OriginUser (pos $1)) TypeNominal
             { nominalParams = $3
-            , nominalKind = K.P (pos name) `fromMaybe` mkind
+            , nominalKind = K.P `fromMaybe` mkind
             , nominalConstructors = $5
             }
       pure $ programTypeDecl (unL name) decl
@@ -309,7 +309,7 @@ Abs :: { (Multiplicity -> Endo PExp, Any) }
 
 Abs1 :: { (Pos, Either (ProgVar, PType) (TypeVar, K.Kind)) } 
   : '(' wildcard(ProgVar) ':' Type ')' { (pos $1, Left (unL $2, $4)) }
-  | '[' wildcard(TypeVar) ':' Kind ']' { (pos $1, Right (unL $2, $4)) }
+  | '[' wildcard(TypeVar) ':' Kind ']' { (pos $1, Right (unL $2, unL $4)) }
 
 Cases :: { PCaseMap }
   : -- An empty case is not allowed. Accepting it here allows us to provide
@@ -453,8 +453,8 @@ TypeSeq :: { DL.DList PType }
 -- KIND --
 ----------
 
-Kind :: { K.Kind }
-  : KIND { $1 }
+Kind :: { Located K.Kind }
+  : KIND { let TokenKind p k = $1 in p @- k }
 
 -- PROGRAM VARIABLE
 
@@ -463,7 +463,7 @@ ProgVar :: { Located ProgVar }
 
 Constructor :: { Located ProgVar }
   : UPPER_ID {% ($1 @-) `fmap` mkName (getText $1) }
-  | KIND     {% ($1 @-) `fmap` mkName (show $1) }
+  | Kind     {% ($1 @-) `fmap` mkName (show (unL $1)) }
 
 ProgVarWild :: { Located ProgVar }
   : wildcard(ProgVar)   { $1 }
@@ -517,12 +517,12 @@ TypeName :: { Located TypeVar }
   | KIND     {% ($1 @-) `fmap` mkName (show $1) }
 
 KindBind :: { (Located TypeVar, K.Kind) }
-  : '(' TypeVar ':' Kind ')'  { ($2, $4) }
-  | '(' TypeVar ')'           { ($2, K.TU (pos $2)) }
-  | TypeVar                   { ($1, K.TU (pos $1)) }
+  : '(' TypeVar ':' Kind ')'  { ($2, unL $4) }
+  | '(' TypeVar ')'           { ($2, K.TU) }
+  | TypeVar                   { ($1, K.TU) }
 
 KindedTVar :: { (Located TypeVar, Maybe K.Kind) }
-  : TypeName ':' Kind { ($1, Just $3) }
+  : TypeName ':' Kind { ($1, Just (unL $3)) }
   | TypeName          { ($1, Nothing) }
 
 -- GENERIC HELPERS
@@ -546,7 +546,7 @@ parseType :: Parser PType
 parseType = Parser $ parseType_ . dropNewlines
 
 parseKind :: Parser K.Kind
-parseKind = Parser $ parseKind_ . dropNewlines
+parseKind = Parser $ fmap unL . parseKind_ . dropNewlines
 
 parseExpr :: Parser PExp
 parseExpr = Parser $ parseExpr_ . dropNewlines

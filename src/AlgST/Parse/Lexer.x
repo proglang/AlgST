@@ -74,13 +74,13 @@ tokens :-
   "|"                           { simpleToken TokenPipe }
   "_"                           { simpleToken TokenWild }
 -- Kinds
-  SU                            { simpleToken (TokenKind . K.SU) }
-  SL                            { simpleToken (TokenKind . K.SL) }
-  TU                            { simpleToken (TokenKind . K.TU) }
-  TL                            { simpleToken (TokenKind . K.TL) }
-  MU                            { simpleToken (TokenKind . K.MU) }
-  ML                            { simpleToken (TokenKind . K.ML) }
-  P                             { simpleToken (TokenKind . K.P) }
+  SU                            { simpleToken (flip TokenKind K.SU) }
+  SL                            { simpleToken (flip TokenKind K.SL) }
+  TU                            { simpleToken (flip TokenKind K.TU) }
+  TL                            { simpleToken (flip TokenKind K.TL) }
+  MU                            { simpleToken (flip TokenKind K.MU) }
+  ML                            { simpleToken (flip TokenKind K.ML) }
+  P                             { simpleToken (flip TokenKind K.P ) }
 -- Keywords
   rec                           { simpleToken TokenRec }
   let                           { simpleToken TokenLet }
@@ -139,7 +139,7 @@ data Token =
   | TokenOperator Pos String
   | TokenPlus Pos   -- Has to be seperate because it can appear in a non-operator context
   | TokenMinus Pos  -- Has to be seperate because it can appear in a non-operator context
-  | TokenKind K.Kind
+  | TokenKind Pos K.Kind
   | TokenInt Pos Integer
   | TokenChar Pos Char
   | TokenString Pos String
@@ -189,7 +189,7 @@ instance Show Token where
   show (TokenOperator _ s) = s
   show (TokenPlus _) = "+"
   show (TokenMinus _) = "-"
-  show (TokenKind k) = show k
+  show (TokenKind _ k) = show k
   show (TokenInt _ i) = show i
   show (TokenChar _ c) = show c
   show (TokenBool _ b) = show b
@@ -291,7 +291,7 @@ instance Position Token where
   pos (TokenOperator p _) = p
   pos (TokenPlus p) = p
   pos (TokenMinus p) = p
-  pos (TokenKind k) = pos k
+  pos (TokenKind p _) = p
   pos (TokenInt p _) = p
   pos (TokenChar p _) = p
   pos (TokenBool p _) = p

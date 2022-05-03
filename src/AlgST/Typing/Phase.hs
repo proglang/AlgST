@@ -116,19 +116,19 @@ instance LabeledTree TypeRef where
 -- formed. It does the minmal amount of work to determine the type's kind.
 typeKind :: TcType -> K.Kind
 typeKind t = case t of
-  T.Unit p -> K.MU p
-  T.Arrow p m _ _ -> K.Kind p K.Top m
+  T.Unit _ -> K.MU
+  T.Arrow _ m _ _ -> K.Kind K.Top m
   T.Pair _ t u ->
     K.leastUpperBound (typeKind t) (typeKind u)
-  T.Session p _ _ _ -> K.SL p
-  T.End p -> K.SU p
-  T.Forall p (K.Bind _ _ _ t) ->
-    maybe malformed (K.Kind p K.Top) (K.multiplicity (typeKind t))
-  T.Var k _ -> k
+  T.Session {} -> K.SL
+  T.End _ -> K.SU
+  T.Forall _ (K.Bind _ _ _ t) ->
+    maybe malformed (K.Kind K.Top) (K.multiplicity (typeKind t))
+  T.Var k _ -> unL k
   T.Con x _ -> absurd x
   T.App x _ _ -> absurd x
   T.Dualof _ t -> typeKind t
-  T.Negate p _ -> K.P p
+  T.Negate _ _ -> K.P
   T.Type r -> typeRefKind r
   where
     malformed = error $ "internal error: malformed type " ++ show t
@@ -173,7 +173,7 @@ type instance T.XPair    Tc = Pos
 type instance T.XSession Tc = Pos
 type instance T.XEnd     Tc = Pos
 type instance T.XForall  Tc = Pos
-type instance T.XVar     Tc = K.Kind
+type instance T.XVar     Tc = Located K.Kind
 type instance T.XCon     Tc = Void  -- Con/App nodes are replaced by TypeRef nodes.
 type instance T.XApp     Tc = Void
 type instance T.XDualof  Tc = Pos

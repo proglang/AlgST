@@ -27,7 +27,6 @@ import Control.Monad
 import Data.Bifunctor
 import Data.Foldable
 import Data.List.NonEmpty (NonEmpty)
-import Syntax.Base
 import System.FilePath
 import Test.Golden
 import Test.Hspec
@@ -146,16 +145,14 @@ shouldNotError = \case
   Left errs -> expectationFailure (plainErrors errs) >> mzero
   Right a -> pure a
 
-kindShouldBe :: HasCallStack => String -> (Pos -> K.Kind) -> Expectation
-kindShouldBe tyStr kcon =
+kindShouldBe :: HasCallStack => String -> K.Kind -> Expectation
+kindShouldBe tyStr k =
   -- Use kisynth + manual check because kicheck allows for a mismatch which is
   -- covered up by the subkinding relationship.
   case runKiAction parseType (\_ ty -> kisynth ty) tyStr of
     Left e -> expectationFailure e
     Right (_, k') -> when (k /= k') do
       expectationFailure $ "[expected] " <> show k <> " /= " <> show k' <> " [kisynth]"
-  where
-    k = kcon defaultPos
 
 nfShouldBe :: HasCallStack => String -> String -> Expectation
 nfShouldBe t1 t2 = do

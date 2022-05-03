@@ -59,6 +59,9 @@ instance LabeledTree a => LabeledTree [a] where
 instance LabeledTree Pos where
   labeledTree _ = []
 
+instance LabeledTree a => LabeledTree (Located a) where
+  labeledTree = labeledTree . unL
+
 instance LabeledTree K.Kind where
   labeledTree = pure . leaf . show
 
