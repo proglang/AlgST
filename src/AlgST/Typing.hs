@@ -300,7 +300,7 @@ checkAlignedBinds fullTy allVs e = go fullTy fullTy allVs
       withProgVarBind (unrestrictedLoc k mul) p pv t do
         E.Abs defaultPos . E.Bind defaultPos mul pv t <$> go u u vs
     go _ t0@(T.Forall _ (K.Bind _ sigVar k t)) vs0@(p :@ v : vs) = do
-      let subBind tv = substituteType @_ @Tc (Map.singleton sigVar (T.Var k tv))
+      let subBind tv = substituteType @Tc (Map.singleton sigVar (T.Var k tv))
       let wrapAbs tv = E.TypeAbs @Tc defaultPos . K.Bind p tv k
       case v of
         Left tv -> do

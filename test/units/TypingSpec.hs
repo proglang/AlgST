@@ -187,7 +187,7 @@ performTySynth = runKiAction parseExpr (\embed -> fmap snd . embed . tysynth)
 -- | Parses the string with the given parser, renames it in the context of
 -- 'declarations' and runs the given 'KindM' action.
 runKiAction ::
-  VarTraversable (s Parse) Parse (s Rn) Rn =>
+  SynTraversable (s Parse) Parse (s Rn) Rn =>
   Parser (s Parse) ->
   ( forall env st.
     (HasKiEnv env, HasKiSt st) =>

@@ -26,16 +26,16 @@ import Syntax.Base
 -- aliases are expanded and type constructors are represented as 'TypeRef'.
 data Tc
 
-instance VarTraversable TcExpX Tc TcExpX Tc where
-  traverseVars proxy = \case
+instance SynTraversable TcExpX Tc TcExpX Tc where
+  traverseSyntax proxy = \case
     ValueCase p exp map ->
       ValueCase p
-        <$> traverseVars proxy exp
-        <*> traverseVars proxy map
+        <$> traverseSyntax proxy exp
+        <*> traverseSyntax proxy map
     RecvCase p exp map ->
       RecvCase p
-        <$> traverseVars proxy exp
-        <*> traverseVars proxy map
+        <$> traverseSyntax proxy exp
+        <*> traverseSyntax proxy map
 
 instance LabeledTree TcExpX where
   labeledTree =
@@ -85,9 +85,9 @@ instance Equivalence TypeRef where
       -- number of arguments.
       zipWith (alpha w m) (typeRefArgs r1) (typeRefArgs r2)
 
-instance VarTraversable TypeRef Tc TypeRef Tc where
-  traverseVars proxy ref = do
-    args <- traverse (traverseVars proxy) (typeRefArgs ref)
+instance SynTraversable TypeRef Tc TypeRef Tc where
+  traverseSyntax proxy ref = do
+    args <- traverse (traverseSyntax proxy) (typeRefArgs ref)
     pure
       TypeRef
         { -- We are explicit in the fields so that an error is generated if there

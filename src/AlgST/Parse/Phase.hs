@@ -38,9 +38,9 @@ instance Unparse ParsedBuiltin where
         BuiltinFork _ -> "fork"
         BuiltinFork_ _ -> "fork_"
 
-instance VarTraversable ParsedBuiltin Parse ParsedBuiltin y where
+instance SynTraversable ParsedBuiltin Parse ParsedBuiltin y where
   -- Builtin is a leaf type, there is nothing to traverse.
-  traverseVars _proxy = pure
+  traverseSyntax _proxy = pure
 
 instance LabeledTree ParsedBuiltin where
   labeledTree _ = [leaf "BuiltinNew"]

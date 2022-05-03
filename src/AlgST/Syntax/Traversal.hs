@@ -21,8 +21,10 @@
 -- [Writing efficient free variable traversals](https://www.haskell.org/ghc/blog/20190728-free-variable-traversals.html).
 module AlgST.Syntax.Traversal
   ( -- * Classes
-    VarTraversal (..),
-    VarTraversable (..),
+    SynTraversal (..),
+    SynTraversable (..),
+    traverseSyntaxIn,
+    traverseSyntaxBetween,
     bindOne,
 
     -- * Predefined Traversals
@@ -80,7 +82,7 @@ type Pxy x y = Proxy# (x, y)
 mkPxy :: () -> forall x y. Pxy x y
 mkPxy _ = proxy#
 
-class Applicative f => VarTraversal f x y where
+class Applicative f => SynTraversal f x y where
   valueVariable :: Pxy x y -> E.XVar x -> ProgVar -> f (E.Exp y)
   typeVariable :: Pxy x y -> T.XVar x -> TypeVar -> f (T.Type y)
 
@@ -96,7 +98,7 @@ class Applicative f => VarTraversal f x y where
 
 bindOne ::
   forall x s f a y.
-  (VarTraversal f x y, SingI s) =>
+  (SynTraversal f x y, SingI s) =>
   Pxy x y ->
   Name s ->
   (Name s -> f a) ->
@@ -120,7 +122,7 @@ instance Semigroup CollectFree where
 instance Monoid CollectFree where
   mempty = CollectFree (const id)
 
-instance x ~ y => VarTraversal (Const CollectFree) x y where
+instance x ~ y => SynTraversal (Const CollectFree) x y where
   typeVariable _ _ = varCollectFree
   valueVariable _ _ = varCollectFree
   useConstructor _ = pure
@@ -138,9 +140,8 @@ varCollectFree (liftName -> v) = Const . CollectFree $ oneShot \bound -> oneShot
     else Set.insert v acc
 
 -- | Collects all free variables.
-collectFree :: forall s x. VarTraversable (s x) x (s x) x => s x -> ANameSet
-collectFree a =
-  runCollect (getConst @_ @(s x) (traverseVars (mkPxy () @x @x) a)) mempty mempty
+collectFree :: forall s x. SynTraversable (s x) x (s x) x => s x -> ANameSet
+collectFree a = runCollect (getConst (traverseSyntaxIn a a)) mempty mempty
 
 newtype Any = Any {runAny :: ANameSet -> Bool}
   deriving (Monoid) via (ANameSet -> M.Any)
@@ -149,7 +150,7 @@ instance Semigroup Any where
   fv1 <> fv2 = Any $ oneShot \intresting ->
     runAny fv1 intresting || runAny fv2 intresting
 
-instance x ~ y => VarTraversal (Const Any) x y where
+instance x ~ y => SynTraversal (Const Any) x y where
   valueVariable _ _ = anyVariable
   typeVariable _ _ = anyVariable
   useConstructor _ = pure
@@ -165,10 +166,10 @@ anyVariable = Const . Any . Set.member . liftName
 
 -- | Checks if any of the variables in the given set are free in the given
 -- piece of syntax.
-anyFree :: forall s x. VarTraversable (s x) x (s x) x => ANameSet -> s x -> Bool
+anyFree :: forall s x. SynTraversable (s x) x (s x) x => ANameSet -> s x -> Bool
 anyFree vars a
   | Set.null vars = False
-  | otherwise = runAny (getConst @_ @(s x) (traverseVars (mkPxy () @x @x) a)) vars
+  | otherwise = runAny (getConst (traverseSyntaxIn a a)) vars
 
 data Substitutions x = Substitutions
   { progVarSubs :: !(NameMap Values (E.Exp x)),
@@ -176,17 +177,17 @@ data Substitutions x = Substitutions
   }
 
 instance
-  ( VarTraversable (E.XExp x) x (E.XExp y) y,
+  ( SynTraversable (E.XExp x) x (E.XExp y) y,
     E.SameX x y,
-    VarTraversable (T.XType x) x (T.XType y) y,
+    SynTraversable (T.XType x) x (T.XType y) y,
     T.SameX x y
   ) =>
-  VarTraversable (Substitutions x) x (Substitutions y) y
+  SynTraversable (Substitutions x) x (Substitutions y) y
   where
-  traverseVars pxy subs =
+  traverseSyntax pxy subs =
     Substitutions
-      <$> traverse (traverseVars pxy) (progVarSubs subs)
-      <*> traverse (traverseVars pxy) (typeVarSubs subs)
+      <$> traverse (traverseSyntax pxy) (progVarSubs subs)
+      <*> traverse (traverseSyntax pxy) (typeVarSubs subs)
 
 emptySubstitutions :: Substitutions x
 emptySubstitutions = Substitutions Map.empty Map.empty
@@ -200,7 +201,7 @@ typeSubstitions s = emptySubstitutions {typeVarSubs = s}
 termSubstitions :: NameMap Values (E.Exp x) -> Substitutions x
 termSubstitions s = emptySubstitutions {progVarSubs = s}
 
-instance (Monad m, x ~ y) => VarTraversal (ReaderT (Substitutions x) m) x y where
+instance (Monad m, x ~ y) => SynTraversal (ReaderT (Substitutions x) m) x y where
   valueVariable _ x = etaReaderT . asks . subVar (E.Var x) progVarSubs
   typeVariable _ x = etaReaderT . asks . subVar (T.Var x) typeVarSubs
   useConstructor _ = pure
@@ -217,17 +218,17 @@ instance (Monad m, x ~ y) => VarTraversal (ReaderT (Substitutions x) m) x y wher
 subVar :: (Name s -> a) -> (Substitutions x -> NameMap s a) -> Name s -> Substitutions x -> a
 subVar def f v = fromMaybe (def v) . Map.lookup v . f
 
-applySubstitutions :: forall a x. VarTraversable a x a x => Substitutions x -> a -> a
+applySubstitutions :: forall a x. SynTraversable a x a x => Substitutions x -> a -> a
 applySubstitutions s a
   | nullSubstitutions s = a
-  | otherwise = runReader (traverseVars (mkPxy () @x @x) a) s
+  | otherwise = runReader (traverseSyntaxIn (Proxy @x) a) s
 
 -- | Substitute a single 'TypeVar'.
-substituteType :: VarTraversable a x a x => NameMap Types (T.Type x) -> a -> a
+substituteType :: forall x a. SynTraversable a x a x => NameMap Types (T.Type x) -> a -> a
 substituteType = applySubstitutions . typeSubstitions
 
 -- | Substitute a single 'ProgVar'.
-substituteTerm :: VarTraversable a x a x => NameMap Values (E.Exp x) -> a -> a
+substituteTerm :: forall x a. SynTraversable a x a x => NameMap Values (E.Exp x) -> a -> a
 substituteTerm = applySubstitutions . termSubstitions
 
 newtype Two a = Two {getTwo :: (a, a)}
@@ -245,27 +246,39 @@ instance Show1 Two where
 instance Show a => Show (Two a) where
   showsPrec = showsPrec1
 
-class VarTraversable a x b y where
-  traverseVars :: VarTraversal f x y => Pxy x y -> a -> f b
+class SynTraversable a x b y where
+  traverseSyntax :: SynTraversal f x y => Pxy x y -> a -> f b
 
-instance VarTraversable Void x Void y where
-  traverseVars _ = pure
+traverseSyntaxIn ::
+  forall x a f proxy.
+  (SynTraversable a x a x, SynTraversal f x x) =>
+  (proxy x -> a -> f a)
+traverseSyntaxIn (_ :: proxy x) = traverseSyntax (mkPxy () @x @x)
+
+traverseSyntaxBetween ::
+  forall x y a b f p1 p2.
+  (SynTraversable a x b y, SynTraversal f x y) =>
+  (p1 x -> p2 y -> a -> f b)
+traverseSyntaxBetween (_ :: p1 x) (_ :: p2 y) = traverseSyntax (mkPxy () @x @y)
+
+instance SynTraversable Void x Void y where
+  traverseSyntax _ = pure
 
 instance
-  (VarTraversable a x a' y, VarTraversable b x b' y) =>
-  VarTraversable (Either a b) x (Either a' b') y
+  (SynTraversable a x a' y, SynTraversable b x b' y) =>
+  SynTraversable (Either a b) x (Either a' b') y
   where
-  traverseVars pxy = bitraverse (traverseVars pxy) (traverseVars pxy)
+  traverseSyntax pxy = bitraverse (traverseSyntax pxy) (traverseSyntax pxy)
 
 instance
-  ( VarTraversable (E.XExp x) x (E.XExp y) y,
+  ( SynTraversable (E.XExp x) x (E.XExp y) y,
     E.SameX x y,
-    VarTraversable (T.XType x) x (T.XType y) y,
+    SynTraversable (T.XType x) x (T.XType y) y,
     T.SameX x y
   ) =>
-  VarTraversable (E.Exp x) x (E.Exp y) y
+  SynTraversable (E.Exp x) x (E.Exp y) y
   where
-  traverseVars pxy = \case
+  traverseSyntax pxy = \case
     E.Lit x l ->
       pure (E.Lit x l)
     E.Var x v ->
@@ -275,104 +288,104 @@ instance
         <$> useConstructor pxy c
     E.Abs x b ->
       E.Abs x
-        <$> traverseVars pxy b
+        <$> traverseSyntax pxy b
     E.App x e1 e2 ->
       E.App x
-        <$> traverseVars pxy e1
-        <*> traverseVars pxy e2
+        <$> traverseSyntax pxy e1
+        <*> traverseSyntax pxy e2
     E.Pair x e1 e2 ->
       E.Pair x
-        <$> traverseVars pxy e1
-        <*> traverseVars pxy e2
+        <$> traverseSyntax pxy e1
+        <*> traverseSyntax pxy e2
     E.UnLet x v mty e k -> do
       let unLet mty' e' (v', k') =
             E.UnLet x v' mty' e' k'
       unLet
-        <$> traverse (traverseVars pxy) mty
-        <*> traverseVars pxy e
-        <*> bindOne pxy v \v' -> (v',) <$> traverseVars pxy k
+        <$> traverse (traverseSyntax pxy) mty
+        <*> traverseSyntax pxy e
+        <*> bindOne pxy v \v' -> (v',) <$> traverseSyntax pxy k
     E.PatLet x v vs e k -> do
       let patLet e' (vs', k') =
             E.PatLet x v vs' e' k'
       patLet
-        <$> traverseVars pxy e
-        <*> bind pxy (Compose vs) \(Compose vs') -> (vs',) <$> traverseVars pxy k
+        <$> traverseSyntax pxy e
+        <*> bind pxy (Compose vs) \(Compose vs') -> (vs',) <$> traverseSyntax pxy k
     E.Rec x v ty e -> do
       let expRec ty' (v', e') =
             E.Rec x v' ty' e'
       expRec
-        <$> traverseVars pxy ty
-        <*> bindOne pxy v \v' -> (v',) <$> traverseVars pxy e
+        <$> traverseSyntax pxy ty
+        <*> bindOne pxy v \v' -> (v',) <$> traverseSyntax pxy e
     E.Cond x eCond eThen eElse ->
       E.Cond x
-        <$> traverseVars pxy eCond
-        <*> traverseVars pxy eThen
-        <*> traverseVars pxy eElse
+        <$> traverseSyntax pxy eCond
+        <*> traverseSyntax pxy eThen
+        <*> traverseSyntax pxy eElse
     E.Case x e cases ->
       E.Case x
-        <$> traverseVars pxy e
-        <*> traverseVars pxy cases
+        <$> traverseSyntax pxy e
+        <*> traverseSyntax pxy cases
     E.TypeAbs x b ->
       E.TypeAbs x
-        <$> traverseVars pxy b
+        <$> traverseSyntax pxy b
     E.TypeApp x e t ->
       E.TypeApp x
-        <$> traverseVars pxy e
-        <*> traverseVars pxy t
+        <$> traverseSyntax pxy e
+        <*> traverseSyntax pxy t
     E.New x t ->
       E.New x
-        <$> traverseVars pxy t
+        <$> traverseSyntax pxy t
     E.Select x c ->
       pure (E.Select x c)
     E.Fork x e ->
       E.Fork x
-        <$> traverseVars pxy e
+        <$> traverseSyntax pxy e
     E.Fork_ x e ->
       E.Fork_ x
-        <$> traverseVars pxy e
+        <$> traverseSyntax pxy e
     E.Exp x ->
       E.Exp
-        <$> traverseVars pxy x
+        <$> traverseSyntax pxy x
 
 instance
-  ( VarTraversable (E.XExp x) x (E.XExp y) y,
+  ( SynTraversable (E.XExp x) x (E.XExp y) y,
     E.SameX x y,
-    VarTraversable (T.XType x) x (T.XType y) y,
+    SynTraversable (T.XType x) x (T.XType y) y,
     T.SameX x y
   ) =>
-  VarTraversable (E.RecLam x) x (E.RecLam y) y
+  SynTraversable (E.RecLam x) x (E.RecLam y) y
   where
-  traverseVars pxy = \case
-    E.RecTermAbs x b -> E.RecTermAbs x <$> traverseVars pxy b
-    E.RecTypeAbs x b -> E.RecTypeAbs x <$> traverseVars pxy b
+  traverseSyntax pxy = \case
+    E.RecTermAbs x b -> E.RecTermAbs x <$> traverseSyntax pxy b
+    E.RecTypeAbs x b -> E.RecTypeAbs x <$> traverseSyntax pxy b
 
 instance
-  ( VarTraversable (E.XExp x) x (E.XExp y) y,
+  ( SynTraversable (E.XExp x) x (E.XExp y) y,
     E.SameX x y,
-    VarTraversable (T.XType x) x (T.XType y) y,
+    SynTraversable (T.XType x) x (T.XType y) y,
     T.SameX x y,
     Traversable f,
     Traversable g
   ) =>
-  VarTraversable (E.CaseMap' f g x) x (E.CaseMap' f g y) y
+  SynTraversable (E.CaseMap' f g x) x (E.CaseMap' f g y) y
   where
-  traverseVars pxy cm =
+  traverseSyntax pxy cm =
     E.CaseMap
-      <$> traverse (traverseVars pxy) (E.casesPatterns cm)
-      <*> traverse (traverseVars pxy) (E.casesWildcard cm)
+      <$> traverse (traverseSyntax pxy) (E.casesPatterns cm)
+      <*> traverse (traverseSyntax pxy) (E.casesWildcard cm)
 
 instance
-  ( VarTraversable (E.XExp x) x (E.XExp y) y,
+  ( SynTraversable (E.XExp x) x (E.XExp y) y,
     E.SameX x y,
-    VarTraversable (T.XType x) x (T.XType y) y,
+    SynTraversable (T.XType x) x (T.XType y) y,
     T.SameX x y,
     Traversable f
   ) =>
-  VarTraversable (E.CaseBranch f x) x (E.CaseBranch f y) y
+  SynTraversable (E.CaseBranch f x) x (E.CaseBranch f y) y
   where
-  traverseVars pxy b =
+  traverseSyntax pxy b =
     bind pxy (Compose (E.branchBinds b)) \(Compose binds) -> do
-      e <- traverseVars pxy (E.branchExp b)
+      e <- traverseSyntax pxy (E.branchExp b)
       pure
         b
           { E.branchBinds = binds,
@@ -380,65 +393,65 @@ instance
           }
 
 instance
-  ( VarTraversable (E.XExp x) x (E.XExp y) y,
+  ( SynTraversable (E.XExp x) x (E.XExp y) y,
     E.SameX x y,
-    VarTraversable (T.XType x) x (T.XType y) y,
+    SynTraversable (T.XType x) x (T.XType y) y,
     T.SameX x y
   ) =>
-  VarTraversable (E.Bind x) x (E.Bind y) y
+  SynTraversable (E.Bind x) x (E.Bind y) y
   where
-  traverseVars pxy (E.Bind x m v t e) = do
+  traverseSyntax pxy (E.Bind x m v t e) = do
     let mkBind t' (v', e') =
           E.Bind x m v' t' e'
     mkBind
-      <$> traverseVars pxy t
-      <*> bindOne pxy v (\v' -> (v',) <$> traverseVars pxy e)
+      <$> traverseSyntax pxy t
+      <*> bindOne pxy v (\v' -> (v',) <$> traverseSyntax pxy e)
 
 instance
-  ( VarTraversable (T.XType x) x (T.XType y) y,
+  ( SynTraversable (T.XType x) x (T.XType y) y,
     T.SameX x y
   ) =>
-  VarTraversable (T.Type x) x (T.Type y) y
+  SynTraversable (T.Type x) x (T.Type y) y
   where
-  traverseVars pxy = \case
+  traverseSyntax pxy = \case
     T.Unit x ->
       pure (T.Unit x)
     T.Arrow x m t u ->
       T.Arrow x m
-        <$> traverseVars pxy t
-        <*> traverseVars pxy u
+        <$> traverseSyntax pxy t
+        <*> traverseSyntax pxy u
     T.Pair x t u ->
       T.Pair x
-        <$> traverseVars pxy t
-        <*> traverseVars pxy u
+        <$> traverseSyntax pxy t
+        <*> traverseSyntax pxy u
     T.Session x p t u ->
       T.Session x p
-        <$> traverseVars pxy t
-        <*> traverseVars pxy u
+        <$> traverseSyntax pxy t
+        <*> traverseSyntax pxy u
     T.End x ->
       pure (T.End x)
     T.Forall x b ->
       T.Forall x
-        <$> traverseVars pxy b
+        <$> traverseSyntax pxy b
     T.Var x v ->
       typeVariable pxy x v
     T.Con x v ->
       pure (T.Con x v)
     T.App x t u ->
       T.App x
-        <$> traverseVars pxy t
-        <*> traverseVars pxy u
+        <$> traverseSyntax pxy t
+        <*> traverseSyntax pxy u
     T.Dualof x t ->
       T.Dualof x
-        <$> traverseVars pxy t
+        <$> traverseSyntax pxy t
     T.Negate x t ->
       T.Negate x
-        <$> traverseVars pxy t
+        <$> traverseSyntax pxy t
     T.Type x ->
       T.Type
-        <$> traverseVars pxy x
+        <$> traverseSyntax pxy x
 
-instance VarTraversable a x b y => VarTraversable (K.Bind a) x (K.Bind b) y where
-  traverseVars pxy (K.Bind p v k t) =
+instance SynTraversable a x b y => SynTraversable (K.Bind a) x (K.Bind b) y where
+  traverseSyntax pxy (K.Bind p v k t) =
     bindOne pxy v \v' ->
-      K.Bind p v' k <$> traverseVars pxy t
+      K.Bind p v' k <$> traverseSyntax pxy t

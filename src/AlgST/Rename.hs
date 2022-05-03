@@ -87,7 +87,7 @@ type RnSt = Int
 type RnM =
   ReaderT RenameEnv (State RnSt)
 
-instance VarTraversal RnM Parse Rn where
+instance SynTraversal RnM Parse Rn where
   typeVariable _ x = fmap (T.Var x) . lookup
   valueVariable _ x = fmap (E.Var x) . lookup
   useConstructor _ = pure
@@ -171,8 +171,8 @@ renameProgram p = do
         programImports = rnSigs
       }
 
-renameSyntax :: VarTraversable (s Parse) Parse (s Rn) Rn => s Parse -> RnM (s Rn)
-renameSyntax = traverseVars (mkPxy () @Parse @Rn)
+renameSyntax :: SynTraversable (s Parse) Parse (s Rn) Rn => s Parse -> RnM (s Rn)
+renameSyntax = traverseSyntaxBetween (Proxy @Parse) (Proxy @Rn)
 
 renameSignature :: D.SignatureDecl Parse -> RnM (D.SignatureDecl Rn)
 renameSignature (D.SignatureDecl x ty) = D.SignatureDecl x <$> renameSyntax ty
