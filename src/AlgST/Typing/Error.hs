@@ -7,7 +7,6 @@
 module AlgST.Typing.Error where
 
 import AlgST.Builtins.Names
-import AlgST.Parse.Phase
 import AlgST.Parse.Unparser
 import AlgST.Rename
 import AlgST.Syntax.Decl
@@ -64,7 +63,7 @@ unexpectedForkKind forkKind e ty kiActual kiExpected =
       ]
 {-# NOINLINE unexpectedForkKind #-}
 
-typeMismatch :: PExp -> TcType -> TcType -> TcType -> TcType -> Diagnostic
+typeMismatch :: RnExp -> TcType -> TcType -> TcType -> TcType -> Diagnostic
 typeMismatch expr tyActual tyActualNF tyExpected tyExpectedNF =
   PosError (pos expr) $
     errUnline

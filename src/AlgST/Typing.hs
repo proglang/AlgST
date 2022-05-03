@@ -1232,7 +1232,7 @@ tycheck e u = do
   requireEqual e t u
   pure e'
 
-requireEqual :: PExp -> TcType -> TcType -> TypeM ()
+requireEqual :: RnExp -> TcType -> TcType -> TypeM ()
 requireEqual e t1 t2 = do
   nf1 <- normalize t1
   nf2 <- normalize t2

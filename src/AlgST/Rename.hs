@@ -35,6 +35,7 @@ module AlgST.Rename
 where
 
 import AlgST.Parse.Phase
+import AlgST.Rename.Phase
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Name
@@ -57,19 +58,6 @@ import Data.Traversable
 import Lens.Family2
 import Lens.Family2.State.Strict
 import Prelude hiding (lookup)
-
--- | The rename phase token is only an alias to the 'Parse' token. All
--- annotations are preserved but all bound variables are renamed to distinct
--- names.
-type Rn = Parse
-
-{- ORMOLU_DISABLE -}
-type RnExp = E.Exp Rn
-type RnBind = E.Bind Rn
-type RnCaseMap = E.CaseMap Rn
-type RnProgram = Program Rn
-type RnType = T.Type Rn
-{- ORMOLU_ENABLE -}
 
 -- | A map from the user written name to the renamed version.
 type Bindings s = NameMap s (Name s)
