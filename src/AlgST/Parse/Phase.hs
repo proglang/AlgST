@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -37,7 +38,7 @@ instance Unparse ParsedBuiltin where
         BuiltinFork _ -> "fork"
         BuiltinFork_ _ -> "fork_"
 
-instance VarTraversable ParsedBuiltin Parse where
+instance VarTraversable ParsedBuiltin Parse ParsedBuiltin y where
   -- Builtin is a leaf type, there is nothing to traverse.
   traverseVars _proxy = pure
 

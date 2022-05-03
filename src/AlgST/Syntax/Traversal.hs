@@ -5,11 +5,15 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MagicHash #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UnliftedFFITypes #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- | This module defines an extensible way to traverse the variables in syntax
@@ -45,6 +49,8 @@ module AlgST.Syntax.Traversal
 
     -- * Traversal helpers
     Two (..),
+    Pxy,
+    mkPxy,
   )
 where
 
@@ -64,26 +70,38 @@ import Data.Functor.Identity
 import Data.Map.Strict qualified as Map
 import Data.Maybe
 import Data.Monoid qualified as M
-import Data.Proxy
 import Data.Set qualified as Set
 import Data.Singletons
 import Data.Void
+import GHC.Exts (Proxy#, proxy#)
 
-class Applicative f => VarTraversal f x where
-  valueVariable :: E.XVar x -> ProgVar -> f (E.Exp x)
-  typeVariable :: T.XVar x -> TypeVar -> f (T.Type x)
+type Pxy x y = Proxy# (x, y)
+
+mkPxy :: () -> forall x y. Pxy x y
+mkPxy _ = proxy#
+
+class Applicative f => VarTraversal f x y where
+  valueVariable :: Pxy x y -> E.XVar x -> ProgVar -> f (E.Exp y)
+  typeVariable :: Pxy x y -> T.XVar x -> TypeVar -> f (T.Type y)
+
+  useConstructor :: SingI scope => Pxy x y -> Name scope -> f (Name scope)
 
   -- | Binds a set of variables for the given computation.
-  bind :: (Traversable t, SingI s) => proxy x -> t (Name s) -> (t (Name s) -> f a) -> f a
+  bind ::
+    (Traversable t, SingI s) =>
+    Pxy x y ->
+    t (Name s) ->
+    (t (Name s) -> f a) ->
+    f a
 
 bindOne ::
-  forall x s f proxy a.
-  (VarTraversal f x, SingI s) =>
-  proxy x ->
+  forall x s f a y.
+  (VarTraversal f x y, SingI s) =>
+  Pxy x y ->
   Name s ->
   (Name s -> f a) ->
   f a
-bindOne proxy v f = bind proxy (Identity v) (f . runIdentity)
+bindOne pxy v f = bind pxy (Identity v) (f . runIdentity)
 
 newtype CollectFree = CollectFree
   { runCollect ::
@@ -102,9 +120,10 @@ instance Semigroup CollectFree where
 instance Monoid CollectFree where
   mempty = CollectFree (const id)
 
-instance VarTraversal (Const CollectFree) x where
-  typeVariable _ = varCollectFree
-  valueVariable _ = varCollectFree
+instance x ~ y => VarTraversal (Const CollectFree) x y where
+  typeVariable _ _ = varCollectFree
+  valueVariable _ _ = varCollectFree
+  useConstructor _ = pure
 
   bind _ vs f = Const . CollectFree $ oneShot \bound -> oneShot \acc ->
     let !bound' = foldl' (flip $ Set.insert . liftName) bound vs
@@ -119,8 +138,9 @@ varCollectFree (liftName -> v) = Const . CollectFree $ oneShot \bound -> oneShot
     else Set.insert v acc
 
 -- | Collects all free variables.
-collectFree :: forall s x. VarTraversable (s x) x => s x -> ANameSet
-collectFree a = runCollect (getConst (traverseVars @_ @x Proxy a)) mempty mempty
+collectFree :: forall s x. VarTraversable (s x) x (s x) x => s x -> ANameSet
+collectFree a =
+  runCollect (getConst @_ @(s x) (traverseVars (mkPxy () @x @x) a)) mempty mempty
 
 newtype Any = Any {runAny :: ANameSet -> Bool}
   deriving (Monoid) via (ANameSet -> M.Any)
@@ -129,9 +149,10 @@ instance Semigroup Any where
   fv1 <> fv2 = Any $ oneShot \intresting ->
     runAny fv1 intresting || runAny fv2 intresting
 
-instance VarTraversal (Const Any) x where
-  valueVariable _ = anyVariable
-  typeVariable _ = anyVariable
+instance x ~ y => VarTraversal (Const Any) x y where
+  valueVariable _ _ = anyVariable
+  typeVariable _ _ = anyVariable
+  useConstructor _ = pure
 
   -- When a variable is bound it will be removed from the set of intresting
   -- variables. If the set becomes empty we will short-circuit to False.
@@ -144,10 +165,10 @@ anyVariable = Const . Any . Set.member . liftName
 
 -- | Checks if any of the variables in the given set are free in the given
 -- piece of syntax.
-anyFree :: forall s x. VarTraversable (s x) x => ANameSet -> s x -> Bool
+anyFree :: forall s x. VarTraversable (s x) x (s x) x => ANameSet -> s x -> Bool
 anyFree vars a
   | Set.null vars = False
-  | otherwise = runAny (getConst (traverseVars @_ @x Proxy a)) vars
+  | otherwise = runAny (getConst @_ @(s x) (traverseVars (mkPxy () @x @x) a)) vars
 
 data Substitutions x = Substitutions
   { progVarSubs :: !(NameMap Values (E.Exp x)),
@@ -155,13 +176,17 @@ data Substitutions x = Substitutions
   }
 
 instance
-  (VarTraversable (E.XExp x) x, VarTraversable (T.XType x) x) =>
-  VarTraversable (Substitutions x) x
+  ( VarTraversable (E.XExp x) x (E.XExp y) y,
+    E.SameX x y,
+    VarTraversable (T.XType x) x (T.XType y) y,
+    T.SameX x y
+  ) =>
+  VarTraversable (Substitutions x) x (Substitutions y) y
   where
-  traverseVars proxy subs =
+  traverseVars pxy subs =
     Substitutions
-      <$> traverse (traverseVars proxy) (progVarSubs subs)
-      <*> traverse (traverseVars proxy) (typeVarSubs subs)
+      <$> traverse (traverseVars pxy) (progVarSubs subs)
+      <*> traverse (traverseVars pxy) (typeVarSubs subs)
 
 emptySubstitutions :: Substitutions x
 emptySubstitutions = Substitutions Map.empty Map.empty
@@ -175,9 +200,10 @@ typeSubstitions s = emptySubstitutions {typeVarSubs = s}
 termSubstitions :: NameMap Values (E.Exp x) -> Substitutions x
 termSubstitions s = emptySubstitutions {progVarSubs = s}
 
-instance Monad m => VarTraversal (ReaderT (Substitutions x) m) x where
-  valueVariable x = etaReaderT . asks . subVar (E.Var x) progVarSubs
-  typeVariable x = etaReaderT . asks . subVar (T.Var x) typeVarSubs
+instance (Monad m, x ~ y) => VarTraversal (ReaderT (Substitutions x) m) x y where
+  valueVariable _ x = etaReaderT . asks . subVar (E.Var x) progVarSubs
+  typeVariable _ x = etaReaderT . asks . subVar (T.Var x) typeVarSubs
+  useConstructor _ = pure
 
   -- Remove the bound variables from the maps.
   bind _ vs f = etaReaderT do
@@ -191,17 +217,17 @@ instance Monad m => VarTraversal (ReaderT (Substitutions x) m) x where
 subVar :: (Name s -> a) -> (Substitutions x -> NameMap s a) -> Name s -> Substitutions x -> a
 subVar def f v = fromMaybe (def v) . Map.lookup v . f
 
-applySubstitutions :: forall a x. VarTraversable a x => Substitutions x -> a -> a
+applySubstitutions :: forall a x. VarTraversable a x a x => Substitutions x -> a -> a
 applySubstitutions s a
   | nullSubstitutions s = a
-  | otherwise = runReader (traverseVars (Proxy @x) a) s
+  | otherwise = runReader (traverseVars (mkPxy () @x @x) a) s
 
 -- | Substitute a single 'TypeVar'.
-substituteType :: VarTraversable a x => NameMap Types (T.Type x) -> a -> a
+substituteType :: VarTraversable a x a x => NameMap Types (T.Type x) -> a -> a
 substituteType = applySubstitutions . typeSubstitions
 
 -- | Substitute a single 'ProgVar'.
-substituteTerm :: VarTraversable a x => NameMap Values (E.Exp x) -> a -> a
+substituteTerm :: VarTraversable a x a x => NameMap Values (E.Exp x) -> a -> a
 substituteTerm = applySubstitutions . termSubstitions
 
 newtype Two a = Two {getTwo :: (a, a)}
@@ -219,111 +245,134 @@ instance Show1 Two where
 instance Show a => Show (Two a) where
   showsPrec = showsPrec1
 
-class VarTraversable a x where
-  traverseVars :: VarTraversal f x => proxy x -> a -> f a
+class VarTraversable a x b y where
+  traverseVars :: VarTraversal f x y => Pxy x y -> a -> f b
 
-instance VarTraversable Void x where
-  traverseVars _ = absurd
-
-instance (VarTraversable a x, VarTraversable b x) => VarTraversable (Either a b) x where
-  traverseVars proxy = bitraverse (traverseVars proxy) (traverseVars proxy)
+instance VarTraversable Void x Void y where
+  traverseVars _ = pure
 
 instance
-  (VarTraversable (E.XExp x) x, VarTraversable (T.XType x) x) =>
-  VarTraversable (E.Exp x) x
+  (VarTraversable a x a' y, VarTraversable b x b' y) =>
+  VarTraversable (Either a b) x (Either a' b') y
   where
-  traverseVars proxy = \case
-    e@E.Lit {} ->
-      pure e
+  traverseVars pxy = bitraverse (traverseVars pxy) (traverseVars pxy)
+
+instance
+  ( VarTraversable (E.XExp x) x (E.XExp y) y,
+    E.SameX x y,
+    VarTraversable (T.XType x) x (T.XType y) y,
+    T.SameX x y
+  ) =>
+  VarTraversable (E.Exp x) x (E.Exp y) y
+  where
+  traverseVars pxy = \case
+    E.Lit x l ->
+      pure (E.Lit x l)
     E.Var x v ->
-      valueVariable x v
-    e@E.Con {} ->
-      pure e
+      valueVariable pxy x v
+    E.Con x c ->
+      E.Con x
+        <$> useConstructor pxy c
     E.Abs x b ->
       E.Abs x
-        <$> traverseVars proxy b
+        <$> traverseVars pxy b
     E.App x e1 e2 ->
       E.App x
-        <$> traverseVars proxy e1
-        <*> traverseVars proxy e2
+        <$> traverseVars pxy e1
+        <*> traverseVars pxy e2
     E.Pair x e1 e2 ->
       E.Pair x
-        <$> traverseVars proxy e1
-        <*> traverseVars proxy e2
+        <$> traverseVars pxy e1
+        <*> traverseVars pxy e2
     E.UnLet x v mty e k -> do
       let unLet mty' e' (v', k') =
             E.UnLet x v' mty' e' k'
       unLet
-        <$> traverse (traverseVars proxy) mty
-        <*> traverseVars proxy e
-        <*> bindOne proxy v \v' -> (v',) <$> traverseVars proxy k
+        <$> traverse (traverseVars pxy) mty
+        <*> traverseVars pxy e
+        <*> bindOne pxy v \v' -> (v',) <$> traverseVars pxy k
     E.PatLet x v vs e k -> do
       let patLet e' (vs', k') =
             E.PatLet x v vs' e' k'
       patLet
-        <$> traverseVars proxy e
-        <*> bind proxy (Compose vs) \(Compose vs') -> (vs',) <$> traverseVars proxy k
+        <$> traverseVars pxy e
+        <*> bind pxy (Compose vs) \(Compose vs') -> (vs',) <$> traverseVars pxy k
     E.Rec x v ty e -> do
       let expRec ty' (v', e') =
             E.Rec x v' ty' e'
       expRec
-        <$> traverseVars proxy ty
-        <*> bindOne proxy v \v' -> (v',) <$> traverseVars proxy e
+        <$> traverseVars pxy ty
+        <*> bindOne pxy v \v' -> (v',) <$> traverseVars pxy e
     E.Cond x eCond eThen eElse ->
       E.Cond x
-        <$> traverseVars proxy eCond
-        <*> traverseVars proxy eThen
-        <*> traverseVars proxy eElse
+        <$> traverseVars pxy eCond
+        <*> traverseVars pxy eThen
+        <*> traverseVars pxy eElse
     E.Case x e cases ->
       E.Case x
-        <$> traverseVars proxy e
-        <*> traverseVars proxy cases
+        <$> traverseVars pxy e
+        <*> traverseVars pxy cases
     E.TypeAbs x b ->
       E.TypeAbs x
-        <$> traverseVars proxy b
+        <$> traverseVars pxy b
     E.TypeApp x e t ->
       E.TypeApp x
-        <$> traverseVars proxy e
-        <*> traverseVars proxy t
+        <$> traverseVars pxy e
+        <*> traverseVars pxy t
     E.New x t ->
       E.New x
-        <$> traverseVars proxy t
+        <$> traverseVars pxy t
     E.Select x c ->
       pure (E.Select x c)
     E.Fork x e ->
       E.Fork x
-        <$> traverseVars proxy e
+        <$> traverseVars pxy e
     E.Fork_ x e ->
       E.Fork_ x
-        <$> traverseVars proxy e
+        <$> traverseVars pxy e
     E.Exp x ->
       E.Exp
-        <$> traverseVars proxy x
+        <$> traverseVars pxy x
 
 instance
-  (VarTraversable (E.XExp x) x, VarTraversable (T.XType x) x) =>
-  VarTraversable (E.RecLam x) x
+  ( VarTraversable (E.XExp x) x (E.XExp y) y,
+    E.SameX x y,
+    VarTraversable (T.XType x) x (T.XType y) y,
+    T.SameX x y
+  ) =>
+  VarTraversable (E.RecLam x) x (E.RecLam y) y
   where
-  traverseVars proxy = \case
-    E.RecTermAbs x b -> E.RecTermAbs x <$> traverseVars proxy b
-    E.RecTypeAbs x b -> E.RecTypeAbs x <$> traverseVars proxy b
+  traverseVars pxy = \case
+    E.RecTermAbs x b -> E.RecTermAbs x <$> traverseVars pxy b
+    E.RecTypeAbs x b -> E.RecTypeAbs x <$> traverseVars pxy b
 
 instance
-  (VarTraversable (E.XExp x) x, VarTraversable (T.XType x) x, Traversable f, Traversable g) =>
-  VarTraversable (E.CaseMap' f g x) x
+  ( VarTraversable (E.XExp x) x (E.XExp y) y,
+    E.SameX x y,
+    VarTraversable (T.XType x) x (T.XType y) y,
+    T.SameX x y,
+    Traversable f,
+    Traversable g
+  ) =>
+  VarTraversable (E.CaseMap' f g x) x (E.CaseMap' f g y) y
   where
-  traverseVars proxy cm =
+  traverseVars pxy cm =
     E.CaseMap
-      <$> traverse (traverseVars proxy) (E.casesPatterns cm)
-      <*> traverse (traverseVars proxy) (E.casesWildcard cm)
+      <$> traverse (traverseVars pxy) (E.casesPatterns cm)
+      <*> traverse (traverseVars pxy) (E.casesWildcard cm)
 
 instance
-  (VarTraversable (E.XExp x) x, VarTraversable (T.XType x) x, Traversable f) =>
-  VarTraversable (E.CaseBranch f x) x
+  ( VarTraversable (E.XExp x) x (E.XExp y) y,
+    E.SameX x y,
+    VarTraversable (T.XType x) x (T.XType y) y,
+    T.SameX x y,
+    Traversable f
+  ) =>
+  VarTraversable (E.CaseBranch f x) x (E.CaseBranch f y) y
   where
-  traverseVars proxy b =
-    bind proxy (Compose (E.branchBinds b)) \(Compose binds) -> do
-      e <- traverseVars proxy (E.branchExp b)
+  traverseVars pxy b =
+    bind pxy (Compose (E.branchBinds b)) \(Compose binds) -> do
+      e <- traverseVars pxy (E.branchExp b)
       pure
         b
           { E.branchBinds = binds,
@@ -331,56 +380,65 @@ instance
           }
 
 instance
-  (VarTraversable (E.XExp x) x, VarTraversable (T.XType x) x) =>
-  VarTraversable (E.Bind x) x
+  ( VarTraversable (E.XExp x) x (E.XExp y) y,
+    E.SameX x y,
+    VarTraversable (T.XType x) x (T.XType y) y,
+    T.SameX x y
+  ) =>
+  VarTraversable (E.Bind x) x (E.Bind y) y
   where
-  traverseVars proxy (E.Bind x m v t e) = do
+  traverseVars pxy (E.Bind x m v t e) = do
     let mkBind t' (v', e') =
           E.Bind x m v' t' e'
     mkBind
-      <$> traverseVars proxy t
-      <*> bindOne proxy v (\v' -> (v',) <$> traverseVars proxy e)
+      <$> traverseVars pxy t
+      <*> bindOne pxy v (\v' -> (v',) <$> traverseVars pxy e)
 
-instance VarTraversable (T.XType x) x => VarTraversable (T.Type x) x where
-  traverseVars proxy = \case
-    t@T.Unit {} ->
-      pure t
+instance
+  ( VarTraversable (T.XType x) x (T.XType y) y,
+    T.SameX x y
+  ) =>
+  VarTraversable (T.Type x) x (T.Type y) y
+  where
+  traverseVars pxy = \case
+    T.Unit x ->
+      pure (T.Unit x)
     T.Arrow x m t u ->
       T.Arrow x m
-        <$> traverseVars proxy t
-        <*> traverseVars proxy u
+        <$> traverseVars pxy t
+        <*> traverseVars pxy u
     T.Pair x t u ->
       T.Pair x
-        <$> traverseVars proxy t
-        <*> traverseVars proxy u
+        <$> traverseVars pxy t
+        <*> traverseVars pxy u
     T.Session x p t u ->
       T.Session x p
-        <$> traverseVars proxy t
-        <*> traverseVars proxy u
-    t@T.End {} ->
-      pure t
+        <$> traverseVars pxy t
+        <*> traverseVars pxy u
+    T.End x ->
+      pure (T.End x)
     T.Forall x b ->
       T.Forall x
-        <$> traverseVars proxy b
+        <$> traverseVars pxy b
     T.Var x v ->
-      typeVariable x v
+      typeVariable pxy x v
     T.Con x v ->
       pure (T.Con x v)
     T.App x t u ->
       T.App x
-        <$> traverseVars proxy t
-        <*> traverseVars proxy u
+        <$> traverseVars pxy t
+        <*> traverseVars pxy u
     T.Dualof x t ->
       T.Dualof x
-        <$> traverseVars proxy t
+        <$> traverseVars pxy t
     T.Negate x t ->
       T.Negate x
-        <$> traverseVars proxy t
+        <$> traverseVars pxy t
     T.Type x ->
       T.Type
-        <$> traverseVars proxy x
+        <$> traverseVars pxy x
 
-instance VarTraversable x x' => VarTraversable (K.Bind x) x' where
-  traverseVars proxy (K.Bind p v k t) =
-    bindOne proxy v \v' ->
-      K.Bind p v' k <$> traverseVars proxy t
+instance VarTraversable a x b y => VarTraversable (K.Bind a) x (K.Bind b) y where
+  traverseVars pxy (K.Bind p v k t) =
+    bindOne pxy v \v' ->
+      K.Bind p v' k <$> traverseVars pxy t

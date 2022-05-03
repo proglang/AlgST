@@ -26,7 +26,7 @@ import Syntax.Base
 -- aliases are expanded and type constructors are represented as 'TypeRef'.
 data Tc
 
-instance VarTraversable TcExpX Tc where
+instance VarTraversable TcExpX Tc TcExpX Tc where
   traverseVars proxy = \case
     ValueCase p exp map ->
       ValueCase p
@@ -85,7 +85,7 @@ instance Equivalence TypeRef where
       -- number of arguments.
       zipWith (alpha w m) (typeRefArgs r1) (typeRefArgs r2)
 
-instance VarTraversable TypeRef Tc where
+instance VarTraversable TypeRef Tc TypeRef Tc where
   traverseVars proxy ref = do
     args <- traverse (traverseVars proxy) (typeRefArgs ref)
     pure

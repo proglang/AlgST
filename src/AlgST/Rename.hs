@@ -50,7 +50,6 @@ import Data.Bitraversable
 import Data.Functor.Compose
 import Data.Map.Strict qualified as Map
 import Data.Maybe
-import Data.Proxy
 import Data.Singletons
 import Data.Traversable
 import Lens.Family2
@@ -98,9 +97,10 @@ type RnSt = Int
 type RnM =
   ReaderT RenameEnv (State RnSt)
 
-instance VarTraversal RnM Parse where
-  typeVariable x = fmap (T.Var x) . lookup
-  valueVariable x = fmap (E.Var x) . lookup
+instance VarTraversal RnM Parse Rn where
+  typeVariable _ x = fmap (T.Var x) . lookup
+  valueVariable _ x = fmap (E.Var x) . lookup
+  useConstructor _ = pure
   bind _ = bindingAll
 
 runRename :: RnM a -> a
@@ -174,8 +174,8 @@ renameProgram p = do
         programImports = rnSigs
       }
 
-renameSyntax :: VarTraversable (s Parse) Parse => s Parse -> RnM (s Rn)
-renameSyntax = traverseVars @_ @Parse Proxy
+renameSyntax :: VarTraversable (s Parse) Parse (s Rn) Rn => s Parse -> RnM (s Rn)
+renameSyntax = traverseVars (mkPxy () @Parse @Rn)
 
 renameSignature :: D.SignatureDecl Parse -> RnM (D.SignatureDecl Rn)
 renameSignature (D.SignatureDecl x ty) = D.SignatureDecl x <$> renameSyntax ty

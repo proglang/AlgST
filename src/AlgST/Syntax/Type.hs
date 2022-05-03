@@ -1,8 +1,10 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -28,12 +30,13 @@ module AlgST.Syntax.Type
     XNegate,
     XType,
     ForallX,
+    SameX,
   )
 where
 
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
-import Data.Kind qualified as HS
+import AlgST.Syntax.Phases
 import Language.Haskell.TH.Syntax (Lift)
 import Syntax.Base
 
@@ -68,7 +71,8 @@ type family XNegate x
 type family XType x
 {- ORMOLU_ENABLE -}
 
-type ForallX (c :: HS.Type -> HS.Constraint) x =
+type ForallX :: CAll
+type ForallX c x =
   ( c (XUnit x),
     c (XArrow x),
     c (XPair x),
@@ -81,6 +85,20 @@ type ForallX (c :: HS.Type -> HS.Constraint) x =
     c (XDualof x),
     c (XNegate x),
     c (XType x)
+  )
+
+type SameX :: CSame
+type SameX x y =
+  ( XUnit x ~ XUnit y,
+    XArrow x ~ XArrow y,
+    XPair x ~ XPair y,
+    XSession x ~ XSession y,
+    XEnd x ~ XEnd y,
+    XForall x ~ XForall y,
+    XCon x ~ XCon y,
+    XApp x ~ XApp y,
+    XDualof x ~ XDualof y,
+    XNegate x ~ XNegate y
   )
 
 data Type x

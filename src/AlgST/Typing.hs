@@ -92,7 +92,6 @@ import Data.Map.Merge.Strict qualified as Merge
 import Data.Map.Strict qualified as Map
 import Data.Maybe
 import Data.Monoid (Endo (..))
-import Data.Proxy
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
 import Data.Singletons
@@ -311,7 +310,7 @@ checkAlignedBinds fullTy allVs e = go fullTy fullTy allVs
         Right _ -> do
           -- Skip the type abstraction by binding a wildcard pattern. Keep the
           -- expected type for the error message.
-          wildTV <- liftRn $ bindOne @Rn Proxy Wildcard pure
+          wildTV <- liftRn $ bindOne (mkPxy () @Parse @Rn) Wildcard pure
           wrapAbs wildTV <$> go t0 (subBind wildTV t) vs0
     go t _ (v : _) = do
       -- The bind ›v‹ does not align with the expected type. While trying to
@@ -1173,7 +1172,7 @@ withLocalNames ::
   RnM a
 withLocalNames m idents body = do
   let names = Name m <$> idents
-  bind @_ @Rn Proxy names body
+  bind (mkPxy () @Parse @Rn) names body
 
 -- | Establishes a set of bindings for a nested scope.
 --

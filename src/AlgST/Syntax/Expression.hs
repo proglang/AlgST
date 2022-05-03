@@ -7,6 +7,7 @@
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -47,16 +48,17 @@ module AlgST.Syntax.Expression
     -- * Binds
     Bind (..),
     XBind,
+    SameX,
   )
 where
 
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
+import AlgST.Syntax.Phases
 import AlgST.Syntax.Type qualified as T
 import Control.Applicative
 import Data.Foldable
 import Data.Functor.Identity
-import Data.Kind qualified as HS
 import Instances.TH.Lift ()
 import Language.Haskell.TH.Syntax (Lift)
 import Syntax.Base
@@ -82,7 +84,8 @@ type family XFork_ x
 type family XExp x
 {- ORMOLU_ENABLE -}
 
-type ForallX (c :: HS.Type -> HS.Constraint) x =
+type ForallX :: CAll
+type ForallX c x =
   ( c (XLit x),
     c (XVar x),
     c (XCon x),
@@ -102,6 +105,27 @@ type ForallX (c :: HS.Type -> HS.Constraint) x =
     c (XFork_ x),
     c (XExp x),
     c (XBind x)
+  )
+
+type SameX :: CSame
+type SameX x y =
+  ( XLit x ~ XLit y,
+    XCon x ~ XCon y,
+    XAbs x ~ XAbs y,
+    XApp x ~ XApp y,
+    XPair x ~ XPair y,
+    XCond x ~ XCond y,
+    XCase x ~ XCase y,
+    XTAbs x ~ XTAbs y,
+    XTApp x ~ XTApp y,
+    XRec x ~ XRec y,
+    XUnLet x ~ XUnLet y,
+    XPatLet x ~ XPatLet y,
+    XNew x ~ XNew y,
+    XSelect x ~ XSelect y,
+    XFork x ~ XFork y,
+    XFork_ x ~ XFork_ y,
+    XBind x ~ XBind y
   )
 
 data Lit
