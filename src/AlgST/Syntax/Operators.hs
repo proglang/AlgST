@@ -36,7 +36,7 @@ data Info s = Info
 --
 -- Note that since this uses the operators' unqualified names as keys we
 -- currently are not able to support user defined operators.
-knownOperators :: Map.Map String (Info ProgVar)
+knownOperators :: Map.Map Unqualified (Info ProgVar)
 knownOperators = Map.unions (opMap <$> ops)
   where
     ops =
@@ -57,14 +57,14 @@ knownOperators = Map.unions (opMap <$> ops)
         Info "<|" R PBackward
       ]
 
-    opMap :: Info String -> Map.Map String (Info ProgVar)
+    opMap :: Info String -> Map.Map Unqualified (Info ProgVar)
     opMap op =
       let name1 = opName op
           name2 = operatorValueName (opName op)
           opNamed = op {opName = Builtin name2}
        in Map.empty
-            & Map.insert name1 opNamed
-            & Map.insert name2 opNamed
+            & Map.insert (Unqualified name1) opNamed
+            & Map.insert (Unqualified name2) opNamed
 
 -- | Wraps a symbolic operator in parentheses.
 operatorValueName :: String -> String

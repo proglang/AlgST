@@ -1166,7 +1166,7 @@ unrestrictedLoc _ Lin = Nothing
 freshLocal :: HasKiEnv env => String -> TcM env st (Name s)
 freshLocal s = do
   m <- currentModule
-  liftRn $ freshNC $ Name m s
+  liftRn $ freshNC $ Name m $ Unqualified s
 
 -- | Establishes a set of bindings for a nested scope.
 --

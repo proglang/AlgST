@@ -24,6 +24,9 @@ module AlgST.Syntax.Name
     isWild,
     pattern PairCon,
 
+    -- ** Unqualified parts
+    Unqualified (..),
+
     -- ** Resolved Names
     ResolvedName (..),
     pprNameResolved,
@@ -115,6 +118,10 @@ moduleFromPath = FP.dropExtensions >>> map adjustSep >>> Module
       | FP.isPathSeparator c = modulePartSeparator
       | otherwise = c
 
+newtype Unqualified = Unqualified {getUnqualified :: String}
+  deriving stock (Show, Lift)
+  deriving newtype (Eq, Ord, Hashable)
+
 -- | Type level tag to differentiate between type level and value level names.
 data Scope = Types | Values
   deriving (Eq, Ord, Generic)
@@ -180,7 +187,7 @@ type TypeVar = Name Types
 type Name :: Scope -> Type
 data Name scope = Name
   { nameModule :: Module,
-    nameUnqualified :: String
+    nameUnqualified :: Unqualified
   }
   deriving stock (Eq, Ord, Show, Generic, Lift)
 
@@ -190,14 +197,14 @@ pattern Wildcard :: Name scope
 pattern Wildcard =
   Name
     { nameModule = Module "",
-      nameUnqualified = "_"
+      nameUnqualified = Unqualified "_"
     }
 
 pattern PairCon :: Name scope
 pattern PairCon =
   Name
     { nameModule = Module "",
-      nameUnqualified = "(,)"
+      nameUnqualified = Unqualified "(,)"
     }
 
 -- | Checks wether the given name is a wildcard pattern.
@@ -206,7 +213,7 @@ isWild Wildcard = True
 isWild _ = False
 
 pprName :: Name scope -> String
-pprName n = fold modulePrefix ++ nameUnqualified n
+pprName n = fold modulePrefix ++ getUnqualified (nameUnqualified n)
   where
     modulePrefix :: Maybe String
     modulePrefix = do

@@ -225,12 +225,13 @@ resolveOperators ::
   f (Located ProgVar, [PType]) ->
   m (f ResolvedOp)
 resolveOperators = traverse \case
-  (op@(_ :@ Builtin vUnqual), tys)
-    | Just i <- Map.lookup vUnqual knownOperators ->
+  (p :@ v, tys)
+    | Builtin _ <- v,
+      Just i <- Map.lookup (nameUnqualified v) knownOperators ->
       pure
         ResolvedOp
-          { operatorName = unL op,
-            operatorLoc = pos op,
+          { operatorName = v,
+            operatorLoc = p,
             operatorTyArgs = tys,
             operatorInfo = i
           }

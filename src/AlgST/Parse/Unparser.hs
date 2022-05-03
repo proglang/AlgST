@@ -75,7 +75,7 @@ type Fragment = (Rator, String)
 operatorRator :: ProgVar -> Maybe Rator
 operatorRator op =
   ((,) <$> POp . Op.opPrec <*> Op.opAssoc)
-    <$> Map.lookup (pprName op) Op.knownOperators
+    <$> Map.lookup (nameUnqualified op) Op.knownOperators
 
 minRator, inRator, dotRator, arrowRator, dualofRator, appRator, maxRator :: Rator
 inRator = (PIn, Op.R)

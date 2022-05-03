@@ -77,7 +77,9 @@ runParseM :: Module -> ParseM a -> Either (NonEmpty Diagnostic) a
 runParseM m = mapErrors DL.toNonEmpty >>> runValidateT >>> flip runReader m
 
 mkName :: String -> ParseM (Name s)
-mkName s = Name <$> ask <*> pure s
+mkName s = do
+  m <- ask
+  pure $ Name m (Unqualified s)
 
 addError :: Pos -> [ErrorMessage] -> ParseM ()
 addError !p err = addErrors [PosError p err]

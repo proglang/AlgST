@@ -46,7 +46,7 @@ runProgram :: TcProgram -> IO Value
 runProgram p = runEval env (eval mainExpr)
   where
     env = programEnvironment p
-    mainExpr = E.Var defaultPos (Name (Module "") "main")
+    mainExpr = E.Var defaultPos (Name (Module "") (Unqualified "main"))
 
 dir :: FilePath
 dir = dropExtension __FILE__

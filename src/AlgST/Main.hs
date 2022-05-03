@@ -76,7 +76,7 @@ main = do
         -- TODO: Use the actual module here!
         Module ""
       mainVar =
-        Name {nameModule = mainModule, nameUnqualified = "main"}
+        Name {nameModule = mainModule, nameUnqualified = Unqualified "main"}
       mainDecl =
         Map.lookup mainVar (programValues checked)
   case mainDecl of

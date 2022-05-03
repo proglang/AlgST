@@ -12,7 +12,7 @@ pattern Builtin :: String -> Name s
 pattern Builtin s =
   Name
     { nameModule = BuiltinsModule,
-      nameUnqualified = s
+      nameUnqualified = Unqualified s
     }
 
 pattern TypeInt :: TypeVar

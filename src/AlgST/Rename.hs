@@ -102,7 +102,8 @@ withRenamedProgram p f = runRename $ renameProgram p >>= f
 freshNC :: Name s -> RnM (Name s)
 freshNC name = do
   n <- get <* modify' (+ 1)
-  pure name {nameUnqualified = nameUnqualified name ++ '_' : show n}
+  let Unqualified u = nameUnqualified name
+  pure name {nameUnqualified = Unqualified $ u ++ '_' : show n}
 
 freshParamsNC :: D.Params -> RnM D.Params
 freshParamsNC = traverse $ bitraverse (traverse freshNC) pure
