@@ -13,7 +13,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE UnliftedFFITypes #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- | This module defines an extensible way to traverse the variables in syntax
@@ -87,6 +86,11 @@ class Applicative f => SynTraversal f x y where
   valueVariable :: Pxy x y -> E.XVar x -> XName x Values -> f (E.Exp y)
   typeVariable :: Pxy x y -> T.XVar x -> XName x Types -> f (T.Type y)
 
+  -- | Lift a type/value constructor from stage @x@ to stage @y@.
+  --
+  -- To gurantee invariants assumed by 'traverseNameMap' no two constructor
+  -- names which compare different in stage @x@ may be turned into names which
+  -- compare equal in stage @y@.
   useConstructor ::
     SingI scope =>
     Pxy x y ->
@@ -181,15 +185,12 @@ data Substitutions x = Substitutions
     typeVarSubs :: !(NameMapG (XStage x) Types (T.Type x))
   }
 
--- TODO: Remove `XStage x ~ Written`.
--- TODO: Remove `XStage y ~ Written`.
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
-    E.SameX x y,
     SynTraversable (T.XType x) x (T.XType y) y,
+    E.SameX x y,
     T.SameX x y,
-    XStage x ~ Written,
-    XStage y ~ Written
+    XStage x ~ XStage y
   ) =>
   SynTraversable (Substitutions x) x (Substitutions y) y
   where
@@ -211,10 +212,7 @@ termSubstitions :: NameMapG (XStage x) Values (E.Exp x) -> Substitutions x
 termSubstitions s = emptySubstitutions {progVarSubs = s}
 
 -- TODO: Remove `XStage x ~ Written`.
-instance
-  (Monad m, x ~ y, XStage x ~ Written) =>
-  SynTraversal (ReaderT (Substitutions x) m) x y
-  where
+instance (Monad m, x ~ y) => SynTraversal (ReaderT (Substitutions x) m) x y where
   valueVariable _ x = etaReaderT . asks . subVar (E.Var x) progVarSubs
   typeVariable _ x = etaReaderT . asks . subVar (T.Var x) typeVarSubs
   useConstructor _ = pure
@@ -239,7 +237,7 @@ subVar def f v = fromMaybe (def v) . Map.lookup v . f
 -- TODO: Remove `XStage x ~ Written`.
 applySubstitutions ::
   forall a x.
-  (SynTraversable a x a x, XStage x ~ Written) =>
+  (SynTraversable a x a x) =>
   Substitutions x ->
   (a -> a)
 applySubstitutions s a
@@ -305,15 +303,11 @@ instance
   where
   traverseSyntax pxy = bitraverse (traverseSyntax pxy) (traverseSyntax pxy)
 
--- TODO: Remove `XStage x ~ Written`.
--- TODO: Remove `XStage y ~ Written`.
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
-    E.SameX x y,
     SynTraversable (T.XType x) x (T.XType y) y,
-    T.SameX x y,
-    XStage x ~ Written,
-    XStage y ~ Written
+    E.SameX x y,
+    T.SameX x y
   ) =>
   SynTraversable (E.Exp x) x (E.Exp y) y
   where
@@ -344,10 +338,11 @@ instance
         <*> traverseSyntax pxy e
         <*> bindOne pxy v \v' -> (v',) <$> traverseSyntax pxy k
     E.PatLet x v vs e k -> do
-      let patLet e' (vs', k') =
-            E.PatLet x v vs' e' k'
+      let patLet v' e' (vs', k') =
+            E.PatLet x v' vs' e' k'
       patLet
-        <$> traverseSyntax pxy e
+        <$> useConstructor pxy v
+        <*> traverseSyntax pxy e
         <*> bind pxy (Compose vs) \(Compose vs') -> (vs',) <$> traverseSyntax pxy k
     E.Rec x v ty e -> do
       let expRec ty' (v', e') =
@@ -375,7 +370,8 @@ instance
       E.New x
         <$> traverseSyntax pxy t
     E.Select x c ->
-      pure (E.Select x c)
+      E.Select x
+        <$> traverse (useConstructor pxy) c
     E.Fork x e ->
       E.Fork x
         <$> traverseSyntax pxy e
@@ -386,15 +382,11 @@ instance
       E.Exp
         <$> traverseSyntax pxy x
 
--- TODO: Remove `XStage x ~ Written`.
--- TODO: Remove `XStage y ~ Written`.
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
-    E.SameX x y,
     SynTraversable (T.XType x) x (T.XType y) y,
-    T.SameX x y,
-    XStage x ~ Written,
-    XStage y ~ Written
+    E.SameX x y,
+    T.SameX x y
   ) =>
   SynTraversable (E.RecLam x) x (E.RecLam y) y
   where
@@ -402,35 +394,27 @@ instance
     E.RecTermAbs x b -> E.RecTermAbs x <$> traverseSyntax pxy b
     E.RecTypeAbs x b -> E.RecTypeAbs x <$> traverseSyntax pxy b
 
--- TODO: Remove `XStage x ~ Written`.
--- TODO: Remove `XStage y ~ Written`.
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
-    E.SameX x y,
     SynTraversable (T.XType x) x (T.XType y) y,
+    E.SameX x y,
     T.SameX x y,
     Traversable f,
-    Traversable g,
-    XStage x ~ Written,
-    XStage y ~ Written
+    Traversable g
   ) =>
   SynTraversable (E.CaseMap' f g x) x (E.CaseMap' f g y) y
   where
   traverseSyntax pxy cm =
     E.CaseMap
-      <$> traverse (traverseSyntax pxy) (E.casesPatterns cm)
+      <$> traverseNameMap pxy (traverseSyntax pxy) (E.casesPatterns cm)
       <*> traverse (traverseSyntax pxy) (E.casesWildcard cm)
 
--- TODO: Remove `XStage x ~ Written`.
--- TODO: Remove `XStage y ~ Written`.
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
-    E.SameX x y,
     SynTraversable (T.XType x) x (T.XType y) y,
+    E.SameX x y,
     T.SameX x y,
-    Traversable f,
-    XStage x ~ Written,
-    XStage y ~ Written
+    Traversable f
   ) =>
   SynTraversable (E.CaseBranch f x) x (E.CaseBranch f y) y
   where
@@ -443,15 +427,11 @@ instance
             E.branchExp = e
           }
 
--- TODO: Remove `XStage x ~ Written`.
--- TODO: Remove `XStage y ~ Written`.
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
-    E.SameX x y,
     SynTraversable (T.XType x) x (T.XType y) y,
-    T.SameX x y,
-    XStage x ~ Written,
-    XStage y ~ Written
+    E.SameX x y,
+    T.SameX x y
   ) =>
   SynTraversable (E.Bind x) x (E.Bind y) y
   where
@@ -462,13 +442,9 @@ instance
       <$> traverseSyntax pxy t
       <*> bindOne pxy v (\v' -> (v',) <$> traverseSyntax pxy e)
 
--- TODO: Remove `XStage x ~ Written`.
--- TODO: Remove `XStage y ~ Written`.
 instance
   ( SynTraversable (T.XType x) x (T.XType y) y,
-    T.SameX x y,
-    XStage x ~ Written,
-    XStage y ~ Written
+    T.SameX x y
   ) =>
   SynTraversable (T.Type x) x (T.Type y) y
   where
@@ -495,7 +471,8 @@ instance
     T.Var x v ->
       typeVariable pxy x v
     T.Con x v ->
-      pure (T.Con x v)
+      T.Con x
+        <$> useConstructor pxy v
     T.App x t u ->
       T.App x
         <$> traverseSyntax pxy t
@@ -520,3 +497,16 @@ instance
   traverseSyntax pxy (K.Bind p v k t) =
     bindOne pxy v \v' ->
       K.Bind p v' k <$> traverseSyntax pxy t
+
+traverseNameMap ::
+  (SynTraversal f x y, SingI scope) =>
+  Pxy x y ->
+  (a -> f b) ->
+  NameMapG (XStage x) scope a ->
+  f (NameMapG (XStage y) scope b)
+traverseNameMap pxy f =
+  -- We can't assume that 'useConstructor' is monotonic in respect to name
+  -- ordering.
+  Map.toAscList
+    >>> traverse (bitraverse (useConstructor pxy) f)
+    >>> fmap Map.fromList
