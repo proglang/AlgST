@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 module AlgST.Syntax.Operators where
 
 import AlgST.Builtins.Names
@@ -36,7 +38,7 @@ data Info s = Info
 --
 -- Note that since this uses the operators' unqualified names as keys we
 -- currently are not able to support user defined operators.
-knownOperators :: Map.Map Unqualified (Info ProgVar)
+knownOperators :: Map.Map Unqualified (Info (ProgVar Written))
 knownOperators = Map.unions (opMap <$> ops)
   where
     ops =
@@ -57,7 +59,7 @@ knownOperators = Map.unions (opMap <$> ops)
         Info "<|" R PBackward
       ]
 
-    opMap :: Info String -> Map.Map Unqualified (Info ProgVar)
+    opMap :: Info String -> Map.Map Unqualified (Info (ProgVar Written))
     opMap op =
       let name1 = opName op
           name2 = operatorValueName (opName op)

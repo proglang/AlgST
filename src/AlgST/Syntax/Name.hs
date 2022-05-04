@@ -41,6 +41,8 @@ module AlgST.Syntax.Name
     nextResolvedId,
 
     -- ** Abbreviations
+    NameW,
+    NameR,
     ProgVar,
     TypeVar,
     NameMap,
@@ -163,9 +165,12 @@ firstResolvedId = ResolvedId 0
 nextResolvedId :: ResolvedId -> ResolvedId
 nextResolvedId (ResolvedId w) = ResolvedId (w + 1)
 
-type ProgVar = Name Written Values
-
-type TypeVar = Name Written Types
+{- ORMOLU_DISABLE -}
+type NameW = Name Written
+type NameR = Name Resolved
+type ProgVar stage = Name stage Values
+type TypeVar stage = Name stage Types
+{- ORMOLU_ENABLE -}
 
 type Name :: Stage -> Scope -> Type
 data Name stage scope where
@@ -270,7 +275,7 @@ type ANameLike :: Type -> Stage -> Constraint
 class ANameLike name stage where
   foldName :: (Name stage Types -> a) -> (Name stage Values -> a) -> name -> a
 
-instance SingI scope => ANameLike (Name stage scope) stage where
+instance (stage ~ stage', SingI scope) => ANameLike (Name stage scope) stage' where
   foldName f g n = eitherName @scope (f n) (g n)
 
 instance stage ~ stage' => ANameLike (ANameG stage) stage' where

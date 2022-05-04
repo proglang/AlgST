@@ -228,7 +228,7 @@ typeAliasTree D.TypeAlias {..} =
     Node "alias" $ labeledTree aliasType
   ]
 
-nominalDeclTree :: (a -> [LabTree]) -> D.TypeNominal a -> [Tree [Char]]
+nominalDeclTree :: (a -> [LabTree]) -> D.TypeNominal stage a -> [Tree [Char]]
 nominalDeclTree f D.TypeNominal {..} =
   [ Node "kind" [leaf (show nominalKind)],
     Node "parameters" (paramsTree nominalParams),
@@ -236,7 +236,7 @@ nominalDeclTree f D.TypeNominal {..} =
       labeledMapTree (const . describeName) (\_ -> concatMap f . snd) nominalConstructors
   ]
 
-paramsTree :: D.Params -> [LabTree]
+paramsTree :: D.Params stage -> [LabTree]
 paramsTree ps = [leaf $ "(" ++ describeName p ++ ":" ++ show k ++ ")" | (_ :@ p, k) <- ps]
 
 instance (T.ForallX LabeledTree x) => LabeledTree (D.SignatureDecl x) where
@@ -300,7 +300,7 @@ labeledMapTree ::
   [LabTree]
 labeledMapTree f g = fmap (\(a, b) -> Node (f a b) (g a b)) . Map.toList
 
-kbindNode :: LabeledTree a => String -> K.Bind a -> LabTree
+kbindNode :: LabeledTree a => String -> K.Bind stage a -> LabTree
 kbindNode con (K.Bind _ v k a) =
   let label = unwords [con, describeName v ++ ":" ++ show k]
    in Node label $ labeledTree a

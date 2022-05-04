@@ -71,7 +71,7 @@ instance Unparse TcExpX where
 -- combinations after type checking.
 data TypeRef = TypeRef
   { typeRefPos :: Pos,
-    typeRefName :: !TypeVar,
+    typeRefName :: !(TypeVar TcStage),
     typeRefArgs :: [TcType],
     typeRefKind :: !K.Kind
   }
@@ -79,13 +79,13 @@ data TypeRef = TypeRef
 instance Position TypeRef where
   pos = typeRefPos
 
-instance Equivalence TypeRef where
-  alpha w m r1 r2 =
+instance Equivalence TcStage TypeRef where
+  alpha proxy w m r1 r2 =
     and $
       (typeRefName r1 == typeRefName r2) :
       -- Given that both 'TypeRef's have the same name they must have the same
       -- number of arguments.
-      zipWith (alpha w m) (typeRefArgs r1) (typeRefArgs r2)
+      zipWith (alpha proxy w m) (typeRefArgs r1) (typeRefArgs r2)
 
 instance SynTraversable TypeRef Tc TypeRef Tc where
   traverseSyntax proxy ref = do
@@ -150,7 +150,8 @@ type TcCaseMap f g         = E.CaseMap' f g Tc
 type TcProgram             = Program Tc
 
 -- TODO: Change to `Resolved`.
-type instance XStage    Tc = Written
+type TcStage               = Written
+type instance XStage    Tc = TcStage
 
 type instance E.XLit    Tc = Pos
 type instance E.XVar    Tc = Pos

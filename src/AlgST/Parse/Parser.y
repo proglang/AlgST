@@ -180,19 +180,19 @@ Decl :: { ProgBuilder }
 TySig :: { PType }
   : ':' Type     { $2 }
 
-TypeParams :: { [(Located TypeVar, K.Kind)] }
+TypeParams :: { [(Located (TypeVar PStage), K.Kind)] }
   : {- empty -}   { [] }
   | TypeParams1   { toList $1 }
 
 -- A `forall` requires a non-empty list of type var bindings.
-TypeParams1 :: { NonEmpty (Located TypeVar, K.Kind) }
+TypeParams1 :: { NonEmpty (Located (TypeVar PStage), K.Kind) }
   : bindings1(KindBind) {% $1 \(locName, _) -> Identity locName }
 
-DataCons :: { Constructors PType }
+DataCons :: { Constructors PStage PType }
   : DataCon              {  uncurry Map.singleton $1 }
   | DataCons '|' DataCon {% uncurry insertNoDuplicates $3 $1 }
 
-DataCon :: { (ProgVar, (Pos, [PType])) }
+DataCon :: { (ProgVar PStage, (Pos, [PType])) }
   : Constructor TypeSeq { (unL $1, (pos $1, DL.toList $2)) }
 
 ValueParams :: { [Located AName] }
@@ -266,7 +266,7 @@ TypeApps :: { DL.DList PType }
   : Type                           { DL.singleton $1 }
   | TypeApps ',' Type              { $1 `DL.snoc` $3 }
   
-RecExp :: { forall a. (Pos -> ProgVar -> PType -> E.RecLam Parse -> a) -> ParseM a }
+RecExp :: { forall a. (Pos -> ProgVar PStage -> PType -> E.RecLam Parse -> a) -> ParseM a }
   : rec ProgVar TySig '=' Exp {
       \f -> case $5 of
         E.RecAbs r -> pure $ f (pos $1) (unL $2) $3 r
@@ -305,10 +305,11 @@ Abs :: { (Multiplicity -> Endo PExp, Any) }
             )
       let build (loc, abs) =
             either (termAbs loc) (typeAbs loc) abs
-      pure $ foldMap build (binds :: NonEmpty (Pos, Either (ProgVar, PType) (TypeVar, K.Kind)))
+      pure $ foldMap build (binds ::
+        NonEmpty (Pos, Either (ProgVar PStage, PType) (TypeVar PStage, K.Kind)))
     }
 
-Abs1 :: { (Pos, Either (ProgVar, PType) (TypeVar, K.Kind)) } 
+Abs1 :: { (Pos, Either (ProgVar PStage, PType) (TypeVar PStage, K.Kind)) } 
   : '(' wildcard(ProgVar) ':' Type ')' { (pos $1, Left (unL $2, $4)) }
   | '[' wildcard(TypeVar) ':' Kind ']' { (pos $1, Right (unL $2, unL $4)) }
 
@@ -346,7 +347,7 @@ Case :: { PCaseMap -> ParseM PCaseMap }
       pure pcm{ E.casesWildcard = Just wildBranch }
     }
 
-Pattern :: { (Located ProgVar, [Located ProgVar]) }
+Pattern :: { (Located (ProgVar PStage), [Located (ProgVar PStage)]) }
   : Constructor ProgVarWildSeq            { ($1, $2) }
   | '(,)' ProgVarWildSeq                  { ($1 @- PairCon, $2) }
   | '(' ProgVarWild ',' ProgVarWild ')'   {% do
@@ -355,7 +356,7 @@ Pattern :: { (Located ProgVar, [Located ProgVar]) }
       pure ($1 @- PairCon, [$2, $4])
     }
 
-ProgVarWildSeq :: { [Located ProgVar] }
+ProgVarWildSeq :: { [Located (ProgVar PStage)] }
   : bindings(ProgVarWild)   {% $1 \v ->
       -- Only check for duplicates if it is not a wildcard.
       if isWild (unL v)
@@ -363,19 +364,19 @@ ProgVarWildSeq :: { [Located ProgVar] }
       else Just v
     }
 
-Op :: { Located ProgVar }
+Op :: { Located (ProgVar PStage) }
   : OPERATOR  {% ($1 @-) `fmap` mkName (getText $1) }
   | '+'       {% ($1 @-) `fmap` mkName "+" }
   | '-'       {% ($1 @-) `fmap` mkName "-" }
 
-OpTys :: { (Located ProgVar, [PType]) }
+OpTys :: { (Located (ProgVar PStage), [PType]) }
   : OpTys_                    { DL.toList `fmap` $1 }
 
-OpTys_ :: { (Located ProgVar, DL.DList PType) }
+OpTys_ :: { (Located (ProgVar PStage), DL.DList PType) }
   : Op                        { ($1, DL.empty) }
   | OpTys_ '[' TypeApps ']'   { let (op, tys) = $1 in (op, tys <> $3) }
 
-OpsExp :: { OpSeq OpsExp (Located ProgVar, [PType]) }
+OpsExp :: { OpSeq OpsExp (Located (ProgVar PStage), [PType]) }
   : EApp OpTys           { Operand $1 $ Operator $2 Nil }
   | EApp OpTys EAppTail  { Operand $1 $ Operator $2 $ Operand $3 Nil }
   | EApp OpTys OpsExp    { Operand $1 $ Operator $2 $3 }
@@ -459,14 +460,14 @@ Kind :: { Located K.Kind }
 
 -- PROGRAM VARIABLE
 
-ProgVar :: { Located ProgVar }
+ProgVar :: { Located (ProgVar PStage) }
   : LOWER_ID {% ($1 @-) `fmap` mkName (getText $1) }
 
-Constructor :: { Located ProgVar }
+Constructor :: { Located (ProgVar PStage) }
   : UPPER_ID {% ($1 @-) `fmap` mkName (getText $1) }
   | Kind     {% ($1 @-) `fmap` mkName (show (unL $1)) }
 
-ProgVarWild :: { Located ProgVar }
+ProgVarWild :: { Located (ProgVar PStage) }
   : wildcard(ProgVar)   { $1 }
 
 -- bindings(p) :
@@ -510,19 +511,19 @@ wildcard(v)
 
 -- TYPE VARIABLE
 
-TypeVar :: { Located TypeVar }
+TypeVar :: { Located (TypeVar PStage) }
   : LOWER_ID {% ($1 @-) `fmap` mkName (getText $1) }
 
-TypeName :: { Located TypeVar }
+TypeName :: { Located (TypeVar PStage) }
   : UPPER_ID {% ($1 @-) `fmap` mkName (getText $1) }
   | KIND     {% ($1 @-) `fmap` mkName (show $1) }
 
-KindBind :: { (Located TypeVar, K.Kind) }
+KindBind :: { (Located (TypeVar PStage), K.Kind) }
   : '(' TypeVar ':' Kind ')'  { ($2, unL $4) }
   | '(' TypeVar ')'           { ($2, K.TU) }
   | TypeVar                   { ($1, K.TU) }
 
-KindedTVar :: { (Located TypeVar, Maybe K.Kind) }
+KindedTVar :: { (Located (TypeVar PStage), Maybe K.Kind) }
   : TypeName ':' Kind { ($1, Just (unL $3)) }
   | TypeName          { ($1, Nothing) }
 

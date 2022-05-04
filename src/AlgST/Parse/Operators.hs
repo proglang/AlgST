@@ -49,7 +49,7 @@ deriving instance Traversable (OpSeq first)
 parseOperators ::
   MonadValidate [Diagnostic] m =>
   Parenthesized ->
-  OpSeq first (Located ProgVar, [PType]) ->
+  OpSeq first (Located (ProgVar Written), [PType]) ->
   m PExp
 parseOperators ps = resolveOperators >=> (groupOperators >>> foldGroupedOperators ps)
 
@@ -66,10 +66,10 @@ data OpGrouping = OpGrouping
 
 data ResolvedOp = ResolvedOp
   { -- | unparenthesized name
-    operatorName :: ProgVar,
+    operatorName :: ProgVar Written,
     operatorLoc :: Pos,
     operatorTyArgs :: [PType],
-    operatorInfo :: Info ProgVar
+    operatorInfo :: Info (ProgVar Written)
   }
 
 instance Position ResolvedOp where
@@ -222,7 +222,7 @@ resolveOperators ::
   ( MonadValidate [Diagnostic] m,
     Traversable f
   ) =>
-  f (Located ProgVar, [PType]) ->
+  f (Located (ProgVar Written), [PType]) ->
   m (f ResolvedOp)
 resolveOperators = traverse \case
   (p :@ v, tys)
@@ -265,7 +265,7 @@ groupOperators = \case
       Operator op (Operand e ops) ->
         go mLhs (DL.snoc groupedOps (op, e)) ops
 
-errorMissingBothOperands :: Pos -> ProgVar -> Diagnostic
+errorMissingBothOperands :: Pos -> ProgVar Written -> Diagnostic
 errorMissingBothOperands loc v =
   PosError
     loc
@@ -310,7 +310,7 @@ errorUnsupportedRightSection =
     ]
 {-# NOINLINE errorUnsupportedRightSection #-}
 
-errorUnknownOperator :: Pos -> ProgVar -> Diagnostic
+errorUnknownOperator :: Pos -> ProgVar Written -> Diagnostic
 errorUnknownOperator loc v =
   PosError
     loc

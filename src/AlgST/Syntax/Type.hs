@@ -35,7 +35,6 @@ module AlgST.Syntax.Type
 where
 
 import AlgST.Syntax.Kind qualified as K
-import AlgST.Syntax.Name
 import AlgST.Syntax.Phases
 import Language.Haskell.TH.Syntax (Lift)
 import Syntax.Base
@@ -115,11 +114,11 @@ data Type x
   | -- | > End _                      ~ end
     End (XEnd x)
   | -- | > Forall _ (K.Bind _ v k t)  ~ ∀(v:k). t
-    Forall (XForall x) (K.Bind (Type x))
+    Forall (XForall x) (K.Bind (XStage x) (Type x))
   | -- | Var _ v                      ~ v
-    Var (XVar x) !TypeVar
+    Var (XVar x) !(XTypeVar x)
   | -- | Con _ c                      ~ c
-    Con (XCon x) !TypeVar
+    Con (XCon x) !(XTypeVar x)
   | -- | App _ t₁ t₂                  ~ t₁ t₂
     App (XApp x) (Type x) (Type x)
   | -- | Dualof _ t                   ~ dual t

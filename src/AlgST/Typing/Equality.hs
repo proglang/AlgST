@@ -1,36 +1,50 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module AlgST.Typing.Equality where
 
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
+import AlgST.Syntax.Phases
 import AlgST.Syntax.Type qualified as T
+import Data.Coerce
+import Data.Kind
 import Data.Map.Strict qualified as Map
 import Data.Void
-
-class Equivalence a where
-  -- | Checks for alpha equivalence.
-  --
-  -- Correctness is only guaranteed if both have been renamed by the same renamer.
-  alpha :: Word -> ANameMap Word -> a -> a -> Bool
-
-instance Equivalence Void where
-  alpha _ _ = absurd
+import GHC.Exts (Proxy#, proxy#)
 
 -- | Use this newtype wrapper to compare two syntax elements with 'Equivalence'
 -- instances for alpha equivalence.
-newtype Alpha a = Alpha a
+type Alpha :: Stage -> Type -> Type
+newtype Alpha stage a = Alpha a
 
-instance Equivalence a => Eq (Alpha a) where
-  Alpha a == Alpha b = alpha 0 mempty a b
+instance Equivalence stage a => Eq (Alpha stage a) where
+  (==) = coerce (alpha @stage @a proxy# 0 mempty)
 
-instance Equivalence (T.XType x) => Equivalence (T.Type x) where
-  alpha = go
+class Equivalence stage a where
+  -- | Checks for alpha equivalence.
+  --
+  -- Correctness is only guaranteed if both have been renamed by the same renamer.
+  alpha :: Proxy# stage -> Word -> ANameMapG stage Word -> a -> a -> Bool
+
+instance Equivalence stage Void where
+  alpha _ _ _ = absurd
+
+instance
+  (Equivalence stage (T.XType x), XStage x ~ stage) =>
+  Equivalence stage (T.Type x)
+  where
+  alpha proxy = go
     where
-      go :: Equivalence (T.XType x) => Word -> ANameMap Word -> T.Type x -> T.Type x -> Bool
       go !_ _ (T.Unit _) (T.Unit _) =
         True
       go w m (T.Arrow _ m1 t1 u1) (T.Arrow _ m2 t2 u2) =
@@ -75,6 +89,6 @@ instance Equivalence (T.XType x) => Equivalence (T.Type x) where
       go w m (T.Dualof _ t1) (T.Dualof _ t2) =
         go w m t1 t2
       go w m (T.Type x) (T.Type y) =
-        alpha w m x y
+        alpha proxy w m x y
       go _ _ _ _ =
         False

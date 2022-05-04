@@ -138,9 +138,9 @@ data Lit
 data Exp x
   = Lit (XLit x) !Lit
   | -- | > Var _ v                    ~ v
-    Var (XVar x) !ProgVar
+    Var (XVar x) !(XProgVar x)
   | -- | > Con _ c                    ~ c
-    Con (XCon x) !ProgVar
+    Con (XCon x) !(XProgVar x)
   | -- | > Abs _ (Bind _ Un  x t e)   ~ \(x:t) -> e
     --   > Abs _ (Bind _ Lin x t e)   ~ \(x:t) -o e
     Abs (XAbs x) (Bind x)
@@ -153,23 +153,23 @@ data Exp x
   | -- | > Case _ e c                 ~ case e of { c }
     Case (XCase x) (Exp x) (CaseMap x)
   | -- | > TypeAbs _ (K.Bind _ v k e) ~ \[v:k] -> e
-    TypeAbs (XTAbs x) (K.Bind (Exp x))
+    TypeAbs (XTAbs x) (K.Bind (XStage x) (Exp x))
   | -- | > TypeApp _ e t              ~ e [t]
     TypeApp (XTApp x) (Exp x) (T.Type x)
   | -- | > UnLet _ x Nothing  e₁ e₂   ~ let x     = e₁ in e₂
     --   > UnLet _ x (Just t) e₁ e₂   ~ let x : t = e₁ in e₂
-    UnLet (XUnLet x) !ProgVar (Maybe (T.Type x)) (Exp x) (Exp x)
+    UnLet (XUnLet x) !(XProgVar x) (Maybe (T.Type x)) (Exp x) (Exp x)
   | -- | > PatLet _ c [x̅] e₁ e₂       ~ let c x̅ = e₁ in e₂
     --
     -- The first 'ProgVar' should be constructor name, the remaining 'ProgVar's
     -- should be variable names or wildcards.
-    PatLet (XPatLet x) !ProgVar [Located ProgVar] (Exp x) (Exp x)
+    PatLet (XPatLet x) !(XProgVar x) [Located (XProgVar x)] (Exp x) (Exp x)
   | -- | > Rec _ x t r                ~ rec x : t = r
-    Rec (XRec x) !ProgVar (T.Type x) (RecLam x)
+    Rec (XRec x) !(XProgVar x) (T.Type x) (RecLam x)
   | -- | > New _ t                    ~ new [t]
     New (XNew x) (T.Type x)
   | -- | > Select _ c                 ~ select c
-    Select (XSelect x) !(Located ProgVar)
+    Select (XSelect x) !(Located (XProgVar x))
   | -- | > Fork _ e                   ~ fork e
     Fork (XFork x) (Exp x)
   | -- | > Fork_ _ e                  ~ fork_ e
@@ -184,7 +184,7 @@ deriving stock instance (ForallX Lift x, T.ForallX Lift x) => Lift (Exp x)
 -- abstraction.
 data RecLam x
   = RecTermAbs (XAbs x) (Bind x)
-  | RecTypeAbs (XTAbs x) (K.Bind (RecLam x))
+  | RecTypeAbs (XTAbs x) (K.Bind (XStage x) (RecLam x))
 
 deriving stock instance (ForallX Lift x, T.ForallX Lift x) => Lift (RecLam x)
 
@@ -217,7 +217,7 @@ type CaseMap x = CaseMap' [] Maybe x
 -- | A map from constructor names to 'CaseBranch'es, plus potentially a wildcard
 -- branch.
 data CaseMap' f g x = CaseMap
-  { casesPatterns :: NameMap Values (CaseBranch f x),
+  { casesPatterns :: NameMapG (XStage x) Values (CaseBranch f x),
     casesWildcard :: g (CaseBranch Identity x)
   }
 
@@ -233,8 +233,8 @@ emptyCaseMap :: Alternative g => CaseMap' f g x
 emptyCaseMap = CaseMap mempty empty
 
 data CaseBranch f x = CaseBranch
-  { branchPos :: !Pos,
-    branchBinds :: !(f (Located ProgVar)),
+  { branchPos :: Pos,
+    branchBinds :: f (Located (XProgVar x)),
     branchExp :: Exp x
   }
 
@@ -269,7 +269,7 @@ instance ForallX Position x => Position (Exp x) where
 
 type family XBind x
 
-data Bind x = Bind (XBind x) !Multiplicity !ProgVar (T.Type x) (Exp x)
+data Bind x = Bind (XBind x) !Multiplicity !(XProgVar x) (T.Type x) (Exp x)
 
 deriving stock instance (ForallX Lift x, T.ForallX Lift x) => Lift (Bind x)
 

@@ -46,7 +46,7 @@ import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
 import AlgST.Syntax.Program
-import AlgST.Typing.Phase (Tc, TcBind, TcExp, TcExpX (..), TcProgram)
+import AlgST.Typing.Phase (Tc, TcBind, TcExp, TcExpX (..), TcProgram, TcStage)
 import AlgST.Util.Lenses
 import AlgST.Util.Output
 import Control.Concurrent
@@ -79,7 +79,7 @@ import Prelude hiding (log)
 -- updated after evaluation.
 --
 -- FIXME: Caching of global values seems reasonable.
-type Env = Map.Map ProgVar (Either TcExp Value)
+type Env = Map.Map (ProgVar TcStage) (Either TcExp Value)
 
 -- | A list of spawned threads.
 type ThreadList = [Async ()]
@@ -165,12 +165,12 @@ data Value
     Closure String (Located Value -> EvalM Value)
   | -- | A fully applied constructor. This includes pairs. See the 'Pair'
     -- pattern synonym for more information about their representation.
-    Con !ProgVar [Value]
+    Con !(ProgVar TcStage) [Value]
   | -- | Endpoint to a channel. The 'Side' is an indicator for the user.
     Endpoint !Channel
   | -- | Labels can't be constructed by the user. The are user to handle
     -- select/case operations on channels.
-    Label !ProgVar
+    Label !(ProgVar TcStage)
   | Number !Integer
   | String !String
   | Char !Char
@@ -222,9 +222,9 @@ instance Show Value where
 
 data Type a where
   TClosure :: Type (Located Value -> EvalM Value)
-  TCon :: Type (ProgVar, [Value])
+  TCon :: Type (ProgVar TcStage, [Value])
   TChannel :: Type Channel
-  TLabel :: Type ProgVar
+  TLabel :: Type (ProgVar TcStage)
   TNumber :: Type Integer
   TString :: Type String
   TChar :: Type Char
@@ -330,7 +330,7 @@ programEnvironment p =
   LMap.mapMaybeWithKey (\k -> either (conValue k) (globValue k)) (programValues p)
     <> builtinsEnv
   where
-    conValue :: ProgVar -> ConstructorDecl Tc -> Maybe (Either TcExp Value)
+    conValue :: ProgVar TcStage -> ConstructorDecl Tc -> Maybe (Either TcExp Value)
     conValue !name = \case
       DataCon _ _ _ _ args ->
         -- Data constructors correspond to closures evaluating to a 'Con' value.
@@ -351,7 +351,7 @@ programEnvironment p =
         -- Protocol constructors can't appear as values after type checking.
         Nothing
 
-    globValue :: ProgVar -> ValueDecl Tc -> Maybe (Either TcExp Value)
+    globValue :: ProgVar TcStage -> ValueDecl Tc -> Maybe (Either TcExp Value)
     globValue _ !d =
       -- The bodies of 'ValueDecl's (after TC) already contain the parameter
       -- lambda abstractions.
@@ -613,12 +613,12 @@ bindClosure env bind@(E.Bind _ _ v _ body) =
     localEnv (const env') $ eval body
 
 -- Establish a set of bindings locally.
-localBinds :: [(ProgVar, Value)] -> EvalM a -> EvalM a
+localBinds :: [(ProgVar TcStage, Value)] -> EvalM a -> EvalM a
 localBinds binds = localEnv \e -> Right `fmap` Map.fromList binds <> e
 
 -- | Looks for the given variable in the current environment. If it resovles to
 -- a top-level expression it will be evaluated before returning.
-lookupEnv :: HasCallStack => Pos -> ProgVar -> EvalM Value
+lookupEnv :: HasCallStack => Pos -> ProgVar TcStage -> EvalM Value
 lookupEnv p v =
   askEnv
     >>= maybe (failInterpet p err) pure . Map.lookup v
@@ -657,7 +657,7 @@ unwrap p ty v =
       TChar -> "a char"
       TClosure -> "a closure"
 
-unmatchableConstructor :: Pos -> ProgVar -> EvalM a
+unmatchableConstructor :: Pos -> ProgVar TcStage -> EvalM a
 unmatchableConstructor p c = failInterpet p $ "unmatchable constructor " ++ pprName c
 {-# NOINLINE unmatchableConstructor #-}
 

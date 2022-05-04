@@ -91,16 +91,16 @@ addErrors (e : es) = dispute $ DL.fromNonEmpty $ e :| es
 fatalError :: Diagnostic -> ParseM a
 fatalError = refute . DL.singleton
 
-resolveOpSeq :: Parenthesized -> OpSeq first (Located ProgVar, [PType]) -> ParseM PExp
+resolveOpSeq :: Parenthesized -> OpSeq first (Located (ProgVar PStage), [PType]) -> ParseM PExp
 resolveOpSeq ps = mapErrors DL.fromList . parseOperators ps
 
 typeConstructors ::
-  TypeVar ->
+  TypeVar PStage ->
   TypeDecl Parse ->
   NameMap Values (ConstructorDecl Parse)
 typeConstructors = declConstructors originAt originAt
 
-type IncompleteValueDecl = Maybe (Located ProgVar, PType)
+type IncompleteValueDecl = Maybe (Located (PName Values), PType)
 
 type ProgBuilder =
   Kleisli (StateT IncompleteValueDecl ParseM) PProgram PProgram
@@ -121,13 +121,13 @@ completePrevious = Kleisli \p -> do
       imports <- lift $ insertNoDuplicates name decl (programImports p)
       pure p {programImports = imports}
 
-programValueDecl :: Located ProgVar -> PType -> ProgBuilder
+programValueDecl :: Located (ProgVar PStage) -> PType -> ProgBuilder
 programValueDecl valueName ty =
   completePrevious >>> Kleisli \p -> do
     put $ Just (valueName, ty)
     pure p
 
-programValueBinding :: Located ProgVar -> [Located AName] -> PExp -> ProgBuilder
+programValueBinding :: Located (ProgVar PStage) -> [Located AName] -> PExp -> ProgBuilder
 programValueBinding valueName params e = Kleisli \p0 -> do
   mincomplete <- get
   p <-
@@ -170,7 +170,7 @@ programValueBinding valueName params e = Kleisli \p0 -> do
         addErrors [uncurryL errorImportShadowed valueName]
       pure p {programValues = parsedValues'}
 
-programTypeDecl :: TypeVar -> TypeDecl Parse -> ProgBuilder
+programTypeDecl :: TypeVar PStage -> TypeDecl Parse -> ProgBuilder
 programTypeDecl v tydecl =
   completePrevious >>> Kleisli \p -> do
     parsedTypes' <- lift $ insertNoDuplicates v tydecl (programTypes p)
@@ -208,25 +208,29 @@ class DuplicateError k a where
   duplicateError :: k -> a -> a -> Diagnostic
 
 -- | Message for duplicate type declarations.
-instance DuplicateError TypeVar (TypeDecl Parse) where
+instance DuplicateError (Name PStage Types) (TypeDecl Parse) where
   duplicateError = errorMultipleDeclarations
 
 -- | Message for a duplicated top-level value declaration. This includes both
 -- constrcutor names between two declarations, and top-level functions.
-instance DuplicateError ProgVar (Either (ConstructorDecl Parse) (ValueDecl Parse)) where
+instance
+  DuplicateError
+    (Name PStage Values)
+    (Either (ConstructorDecl Parse) (ValueDecl Parse))
+  where
   duplicateError = errorMultipleDeclarations
 
-instance DuplicateError ProgVar (SignatureDecl Parse) where
+instance DuplicateError (Name PStage Values) (SignatureDecl Parse) where
   duplicateError = errorMultipleDeclarations
 
 -- | Message for a duplicated constructor inside a type declaration.
-instance DuplicateError ProgVar (Pos, [PType]) where
+instance DuplicateError (Name PStage Values) (Pos, [PType]) where
   duplicateError v (p1, _) (p2, _) = errorMultipleDeclarations v p1 p2
 
 -- | Message for a duplicate branch in a case expression:
 --
 -- > case … of { A -> …, A -> … }
-instance DuplicateError ProgVar (E.CaseBranch f Parse) where
+instance DuplicateError (Name PStage Values) (E.CaseBranch f Parse) where
   duplicateError = errorDuplicateBranch
 
 -- | Messages for any form of duplicate binding:
@@ -268,7 +272,7 @@ errorDuplicateBind name p1 p2 =
     ]
 {-# NOINLINE errorDuplicateBind #-}
 
-errorDuplicateBranch :: ProgVar -> E.CaseBranch f x -> E.CaseBranch f x -> Diagnostic
+errorDuplicateBranch :: ProgVar PStage -> E.CaseBranch f x -> E.CaseBranch f x -> Diagnostic
 errorDuplicateBranch name (pos -> p1) (pos -> p2) =
   PosError
     (max p1 p2)
@@ -282,7 +286,7 @@ errorDuplicateBranch name (pos -> p1) (pos -> p2) =
       Error (max p1 p2)
     ]
 
-errorImportShadowed :: Pos -> ProgVar -> Diagnostic
+errorImportShadowed :: Pos -> ProgVar PStage -> Diagnostic
 errorImportShadowed loc name =
   PosError
     loc

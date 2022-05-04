@@ -3,6 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module AlgST.Typing.Error where
 
@@ -101,7 +102,7 @@ noNormalform :: TcType -> Diagnostic
 noNormalform t = PosError (pos t) [Error "Malformed type:", Error t]
 {-# NOINLINE noNormalform #-}
 
-missingUse :: ProgVar -> Var -> Diagnostic
+missingUse :: ProgVar TcStage -> Var -> Diagnostic
 missingUse var Var {varLocation = loc} =
   PosError
     loc
@@ -111,7 +112,7 @@ missingUse var Var {varLocation = loc} =
     ]
 {-# NOINLINE missingUse #-}
 
-invalidConsumed :: Pos -> ProgVar -> Var -> Pos -> Diagnostic
+invalidConsumed :: Pos -> ProgVar TcStage -> Var -> Pos -> Diagnostic
 invalidConsumed contextLoc name var loc =
   PosError
     loc
@@ -128,7 +129,7 @@ invalidConsumed contextLoc name var loc =
     ]
 {-# NOINLINE invalidConsumed #-}
 
-linVarUsedTwice :: Pos -> Pos -> ProgVar -> Var -> Diagnostic
+linVarUsedTwice :: Pos -> Pos -> ProgVar TcStage -> Var -> Diagnostic
 linVarUsedTwice loc1 loc2 name var =
   PosError
     (max loc1 loc2)
@@ -198,7 +199,7 @@ typeConstructorNParams loc ts !given !expected =
     ]
 {-# NOINLINE typeConstructorNParams #-}
 
-cyclicAliases :: [(Pos, TypeVar, TypeAlias Rn)] -> Diagnostic
+cyclicAliases :: [(Pos, TypeVar TcStage, TypeAlias Rn)] -> Diagnostic
 cyclicAliases aliases =
   PosError errLoc $
     Error "Cycle in type synonym declarations." :
@@ -222,7 +223,7 @@ cyclicAliases aliases =
     aliasHead name params = Error "type" : Error name : [Error p | (p, _) <- params]
 {-# NOINLINE cyclicAliases #-}
 
-invalidNominalKind :: Pos -> String -> TypeVar -> K.Kind -> NonEmpty K.Kind -> Diagnostic
+invalidNominalKind :: Pos -> String -> TypeVar TcStage -> K.Kind -> NonEmpty K.Kind -> Diagnostic
 invalidNominalKind loc nomKind name actual allowed =
   PosError
     loc
@@ -267,7 +268,7 @@ invalidSessionCaseBranch branch = PosError (E.branchPos branch) [Error msg]
     msg = "Branches of a receiving case must bind exactly one variable."
 {-# NOINLINE invalidSessionCaseBranch #-}
 
-mismatchedCaseConstructor :: Pos -> TcType -> ProgVar -> Diagnostic
+mismatchedCaseConstructor :: Pos -> TcType -> ProgVar TcStage -> Diagnostic
 mismatchedCaseConstructor loc ty con =
   PosError
     loc
@@ -277,7 +278,7 @@ mismatchedCaseConstructor loc ty con =
     ]
 {-# NOINLINE mismatchedCaseConstructor #-}
 
-missingCaseBranches :: Pos -> [ProgVar] -> Diagnostic
+missingCaseBranches :: Pos -> [ProgVar TcStage] -> Diagnostic
 missingCaseBranches loc branches =
   PosError loc $
     Error "Incomplete case. Missing" :
@@ -285,7 +286,7 @@ missingCaseBranches loc branches =
     missingBranches branches
 {-# NOINLINE missingCaseBranches #-}
 
-noSingularConstructorType :: Pos -> TcType -> [ProgVar] -> Diagnostic
+noSingularConstructorType :: Pos -> TcType -> [ProgVar TcStage] -> Diagnostic
 noSingularConstructorType loc ty branches =
   PosError loc $
     Error "Values of type" :
@@ -299,7 +300,7 @@ noSingularConstructorType loc ty branches =
     missingBranches branches
 {-# NOINLINE noSingularConstructorType #-}
 
-missingBranches :: [ProgVar] -> [ErrorMessage]
+missingBranches :: [ProgVar TcStage] -> [ErrorMessage]
 missingBranches branches =
   concat
     [ [ErrLine, Error "  ", branch]
@@ -310,7 +311,7 @@ emptyCaseExpr :: Pos -> Diagnostic
 emptyCaseExpr loc = PosError loc [Error "Empty case expression."]
 {-# NOINLINE emptyCaseExpr #-}
 
-data PatternBranch = PatternBranch Pos ProgVar
+data PatternBranch = PatternBranch Pos (ProgVar TcStage)
 
 instance Position PatternBranch where
   pos (PatternBranch p _) = p
@@ -347,7 +348,7 @@ instance BranchSpec CondBranch where
   {-# INLINE displayBranchError #-}
 
 branchedConsumeDifference ::
-  (BranchSpec a, BranchSpec b) => ProgVar -> Var -> a -> Pos -> b -> Diagnostic
+  (BranchSpec a, BranchSpec b) => ProgVar TcStage -> Var -> a -> Pos -> b -> Diagnostic
 branchedConsumeDifference name var consumeBranch consumeLoc otherBranch =
   PosError consumeLoc $
     concat
@@ -373,7 +374,7 @@ branchedConsumeDifference name var consumeBranch consumeLoc otherBranch =
       ]
 {-# NOINLINE branchedConsumeDifference #-}
 
-branchPatternBindingCount :: Pos -> ProgVar -> Int -> Int -> Diagnostic
+branchPatternBindingCount :: Pos -> ProgVar TcStage -> Int -> Int -> Diagnostic
 branchPatternBindingCount loc name !expected !given =
   PosError
     loc
@@ -401,7 +402,7 @@ wildcardNotAllowed wildLoc caseLoc =
     ]
 {-# NOINLINE wildcardNotAllowed #-}
 
-protocolConAsValue :: Pos -> ProgVar -> TypeVar -> Diagnostic
+protocolConAsValue :: Pos -> ProgVar TcStage -> TypeVar TcStage -> Diagnostic
 protocolConAsValue loc con parent =
   PosError
     loc
@@ -433,8 +434,8 @@ unboundVar loc v =
       Error $ id @String $ eitherName @scope "type variable" "variable",
       Error v
     ]
-{-# SPECIALIZE unboundVar :: Pos -> ProgVar -> Diagnostic #-}
-{-# SPECIALIZE unboundVar :: Pos -> TypeVar -> Diagnostic #-}
+{-# SPECIALIZE unboundVar :: Pos -> ProgVar TcStage -> Diagnostic #-}
+{-# SPECIALIZE unboundVar :: Pos -> TypeVar TcStage -> Diagnostic #-}
 
 undeclaredCon :: forall stage scope. SingI scope => Pos -> Name stage scope -> Diagnostic
 undeclaredCon loc v =
@@ -444,8 +445,8 @@ undeclaredCon loc v =
       Error $ id @String $ eitherName @scope "type" "constructor",
       Error v
     ]
-{-# SPECIALIZE undeclaredCon :: Pos -> ProgVar -> Diagnostic #-}
-{-# SPECIALIZE undeclaredCon :: Pos -> TypeVar -> Diagnostic #-}
+{-# SPECIALIZE undeclaredCon :: Pos -> ProgVar TcStage -> Diagnostic #-}
+{-# SPECIALIZE undeclaredCon :: Pos -> TypeVar TcStage -> Diagnostic #-}
 
 showType :: TcType -> Maybe TcType -> [ErrorMessage]
 showType t mNF

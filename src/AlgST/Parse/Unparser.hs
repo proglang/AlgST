@@ -20,6 +20,7 @@ import AlgST.Syntax.Expression as E
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
 import AlgST.Syntax.Operators qualified as Op
+import AlgST.Syntax.Phases
 import AlgST.Syntax.Type qualified as T
 import Data.Foldable
 import Data.Functor.Identity
@@ -46,7 +47,7 @@ showKind :: (Show a, Show b) => Name stage scope -> a -> String -> b -> String
 showKind var sort arrow term =
   showSortedVar var sort ++ arrow ++ show term
 
-showBindType :: Unparse (T.XType x) => K.Bind (T.Type x) -> String
+showBindType :: Unparse (T.XType x) => K.Bind (XStage x) (T.Type x) -> String
 showBindType (K.Bind _ a k t) = showKind a k ". " t -- ∀ a:k . t
 
 instance (Unparse (E.XExp x), Unparse (T.XType x)) => Show (E.Bind x) where
@@ -72,7 +73,7 @@ type Rator = (Precedence, Op.Associativity)
 
 type Fragment = (Rator, String)
 
-operatorRator :: ProgVar -> Maybe Rator
+operatorRator :: ProgVar stage -> Maybe Rator
 operatorRator op =
   ((,) <$> POp . Op.opPrec <*> Op.opAssoc)
     <$> Map.lookup (nameUnqualified op) Op.knownOperators
@@ -247,5 +248,5 @@ showCaseMap m =
     showWild CaseBranch {branchBinds = Identity (_ :@ a), branchExp = e} =
       pprName a ++ " -> " ++ show e
 
-showOp :: ProgVar -> String
+showOp :: ProgVar stage -> String
 showOp x = " " ++ tail (init $ pprName x) ++ " "

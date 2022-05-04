@@ -194,7 +194,7 @@ addFatalError !e = refute $ This $ DNE.singleton e
 maybeError :: MonadValidate Errors m => Diagnostic -> Maybe a -> m a
 maybeError e = maybe (addFatalError e) pure
 
-useVar :: MonadValidate Errors m => Pos -> ProgVar -> Var -> m Var
+useVar :: MonadValidate Errors m => Pos -> ProgVar TcStage -> Var -> m Var
 useVar loc name v = case varUsage v of
   UnUsage ->
     pure v
@@ -210,7 +210,10 @@ checkTypeDecls = Map.traverseMaybeWithKey checkTypeDecl
 -- | Checks the given type declaration. Nothing is done for 'AliasDecl's. The
 -- returned map contains the checked constructors.
 checkTypeDecl ::
-  (HasKiEnv env, HasKiSt st) => TypeVar -> TypeDecl Rn -> TcM env st (Maybe (TypeDecl Tc))
+  (HasKiEnv env, HasKiSt st) =>
+  TypeVar TcStage ->
+  TypeDecl Rn ->
+  TcM env st (Maybe (TypeDecl Tc))
 checkTypeDecl name = \case
   AliasDecl _ _ ->
     pure Nothing
@@ -242,7 +245,7 @@ checkTypeDecl name = \case
 
 -- | Makes sure all aliases are expanded. This step is to make sure all invalid
 -- type aliases are diagnosed even when they are not used.
-checkAliases :: (Foldable f, HasKiEnv env, HasKiSt st) => f TypeVar -> TcM env st ()
+checkAliases :: (Foldable f, HasKiEnv env, HasKiSt st) => f (TypeVar TcStage) -> TcM env st ()
 checkAliases =
   -- Type aliases are expanded by looking them up.
   traverse_ $ runMaybeT . lookupTypeAlias
@@ -265,7 +268,9 @@ checkedConstructors :: TypesMap Tc -> TcValuesMap
 checkedConstructors = Map.foldMapWithKey \name ->
   Map.map ValueCon . declConstructors originAt originAt name
 
-checkSignature :: (HasKiEnv env, HasKiSt st) => SignatureDecl Rn -> TcM env st (SignatureDecl Tc)
+checkSignature ::
+  (HasKiEnv env, HasKiSt st) =>
+  (SignatureDecl Rn -> TcM env st (SignatureDecl Tc))
 checkSignature (SignatureDecl x ty) =
   SignatureDecl x <$> kicheck ty K.TU
 
@@ -324,7 +329,13 @@ checkAlignedBinds fullTy allVs e = go fullTy fullTy allVs
       addFatalError $ uncurryL Error.mismatchedBind v t
 
 expectNominalKind ::
-  MonadValidate Errors m => Pos -> String -> TypeVar -> K.Kind -> NonEmpty K.Kind -> m K.Kind
+  MonadValidate Errors m =>
+  Pos ->
+  String ->
+  TypeVar TcStage ->
+  K.Kind ->
+  NonEmpty K.Kind ->
+  m K.Kind
 expectNominalKind loc nomKind name actual allowed = do
   if actual `elem` allowed
     then pure actual
@@ -336,7 +347,7 @@ expectNominalKind loc nomKind name actual allowed = do
 -- The alias parameters have to be checked against 'aliasParams' and substitued
 -- into 'aliasType' by the caller.
 lookupTypeAlias ::
-  (HasKiEnv env, HasKiSt s) => TypeVar -> MaybeT (TcM env s) (TypeAlias Tc, K.Kind)
+  (HasKiEnv env, HasKiSt s) => TypeVar TcStage -> MaybeT (TcM env s) (TypeAlias Tc, K.Kind)
 lookupTypeAlias name = do
   alias <- MaybeT $ use $ kiStL . tcAliasesL . to (Map.lookup name)
   lift case alias of
@@ -351,7 +362,14 @@ lookupTypeAlias name = do
         case aliasKind ta of
           Nothing -> kisynth (aliasType ta)
           Just k -> (,k) <$> kicheck (aliasType ta) k
-      let checked = ta {aliasType = expanded}
+      let checked =
+            ta
+              { aliasType = expanded,
+                -- Although no change occurs here the record can only change
+                -- its type when all the dependent bits change; 'aliasParams'
+                -- is at least nominally dependent on the phase token.
+                aliasParams = aliasParams ta
+              }
       setAlias (CheckedAlias checked k)
       pure (checked, k)
     ExpandingAlias depth -> do
@@ -385,10 +403,14 @@ lookupTypeAlias name = do
 --
 -- The result is a tuple consisting of the head location, the head, and
 -- parameters (including @us@).
-typeAppBase :: forall env st. RnType -> NonEmpty RnType -> TcM env st (Pos, TypeVar, [RnType])
+typeAppBase ::
+  forall env st.
+  RnType ->
+  NonEmpty RnType ->
+  TcM env st (Pos, TypeVar TcStage, [RnType])
 typeAppBase = flip go
   where
-    go :: NonEmpty RnType -> RnType -> TcM env st (Pos, TypeVar, [RnType])
+    go :: NonEmpty RnType -> RnType -> TcM env st (Pos, TypeVar TcStage, [RnType])
     go us = \case
       T.Con p c -> pure (p, c, toList us)
       T.App _ t u -> go (u <| us) t
@@ -397,7 +419,11 @@ typeAppBase = flip go
     err us t = Error.typeConstructorNParams (pos t) (t <| us) (length us) 0
 
 kisynthTypeCon ::
-  (HasKiEnv env, HasKiSt st) => Pos -> TypeVar -> [RnType] -> TcM env st (TcType, K.Kind)
+  (HasKiEnv env, HasKiSt st) =>
+  Pos ->
+  TypeVar TcStage ->
+  [RnType] ->
+  TcM env st (TcType, K.Kind)
 kisynthTypeCon loc name args =
   runMaybeT (alias <|> decl) >>= maybeError (Error.undeclaredCon loc name)
   where
@@ -432,10 +458,10 @@ kisynthTypeCon loc name args =
 zipTypeParams ::
   (HasKiEnv env, HasKiSt st) =>
   Pos ->
-  TypeVar ->
-  Params ->
+  TypeVar TcStage ->
+  Params TcStage ->
   [RnType] ->
-  TcM env st [(TypeVar, TcType)]
+  TcM env st [(TypeVar TcStage, TcType)]
 zipTypeParams loc name ps0 ts0 = go 0 ps0 ts0
   where
     go !_ [] [] = pure []
@@ -461,7 +487,7 @@ typeRefSubstitutions decl ref =
 -- | Applies a substitution to a 'TypeDecl'.
 --
 -- /Note:/ The substitution only applies to the constructors and their items. Most notably the
-substituteTypeConstructors :: Substitutions Tc -> TypeDecl Tc -> Constructors TcType
+substituteTypeConstructors :: Substitutions Tc -> TypeDecl Tc -> Constructors TcStage TcType
 substituteTypeConstructors subs = nomDecl >>> substituteConstructors
   where
     nomDecl = \case
@@ -758,7 +784,13 @@ tysynth =
     E.Fork x _ -> absurd x
     E.Fork_ x _ -> absurd x
 
-buildSelectType :: HasKiEnv env => Pos -> Params -> TcType -> [TcType] -> TcM env st TcType
+buildSelectType ::
+  HasKiEnv env =>
+  Pos ->
+  Params TcStage ->
+  TcType ->
+  [TcType] ->
+  TcM env st TcType
 buildSelectType p params t us = do
   varS <- freshLocal "s"
   let tyS = T.Var @Tc (p @- kiS) varS
@@ -835,7 +867,7 @@ isBoolType ty env
 
 -- | Looks up the type for the given 'ProgVar'. This function works correctly
 -- for local variables, globals and constructors.
-synthVariable :: Pos -> ProgVar -> TypeM (Maybe (TcExp, TcType))
+synthVariable :: Pos -> ProgVar TcStage -> TypeM (Maybe (TcExp, TcType))
 synthVariable p name = runMaybeT (useLocal <|> useGlobal)
   where
     useLocal = do
@@ -857,7 +889,7 @@ synthVariable p name = runMaybeT (useLocal <|> useGlobal)
           addFatalError $ Error.protocolConAsValue p name parent
 
 instantiateDeclRef ::
-  Pos -> TypeVar -> TypeDecl Tc -> TcM env s (Params, TypeRef)
+  Pos -> TypeVar TcStage -> TypeDecl Tc -> TcM env s (Params TcStage, TypeRef)
 instantiateDeclRef p name decl = do
   params <- liftRn $ freshParamsNC (declParams decl)
   pure
@@ -888,7 +920,7 @@ appArrow = go id Set.empty
       _ ->
         Nothing
 
-appTArrow :: TcType -> Maybe (K.Bind TcType)
+appTArrow :: TcType -> Maybe (K.Bind TcStage TcType)
 appTArrow = go id
   where
     go prependArrows = \case
@@ -924,14 +956,14 @@ checkStandardCase loc cases patTy =
 
 -- | Combines a list of @('TypeVar', 'K.Kind')@ pairs into a nested 'T.Forall'
 -- type.
-buildForallType :: Params -> TcType -> TcType
+buildForallType :: Params TcStage -> TcType -> TcType
 buildForallType = foldMap (Endo . mkForall) >>> appEndo
   where
-    mkForall :: (Located TypeVar, K.Kind) -> TcType -> TcType
+    mkForall :: (Located (TypeVar TcStage), K.Kind) -> TcType -> TcType
     mkForall (p :@ tv, k) = T.Forall defaultPos . K.Bind p tv k
 
 buildDataConType ::
-  Pos -> TypeVar -> TypeDecl Tc -> Multiplicity -> [TcType] -> TcM env s TcType
+  Pos -> TypeVar TcStage -> TypeDecl Tc -> Multiplicity -> [TcType] -> TcM env s TcType
 buildDataConType p name decl mul items = do
   (params, ref) <- instantiateDeclRef p name decl
   let subs = typeRefSubstitutions decl ref
@@ -961,7 +993,11 @@ checkCaseExpr ::
   Bool ->
   RnCaseMap ->
   PatternType ->
-  (ProgVar -> [TcType] -> E.CaseBranch [] Rn -> TypeM (f (Located ProgVar, TcType))) ->
+  ( ProgVar TcStage ->
+    [TcType] ->
+    E.CaseBranch [] Rn ->
+    TypeM (f (Located (ProgVar TcStage), TcType))
+  ) ->
   TypeM (TcCaseMap f Maybe, TcType)
 checkCaseExpr loc allowWild cmap patTy typedBinds = etaTcM do
   allBranches <- patternBranches patTy
@@ -974,7 +1010,7 @@ checkCaseExpr loc allowWild cmap patTy typedBinds = etaTcM do
     Error.missingCaseBranches loc missingBranches
 
   -- Handles a single (written by the user) branch.
-  let go :: ProgVar -> E.CaseBranch [] Rn -> BranchT TcType TypeM (E.CaseBranch f Tc)
+  let go :: ProgVar TcStage -> E.CaseBranch [] Rn -> BranchT TcType TypeM (E.CaseBranch f Tc)
       go con branch = liftBranchT (Error.PatternBranch (pos branch) con) \mty -> do
         let branchError =
               Error.mismatchedCaseConstructor
@@ -1063,7 +1099,9 @@ liftBranchT p m = BranchT do
       put $ Just bst {branchesConsumed = branchesConsumed bst <> consumed, branchesResult = r}
   pure a
 
-runBranchT :: (MonadState TySt m, MonadValidate Errors m) => Pos -> BranchT r m a -> m (Maybe r, a)
+runBranchT ::
+  (MonadState TySt m, MonadValidate Errors m) =>
+  (Pos -> BranchT r m a -> m (Maybe r, a))
 runBranchT p (BranchT m) = do
   initEnv <- gets tcTypeEnv
   (a, mResultEnv) <- runReaderT (runStateT (embedValidateT m) Nothing) initEnv
@@ -1077,7 +1115,8 @@ runBranchT p (BranchT m) = do
 -- @env1@ and @env2@ should be related in that @env2@ should be derived from
 -- @env1@. Any variables whicha appear only in one environment are discarded.
 filterAdditionalConsumed :: TypeEnv -> TypeEnv -> NameMap Values (Var, Pos)
-filterAdditionalConsumed = Merge.merge Merge.dropMissing Merge.dropMissing (Merge.zipWithMaybeMatched f)
+filterAdditionalConsumed =
+  Merge.merge Merge.dropMissing Merge.dropMissing (Merge.zipWithMaybeMatched f)
   where
     -- Returns @Just (var, usageLoc)@ iff the variable is unused in the outer
     -- bindings but used in the inner bindings.
@@ -1091,7 +1130,8 @@ filterAdditionalConsumed = Merge.merge Merge.dropMissing Merge.dropMissing (Merg
 -- as keys in @vars@ as used at @p@. Variables which appear in @vars@ but not
 -- in @env@ are ignored.
 markConsumed :: Pos -> TypeEnv -> NameMap Values a -> TypeEnv
-markConsumed !p = Merge.merge Merge.preserveMissing Merge.dropMissing (Merge.zipWithMatched mark)
+markConsumed !p =
+  Merge.merge Merge.preserveMissing Merge.dropMissing (Merge.zipWithMatched mark)
   where
     mark _ v _ = v {varUsage = LinUsed p}
 
@@ -1149,7 +1189,11 @@ tysynthBind absLoc (E.Bind p m v ty e) = do
 
 -- | Synthesizes the 'T.Forall' type of a @"AlgST.Syntax.Kind".'K.Bind' a@. The
 -- type of @a@ is synthesized with the provided function.
-tysynthTyBind :: (a -> TypeM (b, TcType)) -> Pos -> K.Bind a -> TypeM (K.Bind b, TcType)
+tysynthTyBind ::
+  (a -> TypeM (b, TcType)) ->
+  Pos ->
+  K.Bind TcStage a ->
+  TypeM (K.Bind TcStage b, TcType)
 tysynthTyBind synth p (K.Bind p' v k a) = do
   (a', t) <- local (bindTyVar v k) (synth a)
   let allT = T.Forall p (K.Bind p' v k t)
@@ -1183,7 +1227,7 @@ freshLocal s = do
 -- introduces the /unrestricted/ context. 'unrestrictedLoc' can be used as a
 -- helper function.
 withProgVarBinds ::
-  Maybe Pos -> [(Located ProgVar, TcType)] -> TypeM a -> TypeM a
+  Maybe Pos -> [(Located (ProgVar TcStage), TcType)] -> TypeM a -> TypeM a
 withProgVarBinds !mUnArrLoc vtys action = etaTcM do
   let mkVar (p :@ v, ty) = etaTcM do
         let ki = typeKind ty
@@ -1228,7 +1272,7 @@ withProgVarBinds !mUnArrLoc vtys action = etaTcM do
   pure a
 
 -- | Like 'withProgVarBinds' but for a single binding.
-withProgVarBind :: Maybe Pos -> Pos -> ProgVar -> TcType -> TypeM a -> TypeM a
+withProgVarBind :: Maybe Pos -> Pos -> ProgVar TcStage -> TcType -> TypeM a -> TypeM a
 withProgVarBind mp varLoc pv ty = withProgVarBinds mp [(varLoc :@ pv, ty)]
 
 tycheck :: RnExp -> TcType -> TypeM TcExp
@@ -1251,10 +1295,10 @@ normalize t = case nf t of
   Just t' -> pure t'
   Nothing -> addFatalError (Error.noNormalform t)
 
-bindTyVar :: HasKiEnv env => TypeVar -> K.Kind -> env -> env
+bindTyVar :: HasKiEnv env => TypeVar TcStage -> K.Kind -> env -> env
 bindTyVar v k = kiEnvL . tcKindEnvL %~ Map.insert v k
 
-bindParams :: HasKiEnv env => Params -> env -> env
+bindParams :: HasKiEnv env => Params TcStage -> env -> env
 bindParams ps = kiEnvL . tcKindEnvL <>~ Map.fromList (first unL <$> ps)
 
 errorIf :: MonadValidate Errors m => Bool -> Diagnostic -> m ()

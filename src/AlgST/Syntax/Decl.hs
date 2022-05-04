@@ -16,6 +16,7 @@ module AlgST.Syntax.Decl where
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
+import AlgST.Syntax.Phases
 import AlgST.Syntax.Type qualified as T
 import Control.Category ((>>>))
 import Data.Functor.Identity
@@ -54,30 +55,35 @@ type ForallX (c :: Hs.Type -> Hs.Constraint) x =
   )
 
 data TypeAlias x = TypeAlias
-  { aliasParams :: Params,
+  { aliasParams :: XParams x,
     aliasKind :: Maybe K.Kind,
     aliasType :: T.Type x
   }
 
 deriving stock instance (T.ForallX Lift x) => Lift (TypeAlias x)
 
-data TypeNominal c = TypeNominal
-  { nominalParams :: Params,
+data TypeNominal stage c = TypeNominal
+  { nominalParams :: Params stage,
     nominalKind :: K.Kind,
-    nominalConstructors :: Constructors c
+    nominalConstructors :: Constructors stage c
   }
   deriving (Lift)
 
-type Params = [(Located TypeVar, K.Kind)]
+type Params stage = [(Located (Name stage Types), K.Kind)]
 
-type Constructors a = NameMap Values (Pos, [a])
+type XParams x = Params (XStage x)
+
+type Constructors stage a = NameMapG stage Values (Pos, [a])
 
 mapConstructors ::
-  (ProgVar -> a -> b) -> Constructors a -> Constructors b
+  (ProgVar stage -> a -> b) ->
+  (Constructors stage a -> Constructors stage b)
 mapConstructors f = runIdentity . traverseConstructors (\k -> Identity . f k)
 
 traverseConstructors ::
-  Applicative f => (ProgVar -> a -> f b) -> Constructors a -> f (Constructors b)
+  Applicative f =>
+  (ProgVar stage -> a -> f b) ->
+  (Constructors stage a -> f (Constructors stage b))
 traverseConstructors f = Map.traverseWithKey (traverse . traverse . f)
 
 data Origin
@@ -120,8 +126,8 @@ originAt a p =
 
 data TypeDecl x
   = AliasDecl (XAliasDecl x) (TypeAlias x)
-  | DataDecl (XDataDecl x) (TypeNominal (T.Type x))
-  | ProtoDecl (XProtocolDecl x) (TypeNominal (T.Type x))
+  | DataDecl (XDataDecl x) (TypeNominal (XStage x) (T.Type x))
+  | ProtoDecl (XProtocolDecl x) (TypeNominal (XStage x) (T.Type x))
 
 deriving stock instance (ForallDeclX Lift x, T.ForallX Lift x) => Lift (TypeDecl x)
 
@@ -132,7 +138,7 @@ instance ForallDeclX Originated x => Originated (TypeDecl x) where
     ProtoDecl x decl -> flip ProtoDecl decl <$> originL f x
   {-# INLINE originL #-}
 
-declParams :: TypeDecl x -> Params
+declParams :: TypeDecl x -> XParams x
 declParams = \case
   AliasDecl _ alias -> aliasParams alias
   DataDecl _ decl -> nominalParams decl
@@ -142,9 +148,9 @@ declConstructors ::
   forall x.
   (XDataDecl x -> Pos -> XDataCon x) ->
   (XProtocolDecl x -> Pos -> XProtoCon x) ->
-  TypeVar ->
+  XTypeVar x ->
   TypeDecl x ->
-  NameMap Values (ConstructorDecl x)
+  NameMapG (XStage x) Values (ConstructorDecl x)
 declConstructors xData xProto name d = case d of
   AliasDecl _ _ ->
     Map.empty
@@ -209,13 +215,13 @@ data ConstructorDecl x
     -- * the parent type's parameters
     -- * the parent type's 'Multiplicity'
     -- * the constructor's items
-    DataCon (XDataCon x) !TypeVar Params !Multiplicity [T.Type x]
+    DataCon (XDataCon x) !(XTypeVar x) (XParams x) !Multiplicity [T.Type x]
   | -- | A protocol (non-data) constructor is annotated with
     --
     -- * the parent type's name
     -- * the parent type's parameters
     -- * the constructor's items
-    ProtocolCon (XProtoCon x) !TypeVar Params [T.Type x]
+    ProtocolCon (XProtoCon x) !(XTypeVar x) (XParams x) [T.Type x]
 
 deriving stock instance (ForallConX Lift x, T.ForallX Lift x) => Lift (ConstructorDecl x)
 
@@ -229,12 +235,12 @@ instance ForallConX Originated x => Originated (ConstructorDecl x) where
       pure $ ProtocolCon x' name params items
   {-# INLINE originL #-}
 
-conParent :: ConstructorDecl x -> TypeVar
+conParent :: ConstructorDecl x -> XTypeVar x
 conParent = \case
   DataCon _ n _ _ _ -> n
   ProtocolCon _ n _ _ -> n
 
-conParams :: ConstructorDecl x -> Params
+conParams :: ConstructorDecl x -> XParams x
 conParams = \case
   DataCon _ _ ps _ _ -> ps
   ProtocolCon _ _ ps _ -> ps

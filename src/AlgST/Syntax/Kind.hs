@@ -87,8 +87,8 @@ leastUpperBound (Kind b m) (Kind b' m') = Kind (max b b') (max m m')
 
 -- | > Bind _ v k a               ~ ∀(v:k). a
 --   >                            ~ \[v:k] -> a
-data Bind a = Bind Pos !TypeVar !Kind a
+data Bind stage a = Bind Pos !(TypeVar stage) !Kind a
   deriving (Lift)
 
-instance Position (Bind a) where
+instance Position (Bind x a) where
   pos (Bind p _ _ _) = p

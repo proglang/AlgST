@@ -510,14 +510,12 @@ instance
       T.Type
         <$> traverseSyntax pxy x
 
--- TODO: Remove `XStage x ~ Written`.
--- TODO: Remove `XStage y ~ Written`.
 instance
   ( SynTraversable a x b y,
-    XStage x ~ Written,
-    XStage y ~ Written
+    XStage x ~ s,
+    XStage y ~ t
   ) =>
-  SynTraversable (K.Bind a) x (K.Bind b) y
+  SynTraversable (K.Bind s a) x (K.Bind t b) y
   where
   traverseSyntax pxy (K.Bind p v k t) =
     bindOne pxy v \v' ->

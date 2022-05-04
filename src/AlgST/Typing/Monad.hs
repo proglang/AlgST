@@ -58,7 +58,7 @@ data KiTypingEnv = KiTypingEnv
     tcContext :: RnProgram,
     -- | The stack of type aliases we are expanding. The first two tuple
     -- elements are declaration location and name.
-    tcExpansionStack :: Seq (Pos, TypeVar, TypeAlias Rn),
+    tcExpansionStack :: Seq (Pos, TypeVar TcStage, TypeAlias Rn),
     -- | The module being checked at the moment.
     tcModule :: Module
   }
@@ -104,8 +104,8 @@ data Alias
 data RecursiveSets
   = RecursiveSets
       (NameSet Types)
-      [(Pos, TypeVar, TypeAlias Rn)]
-      !(Map.Map (NameSet Types) [(Pos, TypeVar, TypeAlias Rn)])
+      [(Pos, TypeVar TcStage, TypeAlias Rn)]
+      !(Map.Map (NameSet Types) [(Pos, TypeVar TcStage, TypeAlias Rn)])
 
 instance Semigroup RecursiveSets where
   RecursiveSets a b recs <> RecursiveSets _ _ recs' =
@@ -114,7 +114,7 @@ instance Semigroup RecursiveSets where
 {- ORMOLU_DISABLE -}
 makeLenses ['tcKindEnv, 'tcExpansionStack] ''KiTypingEnv
 tcKindEnvL :: Lens' KiTypingEnv KindEnv
-tcExpansionStackL :: Lens' KiTypingEnv (Seq (Pos, TypeVar, TypeAlias Rn))
+tcExpansionStackL :: Lens' KiTypingEnv (Seq (Pos, TypeVar TcStage, TypeAlias Rn))
 
 makeLenses ['tcKiTypingEnv] ''TyTypingEnv
 tcKiTypingEnvL :: Lens' TyTypingEnv KiTypingEnv

@@ -105,7 +105,7 @@ freshNC name = do
   let Unqualified u = nameUnqualified name
   pure $ Name (nameWrittenModule name) $ Unqualified $ u ++ '_' : show n
 
-freshParamsNC :: D.Params -> RnM D.Params
+freshParamsNC :: D.Params PStage -> RnM (D.XParams Rn)
 freshParamsNC = traverse $ bitraverse (traverse freshNC) pure
 
 -- | Binds all variables traversed over in @f@. If there are duplicate names an
@@ -207,7 +207,7 @@ renameAlias alias = bindingParams (D.aliasParams alias) \ps -> do
         aliasKind = D.aliasKind alias
       }
 
-renameNominal :: (a -> RnM b) -> D.TypeNominal a -> RnM (D.TypeNominal b)
+renameNominal :: (a -> RnM b) -> D.TypeNominal PStage a -> RnM (D.TypeNominal RnStage b)
 renameNominal f nom = bindingParams (D.nominalParams nom) \ps -> do
   cs <- D.traverseConstructors (const f) (D.nominalConstructors nom)
   pure
@@ -217,7 +217,7 @@ renameNominal f nom = bindingParams (D.nominalParams nom) \ps -> do
         nominalKind = D.nominalKind nom
       }
 
-bindingParams :: D.Params -> (D.Params -> RnM a) -> RnM a
+bindingParams :: D.Params PStage -> (D.Params RnStage -> RnM a) -> RnM a
 bindingParams params f =
   etaRnM
     let (ps, ks) = unzip params

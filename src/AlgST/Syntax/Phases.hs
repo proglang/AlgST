@@ -15,3 +15,7 @@ type CSame = Phase -> Phase -> Constraint
 type family XStage x :: Stage
 
 type XName x = Name (XStage x)
+
+type XProgVar x = ProgVar (XStage x)
+
+type XTypeVar x = TypeVar (XStage x)

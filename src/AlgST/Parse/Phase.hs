@@ -58,7 +58,8 @@ type PTypesMap = TypesMap Parse
 type PValuesMap = ValuesMap Parse
 
 type PName                    = XName Parse
-type instance XStage    Parse = Written
+type PStage                   = Written
+type instance XStage    Parse = PStage
 
 type instance E.XLit    Parse = Pos
 type instance E.XVar    Parse = Pos

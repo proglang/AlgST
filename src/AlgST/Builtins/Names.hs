@@ -10,21 +10,21 @@ import AlgST.Syntax.Name
 pattern BuiltinsModule :: Module
 pattern BuiltinsModule = Module ""
 
-pattern Builtin :: String -> Name Written scope
+pattern Builtin :: String -> NameW scope
 pattern Builtin s = Name BuiltinsModule (Unqualified s)
 
-pattern TypeInt :: TypeVar
+pattern TypeInt :: NameW Types
 pattern TypeInt = Builtin "Int"
 
-pattern TypeChar :: TypeVar
+pattern TypeChar :: NameW Types
 pattern TypeChar = Builtin "Char"
 
-pattern TypeString :: TypeVar
+pattern TypeString :: NameW Types
 pattern TypeString = Builtin "String"
 
-pattern TypeBool :: TypeVar
+pattern TypeBool :: NameW Types
 pattern TypeBool = Builtin "Bool"
 
-pattern ConTrue, ConFalse :: ProgVar
+pattern ConTrue, ConFalse :: NameW Values
 pattern ConTrue = Builtin "True"
 pattern ConFalse = Builtin "False"

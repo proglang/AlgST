@@ -25,7 +25,8 @@ type RnProgram  = Program   Rn
 type RnType     = T.Type    Rn
 
 -- TODO: Change to `Resolved`.
-type instance XStage    Rn = Written
+type RnStage               = Written
+type instance XStage    Rn = RnStage
 
 type instance E.XLit    Rn = Pos
 type instance E.XVar    Rn = Pos
