@@ -1,7 +1,9 @@
 module BuiltinsSpec where
 
 import AlgST.Builtins
+import AlgST.Builtins.Names
 import AlgST.Rename
+import AlgST.Rename.Fresh
 import AlgST.Typing
 import Test.Golden
 import Test.Hspec
@@ -9,8 +11,8 @@ import Test.Hspec
 spec :: Spec
 spec = do
   it "kind checks" do
-    let res = runRename $ renameProgram builtins >>= checkProgram
-    case res of
+    let res = runRename (renameProgram builtins) >>= checkProgram
+    case runFresh BuiltinsModule res of
       Left errs -> expectationFailure (plainErrors errs)
       Right _ -> pure ()
 

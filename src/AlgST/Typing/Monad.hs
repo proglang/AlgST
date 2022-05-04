@@ -5,6 +5,7 @@
 module AlgST.Typing.Monad where
 
 import AlgST.Rename
+import AlgST.Rename.Fresh
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
@@ -58,9 +59,7 @@ data KiTypingEnv = KiTypingEnv
     tcContext :: RnProgram,
     -- | The stack of type aliases we are expanding. The first two tuple
     -- elements are declaration location and name.
-    tcExpansionStack :: Seq (Pos, TypeVar TcStage, TypeAlias Rn),
-    -- | The module being checked at the moment.
-    tcModule :: Module
+    tcExpansionStack :: Seq (Pos, TypeVar TcStage, TypeAlias Rn)
   }
 
 data TcValue
@@ -150,17 +149,14 @@ instance HasKiEnv TyTypingEnv where
 
 type TypeM = TcM TyTypingEnv TySt
 
-type TcM env s = ValidateT Errors (StateT s (ReaderT env RnM))
+type TcM env s = ValidateT Errors (StateT s (ReaderT env Fresh))
 
 type Errors = These (DNonEmpty Diagnostic) RecursiveSets
 
-liftRn :: RnM a -> TcM env st a
-liftRn = etaTcM . lift . lift . lift
-{-# INLINE liftRn #-}
+liftFresh :: Fresh a -> TcM env st a
+liftFresh = etaTcM . lift . lift . lift
+{-# INLINE liftFresh #-}
 
 etaTcM :: TcM env s a -> TcM env s a
-etaTcM = etaValidateT . mapValidateT (etaStateT . mapStateT (etaReaderT . mapReaderT etaRnM))
+etaTcM = etaValidateT . mapValidateT (etaStateT . mapStateT (etaReaderT . mapReaderT etaFresh))
 {-# INLINE etaTcM #-}
-
-currentModule :: HasKiEnv env => TcM env s Module
-currentModule = asks $ tcModule . view kiEnvL

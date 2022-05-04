@@ -61,6 +61,7 @@ where
 import AlgST.Builtins.Names
 import AlgST.Parse.Phase
 import AlgST.Rename
+import AlgST.Rename.Fresh
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind ((<=?))
@@ -114,24 +115,24 @@ runErrors = DNE.toNonEmpty . mergeTheseWith id recursiveErrs (<>)
         Error.cyclicAliases oneRec
           :| fmap Error.cyclicAliases (Map.elems (Map.delete oneKeys recs))
 
-runTypeM :: TyTypingEnv -> TySt -> TypeM a -> RnM (TySt, Either Errors a)
+runTypeM :: TyTypingEnv -> TySt -> TypeM a -> Fresh (TySt, Either Errors a)
 runTypeM = runTcM
 
-runTcM :: env -> s -> TcM env s a -> RnM (s, Either Errors a)
+runTcM :: env -> s -> TcM env s a -> Fresh (s, Either Errors a)
 runTcM typesEnv s m =
   Tuple.swap <$> runReaderT (runStateT (runValidateT m) s) typesEnv
 
 type RunTyM = forall env st a. (HasKiEnv env, HasKiSt st) => TypeM a -> TcM env st a
 
-type RunKiM = forall a. TcM KiTypingEnv KiSt a -> RnM (Either (NonEmpty Diagnostic) a)
+type RunKiM = forall a. TcM KiTypingEnv KiSt a -> Fresh (Either (NonEmpty Diagnostic) a)
 
 checkWithProgram ::
   Program Rn ->
-  (RunTyM -> RunKiM -> TcProgram -> RnM (Either (NonEmpty Diagnostic) r)) ->
-  RnM (Either (NonEmpty Diagnostic) r)
+  (RunTyM -> RunKiM -> TcProgram -> Fresh (Either (NonEmpty Diagnostic) r)) ->
+  Fresh (Either (NonEmpty Diagnostic) r)
 checkWithProgram prog k = runExceptT $ do
   let runWrapExcept ::
-        s -> TcM KiTypingEnv s a -> ExceptT (NonEmpty Diagnostic) RnM (s, a)
+        s -> TcM KiTypingEnv s a -> ExceptT (NonEmpty Diagnostic) Fresh (s, a)
       runWrapExcept st m =
         ExceptT . fmap (first runErrors . sequence) $ runTcM kiEnv st m
   (st, (tcTypes, tcValues, tcImports)) <- runWrapExcept st0 checkGlobals
@@ -158,9 +159,7 @@ checkWithProgram prog k = runExceptT $ do
       KiTypingEnv
         { tcKindEnv = mempty,
           tcExpansionStack = mempty,
-          tcContext = prog,
-          -- TODO: Use the actual module here!
-          tcModule = Module ""
+          tcContext = prog
         }
     st0 =
       KiSt
@@ -177,7 +176,7 @@ checkWithProgram prog k = runExceptT $ do
       tcImports <- traverse checkSignature (programImports prog)
       pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcImports)
 
-checkProgram :: Program Rn -> RnM (Either (NonEmpty Diagnostic) TcProgram)
+checkProgram :: Program Rn -> Fresh (Either (NonEmpty Diagnostic) TcProgram)
 checkProgram p = checkWithProgram p \_ _ -> pure . Right
 
 addError :: MonadValidate Errors m => Diagnostic -> m ()
@@ -296,7 +295,7 @@ embedTypeM env m = do
           { tcKindSt = kist,
             tcTypeEnv = mempty
           }
-  (st, res) <- liftRn $ runTypeM env tyst m
+  (st, res) <- liftFresh $ runTypeM env tyst m
   kiStL .= view kiStL st
   case res of
     Left errs -> refute errs
@@ -320,7 +319,7 @@ checkAlignedBinds fullTy allVs e = go fullTy fullTy allVs
         Right _ -> do
           -- Skip the type abstraction by binding a wildcard pattern. Keep the
           -- expected type for the error message.
-          wildTV <- liftRn $ bindOne (mkPxy () @Parse @Rn) Wildcard pure
+          wildTV <- liftFresh $ freshResolved Wildcard
           wrapAbs wildTV <$> go t0 (subBind wildTV t) vs0
     go t _ (v : _) = do
       -- The bind ›v‹ does not align with the expected type. While trying to
@@ -785,7 +784,6 @@ tysynth =
     E.Fork_ x _ -> absurd x
 
 buildSelectType ::
-  HasKiEnv env =>
   Pos ->
   Params TcStage ->
   TcType ->
@@ -891,7 +889,7 @@ synthVariable p name = runMaybeT (useLocal <|> useGlobal)
 instantiateDeclRef ::
   Pos -> TypeVar TcStage -> TypeDecl Tc -> TcM env s (Params TcStage, TypeRef)
 instantiateDeclRef p name decl = do
-  params <- liftRn $ freshParamsNC (declParams decl)
+  params <- liftFresh $ freshResolvedParams (declParams decl)
   pure
     ( params,
       TypeRef
@@ -1213,10 +1211,8 @@ unrestrictedLoc :: Position a => a -> Multiplicity -> Maybe Pos
 unrestrictedLoc p Un = Just $! pos p
 unrestrictedLoc _ Lin = Nothing
 
-freshLocal :: HasKiEnv env => String -> TcM env st (TcName s)
-freshLocal s = do
-  m <- currentModule
-  liftRn $ freshNC $ Name m $ Unqualified s
+freshLocal :: String -> TcM env st (TcName scope)
+freshLocal = liftFresh . freshResolved . Name (Module "") . Unqualified
 
 -- | Establishes a set of bindings for a nested scope.
 --

@@ -26,8 +26,6 @@ module AlgST.Rename
     renameSyntax,
     renameProgram,
     bindingParams,
-    freshNC,
-    freshParamsNC,
 
     -- * Internals
     etaRnM,
@@ -35,6 +33,7 @@ module AlgST.Rename
 where
 
 import AlgST.Parse.Phase
+import AlgST.Rename.Fresh
 import AlgST.Rename.Phase
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
@@ -76,16 +75,7 @@ rnTyVarsL :: Lens' RenameEnv (Bindings Types)
 rnProgVarsL :: Lens' RenameEnv (Bindings Values)
 {- ORMOLU_ENABLE -}
 
-type RnSt = Int
-
--- | The monad stack used during renaming.
---
--- Try to use it in an applicative way or with @ApplicativeDo@ enabled. This
--- will allow more errors to be gathered in one pass. See
--- [the documentation of @monad-validate@](https://hackage.haskell.org/package/monad-validate-1.2.0.0/docs/Control-Monad-Validate.html#t:ValidateT)
--- for more info.
-type RnM =
-  ReaderT RenameEnv (State RnSt)
+type RnM = ReaderT RenameEnv Fresh
 
 instance SynTraversal RnM Parse Rn where
   typeVariable _ x = fmap (T.Var x) . lookup
@@ -93,20 +83,11 @@ instance SynTraversal RnM Parse Rn where
   useConstructor _ = pure
   bind _ = bindingAll
 
-runRename :: RnM a -> a
-runRename = flip runReaderT emptyEnv >>> flip evalState 0
+runRename :: RnM a -> Fresh a
+runRename = flip runReaderT emptyEnv
 
-withRenamedProgram :: PProgram -> (RnProgram -> RnM a) -> a
+withRenamedProgram :: PProgram -> (RnProgram -> RnM a) -> Fresh a
 withRenamedProgram p f = runRename $ renameProgram p >>= f
-
-freshNC :: RnName s -> RnM (RnName s)
-freshNC name = do
-  n <- get <* modify' (+ 1)
-  let Unqualified u = nameUnqualified name
-  pure $ Name (nameWrittenModule name) $ Unqualified $ u ++ '_' : show n
-
-freshParamsNC :: D.Params PStage -> RnM (D.XParams Rn)
-freshParamsNC = traverse $ bitraverse (traverse freshNC) pure
 
 -- | Binds all variables traversed over in @f@. If there are duplicate names an
 -- error will be emitted at the provided location.
@@ -130,12 +111,12 @@ withBindings ::
   (a -> RnM b) ->
   RnM b
 withBindings f k = etaRnM do
-  let bind :: SingI s => RnName s -> StateT RenameEnv RnM (RnName s)
+  let bind :: SingI s => RnName s -> StateT RenameEnv Fresh (RnName s)
       bind v = do
-        v' <- lift $ freshNC v
+        v' <- lift $ freshResolved v
         varMapL %= Map.insert v v'
         pure v'
-  (a, binds) <- runStateT (f bind) emptyEnv
+  (a, binds) <- lift $ runStateT (f bind) emptyEnv
 
   -- Don't use (<>~) here! (<>)/union on Data.Map prefers values from the left
   -- operand on duplicate keys. But the values from `binds` have to replace
@@ -234,5 +215,5 @@ renameTypeDecl =
       D.ProtoDecl x <$> renameNominal renameSyntax decl
 
 etaRnM :: RnM a -> RnM a
-etaRnM = etaReaderT . mapReaderT (etaStateT . seqStateT)
+etaRnM = etaReaderT . mapReaderT etaFresh
 {-# INLINE etaRnM #-}

@@ -9,6 +9,7 @@ import AlgST.Builtins (builtins)
 import AlgST.Interpret
 import AlgST.Parse.Parser
 import AlgST.Rename
+import AlgST.Rename.Fresh
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Name
 import AlgST.Syntax.Program
@@ -40,7 +41,7 @@ shouldNotError = \case
 parseAndCheckProgram :: String -> Either (NonEmpty Diagnostic) (Program Tc)
 parseAndCheckProgram src = do
   parsed <- runParser (parseProg builtins) src
-  withRenamedProgram parsed checkProgram
+  runFresh (Module "") $ runRename (renameProgram parsed) >>= checkProgram
 
 runProgram :: TcProgram -> IO Value
 runProgram p = runEval env (eval mainExpr)

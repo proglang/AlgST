@@ -10,6 +10,7 @@ import AlgST.Interpret
 import AlgST.Parse.Parser
 import AlgST.Parse.Phase
 import AlgST.Rename
+import AlgST.Rename.Fresh
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Name
 import AlgST.Syntax.Program
@@ -20,7 +21,7 @@ import Control.Applicative
 import Control.DeepSeq
 import Control.Exception
 import Control.Monad
-import Control.Monad.Trans.Class
+import Control.Monad.Reader
 import Control.Monad.Trans.Maybe
 import Data.Foldable
 import Data.Map.Strict qualified as Map
@@ -60,8 +61,11 @@ main = do
           lift $ hPutChar h '\n'
     checkOut stdout <|> checkOut stderr
 
+  let mainModule =
+        -- TODO: Use the actual module here!
+        Module ""
   mparsed <- runStage opts "Parsing" $ runParser (parseProg builtins) src
-  checked <- runChecks opts =<< maybe exitFailure pure mparsed
+  checked <- runChecks opts mainModule =<< maybe exitFailure pure mparsed
 
   let evalSettings =
         defaultSettings
@@ -72,10 +76,7 @@ main = do
             evalBufferSize =
               optsBufferSize runOpts
           }
-  let mainModule =
-        -- TODO: Use the actual module here!
-        Module ""
-      mainVar =
+  let mainVar =
         Name mainModule (Unqualified "main")
       mainDecl =
         Map.lookup mainVar (programValues checked)
@@ -87,14 +88,16 @@ main = do
       traverse_ print v
     _ -> pure ()
 
-runChecks :: Options -> PProgram -> IO TcProgram
-runChecks opts pprogram =
+runChecks :: Options -> Module -> PProgram -> IO TcProgram
+runChecks opts mod pprogram =
   maybe exitFailure pure =<< runMaybeT do
-    (checked, actions) <- MaybeT . runStage opts "Checking" $
-      withRenamedProgram pprogram \rnProgram ->
-        checkWithProgram rnProgram \runTy runKi checkedProgram -> do
-          actions <- itraverse (evalAction opts runTy runKi) (optsActions (runOpts opts))
-          pure $ Right (checkedProgram, actions)
+    (checked, actions) <- MaybeT . runStage opts "Checking" . runFresh mod $
+      withRenamedProgram pprogram \rnProgram -> do
+        rnEnv <- ask
+        lift $ checkWithProgram rnProgram \runTy runKi tcProgram -> do
+          let rnActions = itraverse (evalAction opts runTy runKi) (optsActions (runOpts opts))
+          actions <- runReaderT rnActions rnEnv
+          pure $ Right (tcProgram, actions)
     oks <- lift $ sequence actions
     guard $ and oks
     pure checked
@@ -104,21 +107,21 @@ evalAction opts runTy runKi i = \case
   ActionNF src -> do
     let ptype = runParser parseType src
     rnty <- traverse renameSyntax ptype
-    nfty <- join <$> traverse (runKi . (normalize . fst <=< kisynth)) rnty
+    nfty <- lift $ join <$> traverse (runKi . (normalize . fst <=< kisynth)) rnty
     buildIO i "normal form" ((,) <$> ptype <*> nfty) \(ty, tynf) -> do
       print ty
       putStrLn $ "  => " ++ show tynf
   ActionKiSynth src -> do
     let ptype = runParser parseType src
     rnty <- traverse renameSyntax ptype
-    kind <- join <$> traverse (runKi . fmap snd . kisynth) rnty
+    kind <- lift $ join <$> traverse (runKi . fmap snd . kisynth) rnty
     buildIO i "kind synthesis" ((,) <$> ptype <*> kind) \(ty, k) -> do
       print ty
       putStrLn $ "  => " ++ show k
   ActionTySynth src -> do
     let pexp = runParser parseExpr src
     rnexp <- traverse renameSyntax pexp
-    expty <- join <$> traverse (runKi . runTy . fmap snd . tysynth) rnexp
+    expty <- lift $ join <$> traverse (runKi . runTy . fmap snd . tysynth) rnexp
     buildIO i "type synthesis" ((,) <$> pexp <*> expty) \(e, ty) -> do
       print e
       putStrLn $ "  => " ++ show ty

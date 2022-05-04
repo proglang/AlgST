@@ -14,7 +14,9 @@ import AlgST.Builtins.TH
 import AlgST.Parse.Parser
 import AlgST.Parse.Phase
 import AlgST.Rename
+import AlgST.Rename.Fresh
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Name
 import AlgST.Syntax.Program
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
@@ -159,9 +161,11 @@ nfShouldBe t1 t2 = do
   (t1NF, t2Tc) <- shouldNotError do
     t1' <- runParser parseType t1
     t2' <- runParser parseType t2
-    withRenamedProgram declarations \rnDecls -> do
-      t1Rn <- renameSyntax t1'
-      t2Rn <- renameSyntax t2'
+    runFresh (Module "") do
+      (rnDecls, t1Rn, t2Rn) <- withRenamedProgram declarations \rnDecls -> do
+        t1Rn <- renameSyntax t1'
+        t2Rn <- renameSyntax t2'
+        pure (rnDecls, t1Rn, t2Rn)
       checkWithProgram rnDecls \_ runTc _ -> runTc do
         (t1Tc, _) <- kisynth t1Rn
         (t2Tc, _) <- kisynth t2Rn
@@ -196,15 +200,16 @@ runKiAction ::
   Either String a
 runKiAction p m src = first plainErrors do
   parsed <- runParser p src
-  withRenamedProgram declarations \rnDecls -> do
-    renamed <- renameSyntax parsed
+  runFresh (Module "") do
+    rnDecls <- runRename $ renameProgram declarations
+    renamed <- runRename $ renameSyntax parsed
     checkWithProgram rnDecls \embed runTc _ -> runTc $ m embed renamed
 
 -- | Parses and typecheks a program in the context of 'declarations'.
 parseAndCheckProgram :: String -> Either (NonEmpty Diagnostic) (Program Tc)
 parseAndCheckProgram src = do
   parsed <- runParser (parseProg declarations) src
-  withRenamedProgram parsed checkProgram
+  runFresh (Module "") $ runRename (renameProgram parsed) >>= checkProgram
 
 drawNoBuiltins :: TcProgram -> String
 drawNoBuiltins p = drawLabeledTree $ p `withoutProgramDefinitions` declarations
