@@ -24,4 +24,4 @@ spec = do
 --    for_ values \name ->
 --      specify (show name) do Map.member name (moduleValues builtins)
 --    for_ imports \name ->
---      specify (show name) do Map.member name (moduleImports builtins)
+--      specify (show name) do Map.member name (moduleSigs builtins)

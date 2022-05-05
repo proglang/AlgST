@@ -1,0 +1,17 @@
+import M1
+
+import M2 (*)
+import M3 (
+  *,
+)
+
+import M4 ((*), add)
+
+import M5 (*, x as y)
+import M6 (
+  foo as bar,
+  Con1 as Con2,
+  (+) as add,
+)
+
+import M7 (*, hide_this as _, (*) as _)

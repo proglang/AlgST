@@ -145,12 +145,16 @@ renameModule :: Module Parse -> RnM (Module Rn)
 renameModule p = do
   rnTypes <- traverse renameTypeDecl (moduleTypes p)
   rnValues <- traverse (bitraverse renameConDecl renameValueDecl) (moduleValues p)
-  rnSigs <- traverse renameSignature (moduleImports p)
+  rnSigs <- traverse renameSignature (moduleSigs p)
   pure
     Module
       { moduleTypes = rnTypes,
         moduleValues = rnValues,
-        moduleImports = rnSigs
+        moduleSigs = rnSigs,
+        -- In theory the imports should not be needed any more after this
+        -- stage. Let's just keep them around anyways unless we have a good
+        -- reason to throw them out.
+        moduleImports = moduleImports p
       }
 
 renameSyntax :: SynTraversable (s Parse) Parse (s Rn) Rn => s Parse -> RnM (s Rn)

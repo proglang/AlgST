@@ -275,23 +275,42 @@ instance (D.ForallConX LabeledTree x, T.ForallX LabeledTree x) => LabeledTree (D
           ]
 
 instance ForallX LabeledTree x => LabeledTree (Module x) where
-  labeledTree pp = types ++ imports ++ values
+  labeledTree pp = imports ++ types ++ sigs ++ values
     where
+      imports =
+        concatMap labeledTree (moduleImports pp)
       types =
         labeledMapTree
           (\tv _ -> describeName tv)
           (\_ td -> labeledTree td)
           (moduleTypes pp)
-      imports =
+      sigs =
         labeledMapTree
           (\pv _ -> describeName pv)
           (\_ sig -> labeledTree sig)
-          (moduleImports pp)
+          (moduleSigs pp)
       values =
         labeledMapTree
           (\pv _ -> describeName pv)
           (\_ d -> either labeledTree labeledTree d)
           (moduleValues pp)
+
+instance LabeledTree Import where
+  labeledTree (Import (ModuleName m) spec) =
+    [tree ("import " ++ m) [labeledTree spec]]
+
+instance LabeledTree ImportSelection where
+  labeledTree =
+    pure . \case
+      ImportAll iis -> tree "ImportAll" (labeledTree <$> iis)
+      ImportOnly iis -> tree "ImportOnly" (labeledTree <$> iis)
+
+instance LabeledTree ImportItem where
+  labeledTree =
+    pure . leaf . unwords . \case
+      ImportName un -> ["use", getUnqualified un]
+      ImportHide un -> ["hide", getUnqualified un]
+      ImportRename u1 u2 -> ["use", getUnqualified u1, "as", getUnqualified u2]
 
 labeledMapTree ::
   (a -> b -> String) ->

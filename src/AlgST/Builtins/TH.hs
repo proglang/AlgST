@@ -51,7 +51,7 @@ parseStatic' baseProg sigs lines = Code.do
       pure p
 
   let (merged, conflict1, conflict2) =
-        mergeModules prog emptyModule {moduleImports = sigsMap}
+        mergeModules prog emptyModule {moduleSigs = sigsMap}
       conflicts =
         nonEmpty $ fmap showVar (Set.toList conflict1) ++ fmap showVar (Set.toList conflict2)
   whenJust conflicts \conflicts ->

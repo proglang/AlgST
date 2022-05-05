@@ -148,7 +148,8 @@ checkWithModule prog k = runExceptT $ do
         Module
           { moduleTypes = tcTypes,
             moduleValues = values,
-            moduleImports = tcImports
+            moduleSigs = tcImports,
+            moduleImports = moduleImports prog
           }
   (st', prog) <- runWrapExcept st $ mkProg <$> checkValueBodies embed tcValues
   ExceptT $ k embed (fmap (first runErrors . snd) . runTcM kiEnv st') prog
@@ -171,7 +172,7 @@ checkWithModule prog k = runExceptT $ do
       checkAliases (Map.keys (moduleTypes prog))
       tcTypes <- checkTypeDecls (moduleTypes prog)
       checkedDefs <- checkValueSignatures (moduleValues prog)
-      tcImports <- traverse checkSignature (moduleImports prog)
+      tcImports <- traverse checkSignature (moduleSigs prog)
       pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcImports)
 
 checkModule :: Module Rn -> Fresh (Either (NonEmpty Diagnostic) TcModule)

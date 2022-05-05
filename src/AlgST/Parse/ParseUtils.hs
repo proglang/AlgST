@@ -43,6 +43,7 @@ module AlgST.Parse.ParseUtils
     moduleValueDecl,
     moduleValueBinding,
     moduleTypeDecl,
+    addImport,
 
     -- * Checking for duplicates
     DuplicateError,
@@ -130,8 +131,8 @@ completePrevious = Kleisli \p -> do
     Just (loc :@ name, sig) -> do
       put Nothing
       let decl = SignatureDecl (OriginUser loc) sig
-      imports <- lift $ insertNoDuplicates name decl (moduleImports p)
-      pure p {moduleImports = imports}
+      imports <- lift $ insertNoDuplicates name decl (moduleSigs p)
+      pure p {moduleSigs = imports}
 
 moduleValueDecl :: Located (ProgVar PStage) -> PType -> ModuleBuilder
 moduleValueDecl valueName ty =
@@ -178,7 +179,7 @@ moduleValueBinding valueName params e = Kleisli \p0 -> do
           (unL valueName)
           (Right decl)
           (moduleValues p)
-      when (unL valueName `Map.member` moduleImports p) do
+      when (unL valueName `Map.member` moduleSigs p) do
         addErrors [uncurryL errorImportShadowed valueName]
       pure p {moduleValues = parsedValues'}
 
@@ -189,6 +190,9 @@ moduleTypeDecl v tydecl =
     let constructors = Left <$> typeConstructors v tydecl
     parsedValues' <- lift $ mergeNoDuplicates (moduleValues p) constructors
     pure p {moduleTypes = parsedTypes', moduleValues = parsedValues'}
+
+addImport :: Import -> ModuleBuilder
+addImport i = Kleisli \m -> pure $ m {moduleImports = i : moduleImports m}
 
 -- | Inserts the value under the given key into the map. If there is already a
 -- value under that key an error as with 'errorMultipleDeclarations' is added

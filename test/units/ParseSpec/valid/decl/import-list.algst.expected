@@ -1,0 +1,44 @@
+import M1
+|
+`- ImportAll
+
+import M2
+|
+`- ImportAll
+
+import M3
+|
+`- ImportAll
+
+import M4
+|
+`- ImportOnly
+   |
+   +- use (*)
+   |
+   `- use add
+
+import M5
+|
+`- ImportAll
+   |
+   `- use x as y
+
+import M6
+|
+`- ImportOnly
+   |
+   +- use foo as bar
+   |
+   +- use Con1 as Con2
+   |
+   `- use (+) as add
+
+import M7
+|
+`- ImportAll
+   |
+   +- hide hide_this
+   |
+   `- hide (*)
+

@@ -132,8 +132,8 @@ import           Syntax.Base
 Prog :: { PModule -> ParseM PModule }
   : {- empty -}       { pure }
   | Decls             { \base -> runModuleBuilder base $1 }
-  | Imports           { pure }                              -- TODO: Handle imports.
-  | Imports NL Decls  { \base -> runModuleBuilder base $3 } -- TODO: Handle imports.
+  | Imports           { \base -> runModuleBuilder base $1 }
+  | Imports NL Decls  { \base -> runModuleBuilder base ($1 >>> $3) }
 
 
 NL :: { () }
@@ -145,9 +145,9 @@ NL :: { () }
 -- Imports
 -------------------------------------------------------------------------------
 
-Imports :: { DL.DList Import }
-  : Import              { DL.singleton $1 }
-  | Imports NL Import   { $1 `DL.snoc` $3 }
+Imports :: { ModuleBuilder }
+  : Import              { addImport $1 }
+  | Imports NL Import   { $1 <<< addImport $3 }
 
 Import :: { Import }
   : import ModuleName ImportList      { Import (unL $2) $3 }
