@@ -11,8 +11,8 @@ import AlgST.Parse.Parser
 import AlgST.Rename
 import AlgST.Rename.Fresh
 import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Typing
 import AlgST.Util.Error
 import Control.Category ((>>>))
@@ -38,12 +38,12 @@ shouldNotError = \case
   Right a -> pure a
 
 -- | Parses and typecheks a program in the context of 'declarations'.
-parseAndCheckProgram :: String -> Either (NonEmpty Diagnostic) (Program Tc)
+parseAndCheckProgram :: String -> Either (NonEmpty Diagnostic) (Module Tc)
 parseAndCheckProgram src = do
   parsed <- runParser (parseProg builtins) src
-  runFresh (ModuleName "") $ runRename (renameProgram parsed) >>= checkProgram
+  runFresh (ModuleName "") $ runRename (renameModule parsed) >>= checkModule
 
-runProgram :: TcProgram -> IO Value
+runProgram :: TcModule -> IO Value
 runProgram p = runEval env (eval mainExpr)
   where
     env = programEnvironment p

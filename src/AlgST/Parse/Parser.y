@@ -43,8 +43,8 @@ import           AlgST.Parse.Phase
 import           AlgST.Syntax.Decl
 import           AlgST.Syntax.Expression       as E
 import qualified AlgST.Syntax.Kind             as K
+import           AlgST.Syntax.Module
 import           AlgST.Syntax.Name
-import           AlgST.Syntax.Program
 import qualified AlgST.Syntax.Type             as T
 import           AlgST.Util
 import           AlgST.Util.Error
@@ -114,29 +114,29 @@ import           Syntax.Base
 %%
 
 -------------
--- PROGRAM --
+-- MODULES --
 -------------
 
-Prog :: { PProgram -> ParseM PProgram }
+Prog :: { PModule -> ParseM PModule }
   : {- empty -}   { pure }
-  | Decls         { \base -> runProgBuilder base $1 }
+  | Decls         { \base -> runModuleBuilder base $1 }
 
 NL :: { () }
   : nl NL {}
   | nl    {}
 
-Decls :: { ProgBuilder }
+Decls :: { ModuleBuilder }
   : Decl          { $1 }
   | Decls NL Decl { $1 >>> $3 }
 
-Decl :: { ProgBuilder }
+Decl :: { ModuleBuilder }
   -- Function signature
   : ProgVar TySig {
-      programValueDecl $1 $2
+      moduleValueDecl $1 $2
     }
   -- Function declaration
   | ProgVar ValueParams '=' Exp {
-      programValueBinding $1 $2 $4
+      moduleValueBinding $1 $2 $4
     }
   -- Type abbreviation
   | type KindedTVar TypeParams '=' Type {% do
@@ -146,7 +146,7 @@ Decl :: { ProgBuilder }
             , aliasKind = mkind
             , aliasType = $5
             }
-      pure $ programTypeDecl (unL name) decl
+      pure $ moduleTypeDecl (unL name) decl
     }
   -- Datatype declaration
   | data KindedTVar TypeParams {% do
@@ -156,7 +156,7 @@ Decl :: { ProgBuilder }
             , nominalKind = K.TU `fromMaybe` mkind
             , nominalConstructors = mempty
             }
-      pure $ programTypeDecl (unL name) decl
+      pure $ moduleTypeDecl (unL name) decl
     }
   | data KindedTVar TypeParams '=' DataCons {% do
       let (name, mkind) = $2
@@ -165,7 +165,7 @@ Decl :: { ProgBuilder }
             , nominalKind = K.TU `fromMaybe` mkind
             , nominalConstructors = $5
             }
-      pure $ programTypeDecl (unL name) decl
+      pure $ moduleTypeDecl (unL name) decl
     }
   | protocol KindedTVar TypeParams '=' DataCons {% do
       let (name, mkind) = $2
@@ -174,7 +174,7 @@ Decl :: { ProgBuilder }
             , nominalKind = K.P `fromMaybe` mkind
             , nominalConstructors = $5
             }
-      pure $ programTypeDecl (unL name) decl
+      pure $ moduleTypeDecl (unL name) decl
     }
 
 TySig :: { PType }
@@ -539,7 +539,7 @@ optional(t)
 newtype Parser a = Parser ([Token] -> ParseM a)
   deriving (Functor)
 
-parseProg :: PProgram -> Parser PProgram
+parseProg :: PModule -> Parser PModule
 parseProg base = Parser \toks -> do
   mkP <- parseProg_ toks
   mkP base

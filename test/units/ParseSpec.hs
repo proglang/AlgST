@@ -5,7 +5,7 @@ module ParseSpec (spec) where
 
 import AlgST.Builtins
 import AlgST.Parse.Parser
-import AlgST.Syntax.Program
+import AlgST.Syntax.Module
 import AlgST.Syntax.Tree
 import System.FilePath
 import Test.Golden
@@ -27,7 +27,7 @@ spec = do
     describe "declarations" do
       goldenTests
         (dir "valid/decl")
-        (parseTree (parseProg emptyProgram))
+        (parseTree (parseProg emptyModule))
 
   describe "invalid" do
     describe "expressions" do
@@ -38,7 +38,7 @@ spec = do
     describe "declarations" do
       goldenTests
         (dir "invalid/decl")
-        (swap . parseTree (parseProg emptyProgram))
+        (swap . parseTree (parseProg emptyModule))
 
     describe "declarations + builtins" do
       goldenTests

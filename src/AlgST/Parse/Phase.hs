@@ -10,9 +10,9 @@ module AlgST.Parse.Phase where
 import AlgST.Parse.Unparser
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
 import AlgST.Syntax.Phases
-import AlgST.Syntax.Program
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
 import AlgST.Syntax.Type qualified as T
@@ -53,7 +53,7 @@ type PExp = E.Exp Parse
 type PBind = E.Bind Parse
 type PType = T.Type Parse
 type PCaseMap = E.CaseMap Parse
-type PProgram = Program Parse
+type PModule = Module Parse
 type PTypesMap = TypesMap Parse
 type PValuesMap = ValuesMap Parse
 

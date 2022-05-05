@@ -10,9 +10,9 @@ import AlgST.Parse.Unparser
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Module (Module)
 import AlgST.Syntax.Name
 import AlgST.Syntax.Phases
-import AlgST.Syntax.Program (Program)
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
 import AlgST.Syntax.Type qualified as T
@@ -147,7 +147,7 @@ type TcExp                 = E.Exp Tc
 type TcType                = T.Type Tc
 type TcBind                = E.Bind Tc
 type TcCaseMap f g         = E.CaseMap' f g Tc
-type TcProgram             = Program Tc
+type TcModule             = Module Tc
 
 -- TODO: Change to `Resolved`.
 type TcStage               = Written

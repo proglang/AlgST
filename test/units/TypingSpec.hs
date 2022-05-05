@@ -16,8 +16,8 @@ import AlgST.Parse.Phase
 import AlgST.Rename
 import AlgST.Rename.Fresh
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
 import AlgST.Typing
@@ -162,11 +162,11 @@ nfShouldBe t1 t2 = do
     t1' <- runParser parseType t1
     t2' <- runParser parseType t2
     runFresh (ModuleName "") do
-      (rnDecls, t1Rn, t2Rn) <- withRenamedProgram declarations \rnDecls -> do
+      (rnDecls, t1Rn, t2Rn) <- withRenamedModule declarations \rnDecls -> do
         t1Rn <- renameSyntax t1'
         t2Rn <- renameSyntax t2'
         pure (rnDecls, t1Rn, t2Rn)
-      checkWithProgram rnDecls \_ runTc _ -> runTc do
+      checkWithModule rnDecls \_ runTc _ -> runTc do
         (t1Tc, _) <- kisynth t1Rn
         (t2Tc, _) <- kisynth t2Rn
         t1NF <- normalize t1Tc
@@ -201,23 +201,23 @@ runKiAction ::
 runKiAction p m src = first plainErrors do
   parsed <- runParser p src
   runFresh (ModuleName "") do
-    rnDecls <- runRename $ renameProgram declarations
+    rnDecls <- runRename $ renameModule declarations
     renamed <- runRename $ renameSyntax parsed
-    checkWithProgram rnDecls \embed runTc _ -> runTc $ m embed renamed
+    checkWithModule rnDecls \embed runTc _ -> runTc $ m embed renamed
 
 -- | Parses and typecheks a program in the context of 'declarations'.
-parseAndCheckProgram :: String -> Either (NonEmpty Diagnostic) (Program Tc)
+parseAndCheckProgram :: String -> Either (NonEmpty Diagnostic) (Module Tc)
 parseAndCheckProgram src = do
   parsed <- runParser (parseProg declarations) src
-  runFresh (ModuleName "") $ runRename (renameProgram parsed) >>= checkProgram
+  runFresh (ModuleName "") $ runRename (renameModule parsed) >>= checkModule
 
-drawNoBuiltins :: TcProgram -> String
-drawNoBuiltins p = drawLabeledTree $ p `withoutProgramDefinitions` declarations
+drawNoBuiltins :: TcModule -> String
+drawNoBuiltins p = drawLabeledTree $ p `withoutDefinitions` declarations
 
 -- | Declares some data types.
 --
 -- The basic 'builtins' are included.
-declarations :: Program Parse
+declarations :: Module Parse
 declarations =
   $$( let sigs =
             []

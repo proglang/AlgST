@@ -7,8 +7,8 @@ import AlgST.Builtins (builtins)
 import AlgST.Parse.Parser
 import AlgST.Rename
 import AlgST.Rename.Fresh
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Syntax.Tree
 import System.FilePath
 import Test.Golden
@@ -23,10 +23,10 @@ spec = do
     goldenTests (dir "prog") \src -> do
       p <- runParserSimple (parseProg builtins) src
       -- TODO: Check that giving a different module name still succeeds.
-      pure $ drawNoBuiltins $ runFresh (ModuleName "") $ withRenamedProgram p pure
+      pure $ drawNoBuiltins $ runFresh (ModuleName "") $ withRenamedModule p pure
 
-drawNoBuiltins :: RnProgram -> String
-drawNoBuiltins p = drawLabeledTree $ p `withoutProgramDefinitions` builtins
+drawNoBuiltins :: RnModule -> String
+drawNoBuiltins p = drawLabeledTree $ p `withoutDefinitions` builtins
 
 parseRenameExpr :: String -> Either String String
 parseRenameExpr src = do

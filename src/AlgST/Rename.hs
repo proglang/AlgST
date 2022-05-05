@@ -16,15 +16,15 @@ module AlgST.Rename
     RenameEnv (..),
     emptyEnv,
     runRename,
-    withRenamedProgram,
+    withRenamedModule,
     Rn,
     RnExp,
     RnBind,
     RnCaseMap,
-    RnProgram,
+    RnModule,
     RnType,
     renameSyntax,
-    renameProgram,
+    renameModule,
     bindingParams,
 
     -- * Internals
@@ -37,8 +37,8 @@ import AlgST.Rename.Fresh
 import AlgST.Rename.Phase
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Type qualified as T
 import AlgST.Util.Lenses
@@ -86,8 +86,8 @@ instance SynTraversal RnM Parse Rn where
 runRename :: RnM a -> Fresh a
 runRename = flip runReaderT emptyEnv
 
-withRenamedProgram :: PProgram -> (RnProgram -> RnM a) -> Fresh a
-withRenamedProgram p f = runRename $ renameProgram p >>= f
+withRenamedModule :: PModule -> (RnModule -> RnM a) -> Fresh a
+withRenamedModule p f = runRename $ renameModule p >>= f
 
 -- | Binds all variables traversed over in @f@. If there are duplicate names an
 -- error will be emitted at the provided location.
@@ -141,16 +141,16 @@ lookup v = do
   env <- ask
   pure $ fromMaybe v $ env ^. varMapL . to (Map.lookup v)
 
-renameProgram :: Program Parse -> RnM (Program Rn)
-renameProgram p = do
-  rnTypes <- traverse renameTypeDecl (programTypes p)
-  rnValues <- traverse (bitraverse renameConDecl renameValueDecl) (programValues p)
-  rnSigs <- traverse renameSignature (programImports p)
+renameModule :: Module Parse -> RnM (Module Rn)
+renameModule p = do
+  rnTypes <- traverse renameTypeDecl (moduleTypes p)
+  rnValues <- traverse (bitraverse renameConDecl renameValueDecl) (moduleValues p)
+  rnSigs <- traverse renameSignature (moduleImports p)
   pure
-    Program
-      { programTypes = rnTypes,
-        programValues = rnValues,
-        programImports = rnSigs
+    Module
+      { moduleTypes = rnTypes,
+        moduleValues = rnValues,
+        moduleImports = rnSigs
       }
 
 renameSyntax :: SynTraversable (s Parse) Parse (s Rn) Rn => s Parse -> RnM (s Rn)

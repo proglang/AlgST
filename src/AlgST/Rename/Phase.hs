@@ -6,9 +6,9 @@ module AlgST.Rename.Phase where
 import AlgST.Parse.Phase (ParsedBuiltin)
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Module (Module)
 import AlgST.Syntax.Name
 import AlgST.Syntax.Phases
-import AlgST.Syntax.Program (Program)
 import AlgST.Syntax.Type qualified as T
 import Data.Void
 import Syntax.Base
@@ -21,7 +21,7 @@ type RnName     = XName     Rn
 type RnExp      = E.Exp     Rn
 type RnBind     = E.Bind    Rn
 type RnCaseMap  = E.CaseMap Rn
-type RnProgram  = Program   Rn
+type RnModule  = Module   Rn
 type RnType     = T.Type    Rn
 
 -- TODO: Change to `Resolved`.

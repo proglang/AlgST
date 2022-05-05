@@ -11,7 +11,7 @@ import Test.Hspec
 spec :: Spec
 spec = do
   it "kind checks" do
-    let res = runRename (renameProgram builtins) >>= checkProgram
+    let res = runRename (renameModule builtins) >>= checkModule
     case runFresh BuiltinsModule res of
       Left errs -> expectationFailure (plainErrors errs)
       Right _ -> pure ()
@@ -20,8 +20,8 @@ spec = do
 --
 --  context "predefined names" do
 --    for_ types \name ->
---      specify (show name) do Map.member name (programTypes builtins)
+--      specify (show name) do Map.member name (moduleTypes builtins)
 --    for_ values \name ->
---      specify (show name) do Map.member name (programValues builtins)
+--      specify (show name) do Map.member name (moduleValues builtins)
 --    for_ imports \name ->
---      specify (show name) do Map.member name (programImports builtins)
+--      specify (show name) do Map.member name (moduleImports builtins)

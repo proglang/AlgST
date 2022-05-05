@@ -8,8 +8,8 @@ import AlgST.Rename
 import AlgST.Rename.Fresh
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Typing.Phase
 import AlgST.Util.ErrorMessage (Diagnostic)
 import AlgST.Util.Lenses
@@ -56,7 +56,7 @@ type KindEnv = NameMap Types K.Kind
 data KiTypingEnv = KiTypingEnv
   { -- | Maps type variables to their kind.
     tcKindEnv :: KindEnv,
-    tcContext :: RnProgram,
+    tcContext :: RnModule,
     -- | The stack of type aliases we are expanding. The first two tuple
     -- elements are declaration location and name.
     tcExpansionStack :: Seq (Pos, TypeVar TcStage, TypeAlias Rn)

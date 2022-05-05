@@ -12,8 +12,8 @@ import AlgST.Parse.Phase
 import AlgST.Rename
 import AlgST.Rename.Fresh
 import AlgST.Syntax.Decl qualified as D
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Typing
 import AlgST.Util.Error
 import AlgST.Util.Output
@@ -79,7 +79,7 @@ main = do
   let mainVar =
         Name mainModule (Unqualified "main")
       mainDecl =
-        Map.lookup mainVar (programValues checked)
+        Map.lookup mainVar (moduleValues checked)
   case mainDecl of
     Just (Right (D.ValueDecl {D.valueBody})) -> do
       v <- runStage @[] opts "Evaluating ›main‹" do
@@ -88,13 +88,13 @@ main = do
       traverse_ print v
     _ -> pure ()
 
-runChecks :: Options -> ModuleName -> PProgram -> IO TcProgram
-runChecks opts mod pprogram =
+runChecks :: Options -> ModuleName -> PModule -> IO TcModule
+runChecks opts modName pModule =
   maybe exitFailure pure =<< runMaybeT do
-    (checked, actions) <- MaybeT . runStage opts "Checking" . runFresh mod $
-      withRenamedProgram pprogram \rnProgram -> do
+    (checked, actions) <- MaybeT . runStage opts "Checking" . runFresh modName $
+      withRenamedModule pModule \rnModule -> do
         rnEnv <- ask
-        lift $ checkWithProgram rnProgram \runTy runKi tcProgram -> do
+        lift $ checkWithModule rnModule \runTy runKi tcProgram -> do
           let rnActions = itraverse (evalAction opts runTy runKi) (optsActions (runOpts opts))
           actions <- runReaderT rnActions rnEnv
           pure $ Right (tcProgram, actions)

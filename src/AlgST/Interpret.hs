@@ -44,9 +44,9 @@ import AlgST.Builtins.Names
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
-import AlgST.Typing.Phase (Tc, TcBind, TcExp, TcExpX (..), TcProgram, TcStage)
+import AlgST.Typing.Phase (Tc, TcBind, TcExp, TcExpX (..), TcModule, TcStage)
 import AlgST.Util.Lenses
 import AlgST.Util.Output
 import Control.Concurrent
@@ -324,10 +324,10 @@ modifyState f = do
   liftIO $ atomicModifyIORef' ref \st -> (f st, ())
 {-# INLINE modifyState #-}
 
--- | Constructs the global 'Env' from a type checked 'Program'.
-programEnvironment :: TcProgram -> Env
+-- | Constructs the global 'Env' from a type checked 'Module'.
+programEnvironment :: TcModule -> Env
 programEnvironment p =
-  LMap.mapMaybeWithKey (\k -> either (conValue k) (globValue k)) (programValues p)
+  LMap.mapMaybeWithKey (\k -> either (conValue k) (globValue k)) (moduleValues p)
     <> builtinsEnv
   where
     conValue :: ProgVar TcStage -> ConstructorDecl Tc -> Maybe (Either TcExp Value)

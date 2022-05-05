@@ -43,8 +43,8 @@ module AlgST.Typing
     -- * Programs
     RunTyM,
     RunKiM,
-    checkProgram,
-    checkWithProgram,
+    checkModule,
+    checkWithModule,
     checkSignature,
 
     -- * Phase
@@ -54,7 +54,7 @@ module AlgST.Typing
     TcType,
     TcBind,
     TcCaseMap,
-    TcProgram,
+    TcModule,
   )
 where
 
@@ -66,8 +66,8 @@ import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind ((<=?))
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Type qualified as T
 import AlgST.Typing.Equality qualified as Eq
@@ -124,11 +124,11 @@ type RunTyM = forall env st a. (HasKiEnv env, HasKiSt st) => TypeM a -> TcM env 
 
 type RunKiM = forall a. TcM KiTypingEnv KiSt a -> Fresh (Either (NonEmpty Diagnostic) a)
 
-checkWithProgram ::
-  Program Rn ->
-  (RunTyM -> RunKiM -> TcProgram -> Fresh (Either (NonEmpty Diagnostic) r)) ->
+checkWithModule ::
+  Module Rn ->
+  (RunTyM -> RunKiM -> TcModule -> Fresh (Either (NonEmpty Diagnostic) r)) ->
   Fresh (Either (NonEmpty Diagnostic) r)
-checkWithProgram prog k = runExceptT $ do
+checkWithModule prog k = runExceptT $ do
   let runWrapExcept ::
         s -> TcM KiTypingEnv s a -> ExceptT (NonEmpty Diagnostic) Fresh (s, a)
       runWrapExcept st m =
@@ -143,12 +143,12 @@ checkWithProgram prog k = runExceptT $ do
           }
   let embed :: HasKiSt st => TypeM a -> TcM env st a
       embed = embedTypeM tyEnv
-  let mkProg :: ValuesMap Tc -> TcProgram
+  let mkProg :: ValuesMap Tc -> TcModule
       mkProg values =
-        Program
-          { programTypes = tcTypes,
-            programValues = values,
-            programImports = tcImports
+        Module
+          { moduleTypes = tcTypes,
+            moduleValues = values,
+            moduleImports = tcImports
           }
   (st', prog) <- runWrapExcept st $ mkProg <$> checkValueBodies embed tcValues
   ExceptT $ k embed (fmap (first runErrors . snd) . runTcM kiEnv st') prog
@@ -165,17 +165,17 @@ checkWithProgram prog k = runExceptT $ do
             let getAlias _ decl = Identity do
                   AliasDecl origin alias <- pure decl
                   pure $ UncheckedAlias (pos origin) alias
-             in runIdentity $ Map.traverseMaybeWithKey getAlias $ programTypes prog
+             in runIdentity $ Map.traverseMaybeWithKey getAlias $ moduleTypes prog
         }
     checkGlobals = do
-      checkAliases (Map.keys (programTypes prog))
-      tcTypes <- checkTypeDecls (programTypes prog)
-      checkedDefs <- checkValueSignatures (programValues prog)
-      tcImports <- traverse checkSignature (programImports prog)
+      checkAliases (Map.keys (moduleTypes prog))
+      tcTypes <- checkTypeDecls (moduleTypes prog)
+      checkedDefs <- checkValueSignatures (moduleValues prog)
+      tcImports <- traverse checkSignature (moduleImports prog)
       pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcImports)
 
-checkProgram :: Program Rn -> Fresh (Either (NonEmpty Diagnostic) TcProgram)
-checkProgram p = checkWithProgram p \_ _ -> pure . Right
+checkModule :: Module Rn -> Fresh (Either (NonEmpty Diagnostic) TcModule)
+checkModule p = checkWithModule p \_ _ -> pure . Right
 
 addError :: MonadValidate Errors m => Diagnostic -> m ()
 addError !e = dispute $ This $ DNE.singleton e
@@ -434,7 +434,7 @@ kisynthTypeCon loc name args =
         MaybeT . asks $
           view kiEnvL
             >>> tcContext
-            >>> programTypes
+            >>> moduleTypes
             >>> Map.lookup name
       subs <- lift $ zipTypeParams loc name (declParams decl) args
       let kind = case decl of

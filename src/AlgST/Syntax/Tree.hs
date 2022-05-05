@@ -21,8 +21,8 @@ import AlgST.Parse.Unparser ()
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Syntax.Type qualified as T
 import Control.Category ((>>>))
 import Data.Foldable
@@ -274,24 +274,24 @@ instance (D.ForallConX LabeledTree x, T.ForallX LabeledTree x) => LabeledTree (D
             [tree "items" (labeledTree <$> items)]
           ]
 
-instance ForallX LabeledTree x => LabeledTree (Program x) where
+instance ForallX LabeledTree x => LabeledTree (Module x) where
   labeledTree pp = types ++ imports ++ values
     where
       types =
         labeledMapTree
           (\tv _ -> describeName tv)
           (\_ td -> labeledTree td)
-          (programTypes pp)
+          (moduleTypes pp)
       imports =
         labeledMapTree
           (\pv _ -> describeName pv)
           (\_ sig -> labeledTree sig)
-          (programImports pp)
+          (moduleImports pp)
       values =
         labeledMapTree
           (\pv _ -> describeName pv)
           (\_ d -> either labeledTree labeledTree d)
-          (programValues pp)
+          (moduleValues pp)
 
 labeledMapTree ::
   (a -> b -> String) ->

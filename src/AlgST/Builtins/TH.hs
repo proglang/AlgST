@@ -8,8 +8,8 @@ import AlgST.Builtins.Names
 import AlgST.Parse.Parser
 import AlgST.Parse.Phase
 import AlgST.Syntax.Decl
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Util
 import Control.Monad
 import Data.List.NonEmpty (nonEmpty)
@@ -19,10 +19,10 @@ import Data.Set qualified as Set
 import Language.Haskell.TH hiding (Name)
 import Language.Haskell.TH.CodeDo qualified as Code
 
-parseStatic :: [(String, String)] -> [String] -> CodeQ PProgram
-parseStatic = parseStatic' emptyProgram
+parseStatic :: [(String, String)] -> [String] -> CodeQ PModule
+parseStatic = parseStatic' emptyModule
 
-parseStatic' :: PProgram -> [(String, String)] -> [String] -> CodeQ PProgram
+parseStatic' :: PModule -> [(String, String)] -> [String] -> CodeQ PModule
 parseStatic' baseProg sigs lines = Code.do
   let showVar :: Name stage scope -> String
       showVar a = "‘" ++ pprName a ++ "’"
@@ -45,13 +45,13 @@ parseStatic' baseProg sigs lines = Code.do
 
   prog <- case runParserSimple (parseProg baseProg) (unlines lines) of
     Left err -> do
-      reportError $ "Program failed to parse:" ++ err
-      pure emptyProgram
+      reportError $ "Module failed to parse:" ++ err
+      pure emptyModule
     Right p -> do
       pure p
 
   let (merged, conflict1, conflict2) =
-        mergePrograms prog emptyProgram {programImports = sigsMap}
+        mergeModules prog emptyModule {moduleImports = sigsMap}
       conflicts =
         nonEmpty $ fmap showVar (Set.toList conflict1) ++ fmap showVar (Set.toList conflict2)
   whenJust conflicts \conflicts ->

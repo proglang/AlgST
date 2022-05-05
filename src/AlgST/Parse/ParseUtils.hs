@@ -33,12 +33,12 @@ module AlgST.Parse.ParseUtils
     -- * Type declarations
     typeConstructors,
 
-    -- * Assembling of programs
-    ProgBuilder,
-    runProgBuilder,
-    programValueDecl,
-    programValueBinding,
-    programTypeDecl,
+    -- * Assembling of modules
+    ModuleBuilder,
+    runModuleBuilder,
+    moduleValueDecl,
+    moduleValueBinding,
+    moduleTypeDecl,
 
     -- * Checking for duplicates
     DuplicateError,
@@ -51,8 +51,8 @@ import AlgST.Parse.Operators
 import AlgST.Parse.Phase
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Util.ErrorMessage
 import Control.Arrow
 import Control.Monad.Reader
@@ -102,14 +102,14 @@ typeConstructors = declConstructors originAt originAt
 
 type IncompleteValueDecl = Maybe (Located (PName Values), PType)
 
-type ProgBuilder =
-  Kleisli (StateT IncompleteValueDecl ParseM) PProgram PProgram
+type ModuleBuilder =
+  Kleisli (StateT IncompleteValueDecl ParseM) PModule PModule
 
-runProgBuilder :: PProgram -> ProgBuilder -> ParseM PProgram
-runProgBuilder base builder =
+runModuleBuilder :: PModule -> ModuleBuilder -> ParseM PModule
+runModuleBuilder base builder =
   evalStateT (runKleisli (builder >>> completePrevious) base) Nothing
 
-completePrevious :: ProgBuilder
+completePrevious :: ModuleBuilder
 completePrevious = Kleisli \p -> do
   msig <- get
   case msig of
@@ -118,17 +118,17 @@ completePrevious = Kleisli \p -> do
     Just (loc :@ name, sig) -> do
       put Nothing
       let decl = SignatureDecl (OriginUser loc) sig
-      imports <- lift $ insertNoDuplicates name decl (programImports p)
-      pure p {programImports = imports}
+      imports <- lift $ insertNoDuplicates name decl (moduleImports p)
+      pure p {moduleImports = imports}
 
-programValueDecl :: Located (ProgVar PStage) -> PType -> ProgBuilder
-programValueDecl valueName ty =
+moduleValueDecl :: Located (ProgVar PStage) -> PType -> ModuleBuilder
+moduleValueDecl valueName ty =
   completePrevious >>> Kleisli \p -> do
     put $ Just (valueName, ty)
     pure p
 
-programValueBinding :: Located (ProgVar PStage) -> [Located AName] -> PExp -> ProgBuilder
-programValueBinding valueName params e = Kleisli \p0 -> do
+moduleValueBinding :: Located (ProgVar PStage) -> [Located AName] -> PExp -> ModuleBuilder
+moduleValueBinding valueName params e = Kleisli \p0 -> do
   mincomplete <- get
   p <-
     -- If there is an incomplete definition which does not match the current
@@ -165,18 +165,18 @@ programValueBinding valueName params e = Kleisli \p0 -> do
         insertNoDuplicates
           (unL valueName)
           (Right decl)
-          (programValues p)
-      when (unL valueName `Map.member` programImports p) do
+          (moduleValues p)
+      when (unL valueName `Map.member` moduleImports p) do
         addErrors [uncurryL errorImportShadowed valueName]
-      pure p {programValues = parsedValues'}
+      pure p {moduleValues = parsedValues'}
 
-programTypeDecl :: TypeVar PStage -> TypeDecl Parse -> ProgBuilder
-programTypeDecl v tydecl =
+moduleTypeDecl :: TypeVar PStage -> TypeDecl Parse -> ModuleBuilder
+moduleTypeDecl v tydecl =
   completePrevious >>> Kleisli \p -> do
-    parsedTypes' <- lift $ insertNoDuplicates v tydecl (programTypes p)
+    parsedTypes' <- lift $ insertNoDuplicates v tydecl (moduleTypes p)
     let constructors = Left <$> typeConstructors v tydecl
-    parsedValues' <- lift $ mergeNoDuplicates (programValues p) constructors
-    pure p {programTypes = parsedTypes', programValues = parsedValues'}
+    parsedValues' <- lift $ mergeNoDuplicates (moduleValues p) constructors
+    pure p {moduleTypes = parsedTypes', moduleValues = parsedValues'}
 
 -- | Inserts the value under the given key into the map. If there is already a
 -- value under that key an error as with 'errorMultipleDeclarations' is added

@@ -6,10 +6,10 @@ module AlgST.Builtins where
 import AlgST.Builtins.TH
 import AlgST.Parse.Phase
 import AlgST.Syntax.Decl
-import AlgST.Syntax.Program
+import AlgST.Syntax.Module
 import Prelude hiding (all)
 
-builtins :: PProgram
+builtins :: PModule
 builtins =
   $$( let sigs =
             [ -- Session operations.
@@ -76,6 +76,6 @@ builtins =
               markBuiltin = \case
                 DataDecl _ decl -> DataDecl OriginBuiltin decl
                 decl -> decl
-           in p {programTypes = markBuiltin <$> programTypes p}
+           in p {moduleTypes = markBuiltin <$> moduleTypes p}
           ||]
     )
