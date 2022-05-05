@@ -86,7 +86,6 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.Validate
 import Data.Bifunctor
 import Data.DList.DNonEmpty qualified as DNE
-import Data.Either
 import Data.Foldable
 import Data.Functor.Identity
 import Data.List.NonEmpty (NonEmpty (..), nonEmpty, (<|))
@@ -102,8 +101,7 @@ import Data.Tuple qualified as Tuple
 import Data.Void
 import Lens.Family2
 import Lens.Family2.State.Strict
-import Syntax.Base hiding (Variable)
-import Prelude hiding (lookup, truncate)
+import Syntax.Base
 
 -- | Translates the typechecker specific error set representation into a simple
 -- list.

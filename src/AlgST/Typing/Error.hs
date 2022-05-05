@@ -24,7 +24,7 @@ import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty, nonEmpty)
 import Data.List.NonEmpty qualified as NE
 import Data.Singletons
-import Syntax.Base hiding (Variable)
+import Syntax.Base
 import Prelude hiding (truncate)
 
 unexpectedKind ::

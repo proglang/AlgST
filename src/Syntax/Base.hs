@@ -13,8 +13,7 @@
 -- This module defines the basic structures (classes and datatypes) such as Positions and
 -- Multiplicity, that will be used the remaining Compiler.
 module Syntax.Base
-  ( Variable (..),
-    Pos (..),
+  ( Pos (..),
     Located (..),
     (@-),
     unL,
@@ -84,16 +83,3 @@ negPos (Pos i j) = Pos (negate i) (negate j)
 
 data Multiplicity = Un | Lin
   deriving (Eq, Lift, Ord)
-
--- Type and program variable
-
-class Position t => Variable t where
-  -- The string, internal representation of a variable
-  intern :: t -> String
-
-  -- Making a variable from a string, type or program
-  mkVar :: Pos -> String -> t
-
-  -- Making a new variable from a given variable. The variable is
-  -- unique up to the point where the integer is
-  mkNewVar :: Int -> t -> t
