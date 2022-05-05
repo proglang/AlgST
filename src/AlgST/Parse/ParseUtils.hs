@@ -5,6 +5,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -14,6 +15,9 @@ module AlgST.Parse.ParseUtils
     ParseM,
     runParseM,
     mkName,
+    mkNameU,
+    UnscopedName (..),
+    scopeName,
 
     -- * Errors
     addError,
@@ -76,10 +80,18 @@ type ParseM = ValidateT (DNonEmpty Diagnostic) (Reader ModuleName)
 runParseM :: ModuleName -> ParseM a -> Either (NonEmpty Diagnostic) a
 runParseM m = mapErrors DL.toNonEmpty >>> runValidateT >>> flip runReader m
 
-mkName :: String -> ParseM (PName scope)
-mkName s = do
+newtype UnscopedName = UName (forall scope. PName scope)
+
+scopeName :: UnscopedName -> PName scope
+scopeName (UName n) = n
+
+mkName :: Unqualified -> ParseM (PName scope)
+mkName = fmap scopeName . mkNameU
+
+mkNameU :: Unqualified -> ParseM UnscopedName
+mkNameU u = do
   m <- ask
-  pure $ Name m (Unqualified s)
+  pure $ UName $ Name m u
 
 addError :: Pos -> [ErrorMessage] -> ParseM ()
 addError !p err = addErrors [PosError p err]

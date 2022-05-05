@@ -1,0 +1,8 @@
+Exp.UnLet as
+|
++- Exp.Lit
+|  |
+|  `- Lit.Int 10
+|
+`- Exp.Var as
+

@@ -19,6 +19,11 @@ module AlgST.Syntax.Module
     ValuesMap,
     SignaturesMap,
     ForallX,
+
+    -- * Imports
+    Import (..),
+    ImportSelection (..),
+    ImportItem (..),
   )
 where
 
@@ -42,6 +47,23 @@ type ForallX (c :: Hs.Type -> Hs.Constraint) x =
     T.ForallX c x,
     E.ForallX c x
   )
+
+data Import = Import ModuleName ImportSelection
+  deriving stock (Show, Lift)
+
+data ImportSelection
+  = -- | Import all public definitions from this module and rename/hide
+    -- identifiers as specified in the 'ImportItem's.
+    ImportAll [ImportItem]
+  | -- | Import only the names specified, potentially renaming imported names.
+    ImportOnly [ImportItem]
+  deriving stock (Show, Lift)
+
+data ImportItem
+  = ImportName Unqualified
+  | ImportHide Unqualified
+  | ImportRename Unqualified Unqualified
+  deriving stock (Show, Lift)
 
 data Module x = Module
   { moduleTypes :: !(TypesMap x),

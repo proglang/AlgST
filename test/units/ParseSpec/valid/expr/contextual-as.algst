@@ -1,0 +1,2 @@
+-- Check that `as` is a valid variable name.
+let as = 10 in as

@@ -1,0 +1,3 @@
+-- Check that in an expression context parenthesized operators are parsed as
+-- variable names.
+(+) (*) (-) (/)

@@ -80,12 +80,23 @@ import           Syntax.Base
   '}'      {TokenRBrace _}
   '_'      {TokenWild _}
   '.'      {TokenDot _}
-  '+'      {TokenPlus _}
-  '-'      {TokenMinus _}
   '(,)'    {TokenPairCon _}
-  UPPER_ID {TokenUpperId _ _}
-  LOWER_ID {TokenLowerId _ _}
+
+  -- Identifiers. 'as' and '(*)' can appear as special syntax items.
+  as        {TokenLowerId _ "as"}
+  '(*)'     {TokenLowerId _ "(*)"}
+  LOWER_ID  {TokenLowerId _ _}
+  UPPER_ID  {TokenUpperId _ _}
+  UPPER_IDq {TokenUpperIdQ _ _}
+  -- Not yet used.
+  -- LOWER_IDq {TokenLowerIdQ _ _}
+
+  -- Operators. +/-/* can appear as special syntax items.
+  '+'      {TokenOperator _ "+"}
+  '-'      {TokenOperator _ "-"}
+  '*'      {TokenOperator _ "*"}
   OPERATOR {TokenOperator _ _}
+
   KIND     {TokenKind _ _}
   INT      {TokenInt _ _}
   CHAR     {TokenChar _ _}
@@ -110,6 +121,7 @@ import           Syntax.Base
   forall   {TokenForall _}
   dualof   {TokenDualof _}
   end      {TokenEnd _}
+  import   {TokenImport _}
 
 %%
 
@@ -118,12 +130,57 @@ import           Syntax.Base
 -------------
 
 Prog :: { PModule -> ParseM PModule }
-  : {- empty -}   { pure }
-  | Decls         { \base -> runModuleBuilder base $1 }
+  : {- empty -}       { pure }
+  | Decls             { \base -> runModuleBuilder base $1 }
+  | Imports           { pure }                              -- TODO: Handle imports.
+  | Imports NL Decls  { \base -> runModuleBuilder base $3 } -- TODO: Handle imports.
+
 
 NL :: { () }
-  : nl NL {}
-  | nl    {}
+  : nl    {}
+  | NL nl {}
+
+
+-------------------------------------------------------------------------------
+-- Imports
+-------------------------------------------------------------------------------
+
+Imports :: { DL.DList Import }
+  : Import              { DL.singleton $1 }
+  | Imports NL Import   { $1 `DL.snoc` $3 }
+
+Import :: { Import }
+  : import ModuleName ImportList      { Import (unL $2) $3 }
+
+ImportList :: { ImportSelection }
+  -- optional NL: allow closing parenthesis to appear in column 0.
+  : {- empty -}                       { ImportAll [] }
+  | '(*)'                             { ImportAll [] }
+  | '()'                              { ImportOnly [] }
+  | '(' opt(NL) ')'                   { ImportOnly [] }
+  | '(' ImportSelection opt(NL) ')'   { $2 }
+
+ImportSelection :: { ImportSelection }
+  : ImportItems         opt(',')      { ImportOnly (DL.toList $1) }
+  | '*'                 opt(',')      { ImportAll [] }
+  | '*' ',' ImportItems opt(',')      { ImportAll (DL.toList $3) }
+
+ImportItems :: { DL.DList ImportItem }
+  : ImportItem                        { DL.singleton $1 }
+  | ImportItems ',' ImportItem        { $1 `DL.snoc` $3 }
+
+ImportItem :: { ImportItem }
+  : UnqualifiedVar                    { ImportName (unL $1) }
+  | UnqualifiedCon                    { ImportName (unL $1) }
+  | UnqualifiedVar as '_'             { ImportHide (unL $1) }
+  | UnqualifiedCon as '_'             { ImportHide (unL $1) }
+  | UnqualifiedVar as UnqualifiedVar  { ImportRename (unL $1) (unL $3) }
+  | UnqualifiedCon as UnqualifiedCon  { ImportRename (unL $1) (unL $3) }
+
+
+-------------------------------------------------------------------------------
+-- Declarations
+-------------------------------------------------------------------------------
 
 Decls :: { ModuleBuilder }
   : Decl          { $1 }
@@ -209,9 +266,10 @@ TyVarList :: { DL.DList (Located AName) }
   : wildcard(TypeVar)                       { DL.singleton (fmap liftName $1) }
   | TyVarList ',' wildcard(TypeVar)         { $1 `DL.snoc` fmap liftName $3 }
 
-----------------
--- EXPRESSION --
-----------------
+
+-------------------------------------------------------------------------------
+-- Expressions
+-------------------------------------------------------------------------------
 
 EAtom :: { PExp }
   : INT                            { let (TokenInt p x) = $1    in E.Lit p $ E.Int    x }
@@ -274,7 +332,7 @@ RecExp :: { forall a. (Pos -> ProgVar PStage -> PType -> E.RecLam Parse -> a) ->
     }
 
 LetBind :: { Pos -> PExp -> PExp -> PExp }
-  : ProgVarWild optional(TySig)   { \p -> E.UnLet p (unL $1) $2 }
+  : ProgVarWild opt(TySig)        { \p -> E.UnLet p (unL $1) $2 }
   | Pattern                       { \p -> do
       let (pat, binds) = $1
       E.PatLet p (unL pat) binds
@@ -292,8 +350,8 @@ LamExp :: { PExp }
 Abs :: { (Multiplicity -> Endo PExp, Any) }
   : bindings1(Abs1) {% do
       binds <- $1 $ \case
-            (p, Left (v, _)) | not (isWild v) -> Just (p @- Left v)
-            (p, Right (v, _)) | not (isWild v) -> Just (p @- Right v)
+            p :@ Left (v, _)  | not (isWild v) -> Just (p @- Left v)
+            p :@ Right (v, _) | not (isWild v) -> Just (p @- Right v)
             _ -> Nothing
       let termAbs loc (v, t) =
             ( \m -> Endo $ E.Abs @Parse loc . E.Bind loc m v t
@@ -303,15 +361,14 @@ Abs :: { (Multiplicity -> Endo PExp, Any) }
             ( \_ -> Endo $ E.TypeAbs @Parse loc . K.Bind loc v k
             , Any False
             )
-      let build (loc, abs) =
+      let build loc abs =
             either (termAbs loc) (typeAbs loc) abs
-      pure $ foldMap build (binds ::
-        NonEmpty (Pos, Either (ProgVar PStage, PType) (TypeVar PStage, K.Kind)))
+      pure $ foldMap (uncurryL build) binds
     }
 
-Abs1 :: { (Pos, Either (ProgVar PStage, PType) (TypeVar PStage, K.Kind)) } 
-  : '(' wildcard(ProgVar) ':' Type ')' { (pos $1, Left (unL $2, $4)) }
-  | '[' wildcard(TypeVar) ':' Kind ']' { (pos $1, Right (unL $2, unL $4)) }
+Abs1 :: { Located (Either (ProgVar PStage, PType) (TypeVar PStage, K.Kind)) } 
+  : '(' wildcard(ProgVar) ':' Type ')' { $2 @- Left (unL $2, $4) }
+  | '[' wildcard(TypeVar) ':' Kind ']' { $2 @- Right (unL $2, unL $4) }
 
 Cases :: { PCaseMap }
   : -- An empty case is not allowed. Accepting it here allows us to provide
@@ -319,7 +376,7 @@ Cases :: { PCaseMap }
     '{' '}' { emptyCaseMap }
   | -- optional NL: The closing brace may be on column 0 of a new line. Usually
     -- NL separates declarations.
-    '{' CaseMap optional(',') optional(NL) '}' { $2 }
+    '{' CaseMap opt(',') opt(NL) '}' { $2 }
 
 CaseMap :: { PCaseMap }
   : Case             {% $1 emptyCaseMap }
@@ -365,9 +422,10 @@ ProgVarWildSeq :: { [Located (ProgVar PStage)] }
     }
 
 Op :: { Located (ProgVar PStage) }
-  : OPERATOR  {% ($1 @-) `fmap` mkName (getText $1) }
-  | '+'       {% ($1 @-) `fmap` mkName "+" }
-  | '-'       {% ($1 @-) `fmap` mkName "-" }
+  : OPERATOR  {% ($1 @-) `fmap` mkName (Unqualified (getText $1)) }
+  | '+'       {% ($1 @-) `fmap` mkName (Unqualified "+") }
+  | '-'       {% ($1 @-) `fmap` mkName (Unqualified "-") }
+  | '*'       {% ($1 @-) `fmap` mkName (Unqualified "*") }
 
 OpTys :: { (Located (ProgVar PStage), [PType]) }
   : OpTys_                    { DL.toList `fmap` $1 }
@@ -382,9 +440,9 @@ OpsExp :: { OpSeq OpsExp (Located (ProgVar PStage), [PType]) }
   | EApp OpTys OpsExp    { Operand $1 $ Operator $2 $3 }
 
 
-----------
--- TYPE --
-----------
+-------------------------------------------------------------------------------
+-- Types
+-------------------------------------------------------------------------------
 
 -- polarised(t :: PType) :: PType
 polarised(t)
@@ -442,8 +500,7 @@ Polarity :: { (Pos, T.Polarity) }
   : '!' { (pos $1, T.Out) }
   | '?' { (pos $1, T.In) }
 
--- TYPE SEQUENCE
-
+-- A sequence of types to be used in a constructor declaration.
 TypeSeq :: { DL.DList PType }
   : {- empty -}                     { DL.empty }
   | TypeSeq polarised(TypeAtom)     {  $1 `DL.snoc` $2 }
@@ -451,24 +508,69 @@ TypeSeq :: { DL.DList PType }
     -- parentheses. The polarisation also can't be moved to TypeAtom since it
     -- has a lower precedence than type application
 
-----------
--- KIND --
-----------
+
+-------------------------------------------------------------------------------
+-- Kinds
+-------------------------------------------------------------------------------
 
 Kind :: { Located K.Kind }
   : KIND { let TokenKind p k = $1 in p @- k }
 
--- PROGRAM VARIABLE
+
+-------------------------------------------------------------------------------
+-- Names
+-------------------------------------------------------------------------------
+
+UnqualifiedCon :: { Located Unqualified }
+  : UPPER_ID        { $1 @- Unqualified (getText $1) }
+  | -- Allow the kinds to be used as constructor names.
+    Kind            { $1 @- Unqualified (show (unL $1)) }
+
+UnqualifiedVar :: { Located Unqualified }
+  : LOWER_ID        { $1 @- Unqualified (getText $1) }
+  | -- (*) is special syntax in import lists.
+    '(*)'           { $1 @- Unqualified "(*)" }
+  | -- 'as' is a contextual keyword.
+    as              { $1 @- Unqualified "as" }
+
+ModuleName :: { Located ModuleName }
+  : UnqualifiedCon  { $1 @- ModuleName (getUnqualified (unL $1)) }
+  | UPPER_IDq       { $1 @- ModuleName (getText $1) }
+
+NameVar :: { Located UnscopedName }
+  : UnqualifiedVar  {% traverse mkNameU $1 }
+
+NameCon :: { Located UnscopedName }
+  : UnqualifiedCon  {% traverse mkNameU $1 }
 
 ProgVar :: { Located (ProgVar PStage) }
-  : LOWER_ID {% ($1 @-) `fmap` mkName (getText $1) }
+  : NameVar { scopeName `fmap` $1 }
 
 Constructor :: { Located (ProgVar PStage) }
-  : UPPER_ID {% ($1 @-) `fmap` mkName (getText $1) }
-  | Kind     {% ($1 @-) `fmap` mkName (show (unL $1)) }
+  : NameCon { scopeName `fmap` $1 }
 
 ProgVarWild :: { Located (ProgVar PStage) }
   : wildcard(ProgVar)   { $1 }
+
+TypeVar :: { Located (TypeVar PStage) }
+  : NameVar { scopeName `fmap` $1 }
+
+TypeName :: { Located (TypeVar PStage) }
+  : NameCon { scopeName `fmap` $1 }
+
+KindBind :: { (Located (TypeVar PStage), K.Kind) }
+  : '(' TypeVar ':' Kind ')'  { ($2, unL $4) }
+  | '(' TypeVar ')'           { ($2, K.TU) }
+  | TypeVar                   { ($1, K.TU) }
+
+KindedTVar :: { (Located (TypeVar PStage), Maybe K.Kind) }
+  : TypeName ':' Kind { ($1, Just (unL $3)) }
+  | TypeName          { ($1, Nothing) }
+
+-- wildcard(v) : v ~ Located s => Located (Name s)
+wildcard(v)
+  : v     { $1 }
+  | '_'   { $1 @- Wildcard }
 
 -- bindings(p) :
 --   (Foldable f, Eq a, Hashable a, ErrorMsg a) => (p -> f (Located a)) -> ParseM [p]
@@ -504,33 +606,13 @@ bindings_(p)
       pure $ ps `DL.snoc` $2
     }
 
--- wildcard(v) : v ~ Located s => Located (Name s)
-wildcard(v)
-  : v     { $1 }
-  | '_'   { $1 @- Wildcard }
 
--- TYPE VARIABLE
+-------------------------------------------------------------------------------
+-- Generic Helpers
+-------------------------------------------------------------------------------
 
-TypeVar :: { Located (TypeVar PStage) }
-  : LOWER_ID {% ($1 @-) `fmap` mkName (getText $1) }
-
-TypeName :: { Located (TypeVar PStage) }
-  : UPPER_ID {% ($1 @-) `fmap` mkName (getText $1) }
-  | KIND     {% ($1 @-) `fmap` mkName (show $1) }
-
-KindBind :: { (Located (TypeVar PStage), K.Kind) }
-  : '(' TypeVar ':' Kind ')'  { ($2, unL $4) }
-  | '(' TypeVar ')'           { ($2, K.TU) }
-  | TypeVar                   { ($1, K.TU) }
-
-KindedTVar :: { (Located (TypeVar PStage), Maybe K.Kind) }
-  : TypeName ':' Kind { ($1, Just (unL $3)) }
-  | TypeName          { ($1, Nothing) }
-
--- GENERIC HELPERS
-
--- optional(t) : Maybe t
-optional(t)
+-- opt(t) : Maybe t
+opt(t)
   : {- empty -}  { Nothing }
   | t            { Just $1 }
 

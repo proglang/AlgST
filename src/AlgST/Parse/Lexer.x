@@ -31,7 +31,7 @@ $letter = [$lower$upper$greek]
 $ascdigit = 0-9
 $digit = [$ascdigit] -- $unidigit]
 
-$opsymbol = [\!\#\$\%\&\*\/\<\=\>\@\\\^\|\~\:≤≠≥∧∨]
+$opsymbol = [\!\#\$\%\&\+\-\*\/\<\=\>\@\\\^\|\~\:≤≠≥∧∨]
 @operator = $opsymbol+
 
 $alphaNumeric = [$letter$digit\_\']
@@ -100,18 +100,19 @@ tokens :-
   (forall|∀)                    { simpleToken TokenForall }
   dual                          { simpleToken TokenDualof }
   end                           { simpleToken TokenEnd }
+  import                        { simpleToken TokenImport }
 -- Values
   \(\)                          { simpleToken TokenUnit }
   (0+|[1-9]$digit*)             { textToken' read TokenInt }
   @char                         { textToken' read TokenChar }
   @string                       { textToken' read TokenString }
 -- Identifiers
-  "+"                           { simpleToken TokenPlus }
-  "-"                           { simpleToken TokenMinus }
   @operator                     { textToken TokenOperator }
-  \( @operator \)               { textToken TokenLowerId }
+  "(" @operator ")"             { textToken TokenLowerId }
   @lowerId                      { textToken TokenLowerId }
   @upperId                      { textToken TokenUpperId }
+  ( @upperId "." )+ @lowerId    { textToken TokenLowerIdQ }
+  ( @upperId "." )+ @upperId    { textToken TokenUpperIdQ }
   "(,)"                         { simpleToken TokenPairCon }
 
 {
@@ -129,6 +130,7 @@ data Token =
   | TokenComma Pos
   | TokenColon Pos
   | TokenUpperId Pos String
+  | TokenUpperIdQ Pos String
   | TokenPairCon Pos
   | TokenMOut Pos
   | TokenMIn Pos
@@ -136,9 +138,8 @@ data Token =
   | TokenRBrace Pos
   | TokenDot Pos
   | TokenLowerId Pos String
+  | TokenLowerIdQ Pos String
   | TokenOperator Pos String
-  | TokenPlus Pos   -- Has to be seperate because it can appear in a non-operator context
-  | TokenMinus Pos  -- Has to be seperate because it can appear in a non-operator context
   | TokenKind Pos K.Kind
   | TokenInt Pos Integer
   | TokenChar Pos Char
@@ -165,6 +166,7 @@ data Token =
   | TokenDualof Pos
   | TokenEnd Pos
   | TokenWild Pos
+  | TokenImport Pos
 
 instance Show Token where
   show (TokenNL _) = "\\n"
@@ -179,6 +181,7 @@ instance Show Token where
   show (TokenComma _) = ","
   show (TokenColon _) = ":"
   show (TokenUpperId _ c) = c
+  show (TokenUpperIdQ _ c) = c
   show (TokenPairCon _) = "(,)"
   show (TokenMOut _) = "!"
   show (TokenMIn _) = "?"
@@ -186,9 +189,8 @@ instance Show Token where
   show (TokenRBrace _) = "}"
   show (TokenDot _) = "."
   show (TokenLowerId _ s) = s
+  show (TokenLowerIdQ _ s) = s
   show (TokenOperator _ s) = s
-  show (TokenPlus _) = "+"
-  show (TokenMinus _) = "-"
   show (TokenKind _ k) = show k
   show (TokenInt _ i) = show i
   show (TokenChar _ c) = show c
@@ -215,6 +217,7 @@ instance Show Token where
   show (TokenOf _) = "of"
   show (TokenDualof _) = "dualof"
   show (TokenEnd _) = "end"
+  show (TokenImport _) = "import"
 
 scanTokens :: String -> Either Diagnostic [Token]
 scanTokens str = trim <$> go (alexStartPos, '\n', [], str)
@@ -281,6 +284,7 @@ instance Position Token where
   pos (TokenComma p) = p
   pos (TokenColon p) = p
   pos (TokenUpperId p _) = p
+  pos (TokenUpperIdQ p _) = p
   pos (TokenPairCon p) = p
   pos (TokenMOut p) = p
   pos (TokenMIn p) = p
@@ -288,9 +292,8 @@ instance Position Token where
   pos (TokenRBrace p) = p
   pos (TokenDot p) = p
   pos (TokenLowerId p _) = p
+  pos (TokenLowerIdQ p _) = p
   pos (TokenOperator p _) = p
-  pos (TokenPlus p) = p
-  pos (TokenMinus p) = p
   pos (TokenKind p _) = p
   pos (TokenInt p _) = p
   pos (TokenChar p _) = p
@@ -317,10 +320,13 @@ instance Position Token where
   pos (TokenOf p) = p
   pos (TokenDualof p) = p
   pos (TokenEnd p) = p
+  pos (TokenImport p) = p
 
 getText :: Token -> String
-getText (TokenUpperId _ x) = x
-getText (TokenLowerId _ x) = x
+getText (TokenUpperId  _ x) = x
+getText (TokenUpperIdQ _ x) = x
+getText (TokenLowerId  _ x) = x
+getText (TokenLowerIdQ _ x) = x
 getText (TokenOperator _ x) = x
 getText t = error $ "Token has no embedded text: " ++ show t
 
