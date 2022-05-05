@@ -41,13 +41,13 @@ shouldNotError = \case
 parseAndCheckProgram :: String -> Either (NonEmpty Diagnostic) (Program Tc)
 parseAndCheckProgram src = do
   parsed <- runParser (parseProg builtins) src
-  runFresh (Module "") $ runRename (renameProgram parsed) >>= checkProgram
+  runFresh (ModuleName "") $ runRename (renameProgram parsed) >>= checkProgram
 
 runProgram :: TcProgram -> IO Value
 runProgram p = runEval env (eval mainExpr)
   where
     env = programEnvironment p
-    mainExpr = E.Var defaultPos (Name (Module "") (Unqualified "main"))
+    mainExpr = E.Var defaultPos (Name (ModuleName "") (Unqualified "main"))
 
 dir :: FilePath
 dir = dropExtension __FILE__

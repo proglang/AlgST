@@ -63,7 +63,7 @@ main = do
 
   let mainModule =
         -- TODO: Use the actual module here!
-        Module ""
+        ModuleName ""
   mparsed <- runStage opts "Parsing" $ runParser (parseProg builtins) src
   checked <- runChecks opts mainModule =<< maybe exitFailure pure mparsed
 
@@ -88,7 +88,7 @@ main = do
       traverse_ print v
     _ -> pure ()
 
-runChecks :: Options -> Module -> PProgram -> IO TcProgram
+runChecks :: Options -> ModuleName -> PProgram -> IO TcProgram
 runChecks opts mod pprogram =
   maybe exitFailure pure =<< runMaybeT do
     (checked, actions) <- MaybeT . runStage opts "Checking" . runFresh mod $

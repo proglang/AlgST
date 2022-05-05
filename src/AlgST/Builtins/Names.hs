@@ -7,8 +7,8 @@ module AlgST.Builtins.Names where
 import AlgST.Syntax.Name
 
 -- TODO: Change this to "Builtin" once proper name resolution is implemented.
-pattern BuiltinsModule :: Module
-pattern BuiltinsModule = Module ""
+pattern BuiltinsModule :: ModuleName
+pattern BuiltinsModule = ModuleName ""
 
 pattern Builtin :: String -> NameW scope
 pattern Builtin s = Name BuiltinsModule (Unqualified s)

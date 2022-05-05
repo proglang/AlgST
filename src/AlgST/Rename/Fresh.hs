@@ -22,7 +22,7 @@ import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Data.Bitraversable
 
-newtype Fresh a = Fresh {unFresh :: ReaderT Module (State ResolvedId) a}
+newtype Fresh a = Fresh {unFresh :: ReaderT ModuleName (State ResolvedId) a}
   deriving newtype (Functor, Applicative, Monad, MonadFix)
 
 {- ORMOLU_DISABLE -}
@@ -32,10 +32,10 @@ type FStage = Written
 type FName = NameW
 {- ORMOLU_ENABLE -}
 
-runFresh :: Module -> Fresh a -> a
+runFresh :: ModuleName -> Fresh a -> a
 runFresh m (Fresh a) = evalState (runReaderT a m) firstResolvedId
 
-currentModule :: Fresh Module
+currentModule :: Fresh ModuleName
 currentModule = Fresh ask
 
 freshResolved :: Name stage scope -> Fresh (FName scope)

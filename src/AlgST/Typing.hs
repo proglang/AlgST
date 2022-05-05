@@ -1210,7 +1210,7 @@ unrestrictedLoc p Un = Just $! pos p
 unrestrictedLoc _ Lin = Nothing
 
 freshLocal :: String -> TcM env st (TcName scope)
-freshLocal = liftFresh . freshResolved . Name (Module "") . Unqualified
+freshLocal = liftFresh . freshResolved . Name (ModuleName "") . Unqualified
 
 -- | Establishes a set of bindings for a nested scope.
 --

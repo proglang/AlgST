@@ -557,7 +557,7 @@ feedParser :: Parser a -> String -> ParseM a
 feedParser = flip lexer
 
 runParser :: Parser a -> String -> Either (NonEmpty Diagnostic) a
-runParser parser = runParseM (Module "") . feedParser parser
+runParser parser = runParseM (ModuleName "") . feedParser parser
 -- TODO: Pass in the actual module.
 
 -- | Runs a parser with the contents of the provided file. This function may

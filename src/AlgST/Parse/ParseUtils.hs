@@ -69,11 +69,11 @@ import Data.Maybe
 import Data.Singletons
 import Syntax.Base
 
-type ParseM = ValidateT (DNonEmpty Diagnostic) (Reader Module)
+type ParseM = ValidateT (DNonEmpty Diagnostic) (Reader ModuleName)
 
 -- | Evaluates a value in the 'ParseM' monad producing a list of errors and
 -- maybe a result.
-runParseM :: Module -> ParseM a -> Either (NonEmpty Diagnostic) a
+runParseM :: ModuleName -> ParseM a -> Either (NonEmpty Diagnostic) a
 runParseM m = mapErrors DL.toNonEmpty >>> runValidateT >>> flip runReader m
 
 mkName :: String -> ParseM (PName scope)

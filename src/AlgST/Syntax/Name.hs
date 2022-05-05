@@ -66,8 +66,8 @@ module AlgST.Syntax.Name
     NameSetG,
 
     -- * Modules
-    Module (..),
-    moduleName,
+    ModuleName (..),
+    unModuleName,
     modulePath,
     moduleFromPath,
 
@@ -95,12 +95,12 @@ import Language.Haskell.TH.Syntax (Lift)
 import System.FilePath qualified as FP
 
 -- | The name of a module.
-newtype Module = Module String
+newtype ModuleName = ModuleName String
   deriving stock (Show, Lift)
   deriving newtype (Eq, Ord, Hashable)
 
-moduleName :: Module -> String
-moduleName (Module s) = s
+unModuleName :: ModuleName -> String
+unModuleName (ModuleName s) = s
 
 modulePartSeparator :: Char
 modulePartSeparator = '.'
@@ -108,28 +108,28 @@ modulePartSeparator = '.'
 -- | Produces the path under which the source code for the given module is
 -- expected.
 --
--- >>> modulePath (Module "Data.List")
+-- >>> modulePath (ModuleName "Data.List")
 -- "Data/List.algst"
-modulePath :: Module -> FilePath
-modulePath = moduleName >>> map adjustSep >>> flip FP.addExtension "algst"
+modulePath :: ModuleName -> FilePath
+modulePath = unModuleName >>> map adjustSep >>> flip FP.addExtension "algst"
   where
     adjustSep c
       | c == modulePartSeparator = FP.pathSeparator
       | otherwise = c
 
--- | Transforms a 'FilePath' to the corresponding 'Module'.
+-- | Transforms a 'FilePath' to the corresponding 'ModuleName'.
 --
 -- >>> moduleFromPath "Data/List.algst"
--- Module "Data.List"
+-- ModuleName "Data.List"
 --
 -- Any extensions on the last component will be dropped. No further cleaning of
 -- paths or validity checking will be performed. This can lead to invalid
 -- module names:
 --
 -- >>> moduleFromPath "../Data.ext/List.algst"
--- Module "...Data.ext.List"
-moduleFromPath :: FilePath -> Module
-moduleFromPath = FP.dropExtensions >>> map adjustSep >>> Module
+-- ModuleName "...Data.ext.List"
+moduleFromPath :: FilePath -> ModuleName
+moduleFromPath = FP.dropExtensions >>> map adjustSep >>> ModuleName
   where
     adjustSep c
       | FP.isPathSeparator c = modulePartSeparator
@@ -176,7 +176,7 @@ type Name :: Stage -> Scope -> Type
 data Name stage scope where
   -- | An unresolved name. Represents the module and unqualified part as they
   -- were written by the user.
-  Name :: Module -> Unqualified -> Name Written scope
+  Name :: ModuleName -> Unqualified -> Name Written scope
   -- | A resolved name combines information about how a name was written
   -- by the user with definitive globally identifying information.
   --
@@ -185,7 +185,7 @@ data Name stage scope where
   --
   -- Equalitiy, ordering and hashing does not consider the "written" component,
   -- it is purely cosmetic.
-  ResolvedName :: Name Written scope -> Module -> !ResolvedId -> Name Resolved scope
+  ResolvedName :: Name Written scope -> ModuleName -> !ResolvedId -> Name Resolved scope
 
 deriving stock instance Lift (Name stage scope)
 
@@ -209,10 +209,10 @@ instance Hashable (Name stage scope) where
       `hashWithSalt` ri
 
 pattern Wildcard :: Name Written scope
-pattern Wildcard = Name (Module "") (Unqualified "_")
+pattern Wildcard = Name (ModuleName "") (Unqualified "_")
 
 pattern PairCon :: Name Written scope
-pattern PairCon = Name (Module "") (Unqualified "(,)")
+pattern PairCon = Name (ModuleName "") (Unqualified "(,)")
 
 -- | Checks wether the given name is a wildcard pattern.
 isWild :: Name Written scope -> Bool
@@ -223,10 +223,10 @@ nameWritten :: Name stage scope -> Name Written scope
 nameWritten n@Name {} = n
 nameWritten (ResolvedName n _ _) = n
 
-nameResolvedModule :: Name Resolved scope -> Module
+nameResolvedModule :: Name Resolved scope -> ModuleName
 nameResolvedModule (ResolvedName _ m _) = m
 
-nameWrittenModule :: Name stage scope -> Module
+nameWrittenModule :: Name stage scope -> ModuleName
 nameWrittenModule (nameWritten -> Name m _) = m
 
 nameUnqualified :: Name stage scope -> Unqualified
@@ -238,11 +238,11 @@ pprName (nameWritten -> n) = fold modulePrefix ++ getUnqualified (nameUnqualifie
     modulePrefix :: Maybe String
     modulePrefix = do
       guard $ not $ isWild n
-      guard $ not $ null $ moduleName $ nameWrittenModule n
-      pure $ moduleName (nameWrittenModule n) ++ "."
+      guard $ not $ null $ unModuleName $ nameWrittenModule n
+      pure $ unModuleName (nameWrittenModule n) ++ "."
 
 pprResolved :: Name Resolved scope -> String
-pprResolved (ResolvedName _ (Module m) (ResolvedId r)) =
+pprResolved (ResolvedName _ (ModuleName m) (ResolvedId r)) =
   m ++ '#' : show r
 
 -- TODO: Check if there is difference in runtime/allocation when switching

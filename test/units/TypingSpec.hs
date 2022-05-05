@@ -161,7 +161,7 @@ nfShouldBe t1 t2 = do
   (t1NF, t2Tc) <- shouldNotError do
     t1' <- runParser parseType t1
     t2' <- runParser parseType t2
-    runFresh (Module "") do
+    runFresh (ModuleName "") do
       (rnDecls, t1Rn, t2Rn) <- withRenamedProgram declarations \rnDecls -> do
         t1Rn <- renameSyntax t1'
         t2Rn <- renameSyntax t2'
@@ -200,7 +200,7 @@ runKiAction ::
   Either String a
 runKiAction p m src = first plainErrors do
   parsed <- runParser p src
-  runFresh (Module "") do
+  runFresh (ModuleName "") do
     rnDecls <- runRename $ renameProgram declarations
     renamed <- runRename $ renameSyntax parsed
     checkWithProgram rnDecls \embed runTc _ -> runTc $ m embed renamed
@@ -209,7 +209,7 @@ runKiAction p m src = first plainErrors do
 parseAndCheckProgram :: String -> Either (NonEmpty Diagnostic) (Program Tc)
 parseAndCheckProgram src = do
   parsed <- runParser (parseProg declarations) src
-  runFresh (Module "") $ runRename (renameProgram parsed) >>= checkProgram
+  runFresh (ModuleName "") $ runRename (renameProgram parsed) >>= checkProgram
 
 drawNoBuiltins :: TcProgram -> String
 drawNoBuiltins p = drawLabeledTree $ p `withoutProgramDefinitions` declarations

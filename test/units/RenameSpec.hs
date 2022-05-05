@@ -23,7 +23,7 @@ spec = do
     goldenTests (dir "prog") \src -> do
       p <- runParserSimple (parseProg builtins) src
       -- TODO: Check that giving a different module name still succeeds.
-      pure $ drawNoBuiltins $ runFresh (Module "") $ withRenamedProgram p pure
+      pure $ drawNoBuiltins $ runFresh (ModuleName "") $ withRenamedProgram p pure
 
 drawNoBuiltins :: RnProgram -> String
 drawNoBuiltins p = drawLabeledTree $ p `withoutProgramDefinitions` builtins
@@ -31,7 +31,7 @@ drawNoBuiltins p = drawLabeledTree $ p `withoutProgramDefinitions` builtins
 parseRenameExpr :: String -> Either String String
 parseRenameExpr src = do
   expr <- runParserSimple parseExpr src
-  pure $ drawLabeledTree $ runFresh (Module "") $ runRename $ renameSyntax expr
+  pure $ drawLabeledTree $ runFresh (ModuleName "") $ runRename $ renameSyntax expr
 
 dir :: FilePath -> FilePath
 dir sub = dropExtension __FILE__ </> sub
