@@ -25,6 +25,7 @@ import AlgST.Syntax.Module
 import AlgST.Syntax.Name
 import AlgST.Syntax.Type qualified as T
 import Control.Category ((>>>))
+import Control.Monad
 import Data.Foldable
 import Data.Functor.Identity
 import Data.Map.Strict qualified as Map
@@ -296,8 +297,16 @@ instance ForallX LabeledTree x => LabeledTree (Module x) where
           (moduleValues pp)
 
 instance LabeledTree Import where
-  labeledTree (Import (ModuleName m) spec) =
-    [tree ("import " ++ m) [labeledTree spec]]
+  labeledTree i =
+    [ tree
+        ("import " ++ m ++ fold qualified)
+        [labeledTree (importSelection i)]
+    ]
+    where
+      ModuleName m = importTarget i
+      qualified = do
+        guard $ emptyModuleName /= importQualifier i
+        Just $ " as " ++ unModuleName (importQualifier i)
 
 instance LabeledTree ImportSelection where
   labeledTree =

@@ -67,6 +67,7 @@ module AlgST.Syntax.Name
 
     -- * Modules
     ModuleName (..),
+    emptyModuleName,
     unModuleName,
     modulePath,
     moduleFromPath,
@@ -98,6 +99,9 @@ import System.FilePath qualified as FP
 newtype ModuleName = ModuleName String
   deriving stock (Show, Lift)
   deriving newtype (Eq, Ord, Hashable)
+
+emptyModuleName :: ModuleName
+emptyModuleName = ModuleName ""
 
 unModuleName :: ModuleName -> String
 unModuleName (ModuleName s) = s

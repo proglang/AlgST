@@ -150,7 +150,20 @@ Imports :: { ModuleBuilder }
   | Imports NL Import   { $1 <<< addImport $3 }
 
 Import :: { Import }
-  : import ModuleName ImportList      { Import (unL $2) $3 }
+  : import ModuleName ImportList {
+      Import {
+        importTarget = unL $2,
+        importQualifier = emptyModuleName,
+        importSelection = $3
+      }
+    }
+  | import ModuleName as ModuleName ImportList {
+      Import {
+        importTarget = unL $2,
+        importQualifier = unL $4,
+        importSelection = $5
+      }
+    }
 
 ImportList :: { ImportSelection }
   -- optional NL: allow closing parenthesis to appear in column 0.

@@ -48,7 +48,14 @@ type ForallX (c :: Hs.Type -> Hs.Constraint) x =
     E.ForallX c x
   )
 
-data Import = Import ModuleName ImportSelection
+data Import = Import
+  { -- | Full name of the imported module.
+    importTarget :: ModuleName,
+    -- | The qualifier for imported identifiers. Can be empty (@ModuleName ""@)
+    -- in which case names are imported unqualified.
+    importQualifier :: ModuleName,
+    importSelection :: ImportSelection
+  }
   deriving stock (Show, Lift)
 
 data ImportSelection
