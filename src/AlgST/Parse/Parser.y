@@ -65,65 +65,65 @@ import           Syntax.Base
 %monad { ParseM } { (>>=) } { return }
 
 %token
-  nl       {TokenNL _}
-  '()'     {TokenUnit _}
-  '->'     {TokenUnArrow _}
-  '-o'     {TokenLinArrow _}
-  lambda   {TokenLambda _}
-  '('      {TokenLParen _}
-  ')'      {TokenRParen _}
-  ','      {TokenComma _}
-  '['      {TokenLBracket _}
-  ']'      {TokenRBracket _}
-  ':'      {TokenColon _}
-  '!'      {TokenMOut _}
-  '?'      {TokenMIn _}
-  '{'      {TokenLBrace _}
-  '}'      {TokenRBrace _}
-  '_'      {TokenWild _}
-  '.'      {TokenDot _}
-  '(,)'    {TokenPairCon _}
+  nl       { TokenNL        _ }
+  '()'     { TokenUnit      _ }
+  '->'     { TokenUnArrow   _ }
+  '-o'     { TokenLinArrow  _ }
+  lambda   { TokenLambda    _ }
+  '('      { TokenLParen    _ }
+  ')'      { TokenRParen    _ }
+  ','      { TokenComma     _ }
+  '['      { TokenLBracket  _ }
+  ']'      { TokenRBracket  _ }
+  ':'      { TokenColon     _ }
+  '!'      { TokenMOut      _ }
+  '?'      { TokenMIn       _ }
+  '{'      { TokenLBrace    _ }
+  '}'      { TokenRBrace    _ }
+  '_'      { TokenWild      _ }
+  '.'      { TokenDot       _ }
+  '(,)'    { TokenPairCon   _ }
 
   -- Identifiers. 'as' and '(*)' can appear as special syntax items.
-  as        {TokenLowerId _ "as"}
-  '(*)'     {TokenLowerId _ "(*)"}
-  LOWER_ID  {TokenLowerId _ _}
-  UPPER_ID  {TokenUpperId _ _}
-  UPPER_IDq {TokenUpperIdQ _ _}
+  as        { TokenLowerId  ($$ :@ "as")  }
+  '(*)'     { TokenLowerId  ($$ :@ "(*)") }
+  LOWER_ID  { TokenLowerId  $$ }
+  UPPER_ID  { TokenUpperId  $$ }
+  UPPER_IDq { TokenUpperIdQ $$ }
   -- Not yet used.
   -- LOWER_IDq {TokenLowerIdQ _ _}
 
   -- Operators. +/-/* can appear as special syntax items.
-  '+'      {TokenOperator _ "+"}
-  '-'      {TokenOperator _ "-"}
-  '*'      {TokenOperator _ "*"}
-  OPERATOR {TokenOperator _ _}
+  '+'      { TokenOperator ($$ :@ "+") }
+  '-'      { TokenOperator ($$ :@ "-") }
+  '*'      { TokenOperator ($$ :@ "*") }
+  OPERATOR { TokenOperator $$ }
 
-  KIND     {TokenKind _ _}
-  INT      {TokenInt _ _}
-  CHAR     {TokenChar _ _}
-  STR      {TokenString _ _}
-  rec      {TokenRec _}
-  let      {TokenLet _}
-  in       {TokenIn _}
-  '='      {TokenEq _}
-  data     {TokenData _}
-  protocol {TokenProtocol _}
-  type     {TokenType _}
-  '|'      {TokenPipe _}
-  if       {TokenIf _}
-  then     {TokenThen _}
-  else     {TokenElse _}
-  new      {TokenNew _}
-  select   {TokenSelect _}
-  fork     {TokenFork _}
-  fork_    {TokenFork_ _}
-  case     {TokenCase _}
-  of       {TokenOf _}
-  forall   {TokenForall _}
-  dualof   {TokenDualof _}
-  end      {TokenEnd _}
-  import   {TokenImport _}
+  KIND     { TokenKind     $$ }
+  INT      { TokenInt      $$ }
+  CHAR     { TokenChar     $$ }
+  STR      { TokenString   $$ }
+  rec      { TokenRec      _  }
+  let      { TokenLet      _  }
+  in       { TokenIn       _  }
+  '='      { TokenEq       _  }
+  data     { TokenData     _  }
+  protocol { TokenProtocol _  }
+  type     { TokenType     _  }
+  '|'      { TokenPipe     _  }
+  if       { TokenIf       _  }
+  then     { TokenThen     _  }
+  else     { TokenElse     _  }
+  new      { TokenNew      _  }
+  select   { TokenSelect   _  }
+  fork     { TokenFork     _  }
+  fork_    { TokenFork_    _  }
+  case     { TokenCase     _  }
+  of       { TokenOf       _  }
+  forall   { TokenForall   _  }
+  dualof   { TokenDualof   _  }
+  end      { TokenEnd      _  }
+  import   { TokenImport   _  }
 
 %%
 
@@ -287,9 +287,9 @@ TyVarList :: { DL.DList (Located AName) }
 -------------------------------------------------------------------------------
 
 EAtom :: { PExp }
-  : INT                            { let (TokenInt p x) = $1    in E.Lit p $ E.Int    x }
-  | CHAR                           { let (TokenChar p x) = $1   in E.Lit p $ E.Char   x }
-  | STR                            { let (TokenString p x) = $1 in E.Lit p $ E.String x }
+  : INT                            { E.Lit (pos $1) $ E.Int    (unL $1) }
+  | CHAR                           { E.Lit (pos $1) $ E.Char   (unL $1) }
+  | STR                            { E.Lit (pos $1) $ E.String (unL $1) }
   | '()'                           { E.Lit (pos $1) E.Unit }
   | '(,)'                          {% fatalError $ errorMisplacedPairCon @Values (pos $1) Proxy }
   | ProgVar                        { uncurryL E.Var $1 }
@@ -437,7 +437,7 @@ ProgVarWildSeq :: { [Located (ProgVar PStage)] }
     }
 
 Op :: { Located (ProgVar PStage) }
-  : OPERATOR  { $1 @- UnqualifiedName (Unqualified (getText $1)) }
+  : OPERATOR  { $1 @- UnqualifiedName (Unqualified (unL $1)) }
   | '+'       { $1 @- UnqualifiedName (Unqualified "+") }
   | '-'       { $1 @- UnqualifiedName (Unqualified "-") }
   | '*'       { $1 @- UnqualifiedName (Unqualified "*") }
@@ -529,7 +529,7 @@ TypeSeq :: { DL.DList PType }
 -------------------------------------------------------------------------------
 
 Kind :: { Located K.Kind }
-  : KIND { let TokenKind p k = $1 in p @- k }
+  : KIND { $1 }
 
 
 -------------------------------------------------------------------------------
@@ -537,12 +537,12 @@ Kind :: { Located K.Kind }
 -------------------------------------------------------------------------------
 
 UnqualifiedCon :: { Located Unqualified }
-  : UPPER_ID        { $1 @- Unqualified (getText $1) }
+  : UPPER_ID        { $1 @- Unqualified (unL $1) }
   | -- Allow the kinds to be used as constructor names.
     Kind            { $1 @- Unqualified (show (unL $1)) }
 
 UnqualifiedVar :: { Located Unqualified }
-  : LOWER_ID        { $1 @- Unqualified (getText $1) }
+  : LOWER_ID        { $1 @- Unqualified (unL $1) }
   | -- (*) is special syntax in import lists.
     '(*)'           { $1 @- Unqualified "(*)" }
   | -- 'as' is a contextual keyword.
@@ -550,7 +550,7 @@ UnqualifiedVar :: { Located Unqualified }
 
 ModuleName :: { Located ModuleName }
   : UnqualifiedCon  { $1 @- ModuleName (getUnqualified (unL $1)) }
-  | UPPER_IDq       { $1 @- ModuleName (getText $1) }
+  | UPPER_IDq       { $1 @- ModuleName (unL $1) }
 
 NameVar :: { Located UnscopedName }
   : UnqualifiedVar  { $1 <&> \u -> UName (UnqualifiedName u) }

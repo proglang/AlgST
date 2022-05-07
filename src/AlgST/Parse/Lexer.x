@@ -5,7 +5,6 @@ module AlgST.Parse.Lexer
 ( Token(..)
 , scanTokens
 , dropNewlines
-, getText
 ) where
 
 import qualified AlgST.Syntax.Kind as K
@@ -74,13 +73,13 @@ tokens :-
   "|"                           { simpleToken TokenPipe }
   "_"                           { simpleToken TokenWild }
 -- Kinds
-  SU                            { simpleToken (flip TokenKind K.SU) }
-  SL                            { simpleToken (flip TokenKind K.SL) }
-  TU                            { simpleToken (flip TokenKind K.TU) }
-  TL                            { simpleToken (flip TokenKind K.TL) }
-  MU                            { simpleToken (flip TokenKind K.MU) }
-  ML                            { simpleToken (flip TokenKind K.ML) }
-  P                             { simpleToken (flip TokenKind K.P ) }
+  SU                            { simpleToken \p -> TokenKind (p @- K.SU) }
+  SL                            { simpleToken \p -> TokenKind (p @- K.SL) }
+  TU                            { simpleToken \p -> TokenKind (p @- K.TU) }
+  TL                            { simpleToken \p -> TokenKind (p @- K.TL) }
+  MU                            { simpleToken \p -> TokenKind (p @- K.MU) }
+  ML                            { simpleToken \p -> TokenKind (p @- K.ML) }
+  P                             { simpleToken \p -> TokenKind (p @- K.P)  }
 -- Keywords
   rec                           { simpleToken TokenRec }
   let                           { simpleToken TokenLet }
@@ -129,22 +128,22 @@ data Token =
   | TokenRBracket Pos
   | TokenComma Pos
   | TokenColon Pos
-  | TokenUpperId Pos String
-  | TokenUpperIdQ Pos String
+  | TokenUpperId (Located String)
+  | TokenUpperIdQ (Located String)
   | TokenPairCon Pos
   | TokenMOut Pos
   | TokenMIn Pos
   | TokenLBrace Pos
   | TokenRBrace Pos
   | TokenDot Pos
-  | TokenLowerId Pos String
-  | TokenLowerIdQ Pos String
-  | TokenOperator Pos String
-  | TokenKind Pos K.Kind
-  | TokenInt Pos Integer
-  | TokenChar Pos Char
-  | TokenString Pos String
-  | TokenBool Pos Bool
+  | TokenLowerId (Located String)
+  | TokenLowerIdQ (Located String)
+  | TokenOperator (Located String)
+  | TokenKind (Located K.Kind)
+  | TokenInt (Located Integer)
+  | TokenChar (Located Char)
+  | TokenString (Located String)
+  | TokenBool (Located Bool)
   | TokenRec Pos
   | TokenLet Pos
   | TokenIn Pos
@@ -180,22 +179,22 @@ instance Show Token where
   show (TokenRBracket _) = "]"
   show (TokenComma _) = ","
   show (TokenColon _) = ":"
-  show (TokenUpperId _ c) = c
-  show (TokenUpperIdQ _ c) = c
+  show (TokenUpperId (_ :@ c)) = c
+  show (TokenUpperIdQ (_ :@ c)) = c
   show (TokenPairCon _) = "(,)"
   show (TokenMOut _) = "!"
   show (TokenMIn _) = "?"
   show (TokenLBrace _) = "{"
   show (TokenRBrace _) = "}"
   show (TokenDot _) = "."
-  show (TokenLowerId _ s) = s
-  show (TokenLowerIdQ _ s) = s
-  show (TokenOperator _ s) = s
-  show (TokenKind _ k) = show k
-  show (TokenInt _ i) = show i
-  show (TokenChar _ c) = show c
-  show (TokenBool _ b) = show b
-  show (TokenString _ s) = s
+  show (TokenLowerId (_ :@ s)) = s
+  show (TokenLowerIdQ (_ :@ s)) = s
+  show (TokenOperator (_ :@ s)) = s
+  show (TokenKind (_ :@ k)) = show k
+  show (TokenInt (_ :@ i)) = show i
+  show (TokenChar (_ :@ c)) = show c
+  show (TokenBool (_ :@ b)) = show b
+  show (TokenString (_ :@ s)) = s
   show (TokenRec _) = "rec"
   show (TokenLet _) = "let"
   show (TokenIn _) = "in"
@@ -283,22 +282,22 @@ instance Position Token where
   pos (TokenRBracket p) = p
   pos (TokenComma p) = p
   pos (TokenColon p) = p
-  pos (TokenUpperId p _) = p
-  pos (TokenUpperIdQ p _) = p
+  pos (TokenUpperId (p :@ _)) = p
+  pos (TokenUpperIdQ (p :@ _)) = p
   pos (TokenPairCon p) = p
   pos (TokenMOut p) = p
   pos (TokenMIn p) = p
   pos (TokenLBrace p) = p
   pos (TokenRBrace p) = p
   pos (TokenDot p) = p
-  pos (TokenLowerId p _) = p
-  pos (TokenLowerIdQ p _) = p
-  pos (TokenOperator p _) = p
-  pos (TokenKind p _) = p
-  pos (TokenInt p _) = p
-  pos (TokenChar p _) = p
-  pos (TokenBool p _) = p
-  pos (TokenString p _) = p
+  pos (TokenLowerId (p :@ _)) = p
+  pos (TokenLowerIdQ (p :@ _)) = p
+  pos (TokenOperator (p :@ _)) = p
+  pos (TokenKind (p :@ _)) = p
+  pos (TokenInt (p :@ _)) = p
+  pos (TokenChar (p :@ _)) = p
+  pos (TokenBool (p :@ _)) = p
+  pos (TokenString (p :@ _)) = p
   pos (TokenRec p) = p
   pos (TokenLet p) = p
   pos (TokenIn p) = p
@@ -322,20 +321,12 @@ instance Position Token where
   pos (TokenEnd p) = p
   pos (TokenImport p) = p
 
-getText :: Token -> String
-getText (TokenUpperId  _ x) = x
-getText (TokenUpperIdQ _ x) = x
-getText (TokenLowerId  _ x) = x
-getText (TokenLowerIdQ _ x) = x
-getText (TokenOperator _ x) = x
-getText t = error $ "Token has no embedded text: " ++ show t
-
 simpleToken :: (Pos -> t) -> AlexPosn -> a -> t
 simpleToken t p _ = t (internalPos p)
 
-textToken :: (Pos -> String -> t) -> AlexPosn -> String -> t
+textToken :: (Located String -> t) -> AlexPosn -> String -> t
 textToken = textToken' id
 
-textToken' :: (String -> a) -> (Pos -> a -> t) -> AlexPosn -> String -> t
-textToken' f t p s = t (internalPos p) (f s)
+textToken' :: (String -> a) -> (Located a -> t) -> AlexPosn -> String -> t
+textToken' f t p s = t (internalPos p @- f s)
 }
