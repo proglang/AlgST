@@ -11,6 +11,7 @@ extra-source-files:
 
 dependencies:
 - base >= 4.7 && < 5
+- algebraic-graphs ^>=0.6
 - ansi-terminal
 - array
 - async
@@ -27,12 +28,14 @@ dependencies:
 - monad-validate
 - mtl >= 2.2.1
 - optparse-applicative
+- scheduler
 - singletons-th
 - stm
 - template-haskell
 - th-lift-instances
 - these
 - transformers
+- unordered-containers
 
 ghc-options:
   - -j
