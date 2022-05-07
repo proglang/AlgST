@@ -9,8 +9,9 @@
 module AlgST.Parse.Parser
   ( -- * Parsers
     Parser
-  , parseType
   , parseProg
+  , parseModule
+  , parseType
   , parseKind
   , parseExpr
 
@@ -27,6 +28,7 @@ import           Control.Monad.Trans.Maybe
 import           Data.Bifunctor
 import qualified Data.DList                    as DL
 import           Data.Foldable
+import           Data.Functor
 import           Data.Functor.Identity
 import           Data.List.NonEmpty            (NonEmpty(..))
 import qualified Data.Map.Strict               as Map
@@ -435,10 +437,10 @@ ProgVarWildSeq :: { [Located (ProgVar PStage)] }
     }
 
 Op :: { Located (ProgVar PStage) }
-  : OPERATOR  {% ($1 @-) `fmap` mkName (Unqualified (getText $1)) }
-  | '+'       {% ($1 @-) `fmap` mkName (Unqualified "+") }
-  | '-'       {% ($1 @-) `fmap` mkName (Unqualified "-") }
-  | '*'       {% ($1 @-) `fmap` mkName (Unqualified "*") }
+  : OPERATOR  { $1 @- UnqualifiedName (Unqualified (getText $1)) }
+  | '+'       { $1 @- UnqualifiedName (Unqualified "+") }
+  | '-'       { $1 @- UnqualifiedName (Unqualified "-") }
+  | '*'       { $1 @- UnqualifiedName (Unqualified "*") }
 
 OpTys :: { (Located (ProgVar PStage), [PType]) }
   : OpTys_                    { DL.toList `fmap` $1 }
@@ -551,10 +553,10 @@ ModuleName :: { Located ModuleName }
   | UPPER_IDq       { $1 @- ModuleName (getText $1) }
 
 NameVar :: { Located UnscopedName }
-  : UnqualifiedVar  {% traverse mkNameU $1 }
+  : UnqualifiedVar  { $1 <&> \u -> UName (UnqualifiedName u) }
 
 NameCon :: { Located UnscopedName }
-  : UnqualifiedCon  {% traverse mkNameU $1 }
+  : UnqualifiedCon  { $1 <&> \u -> UName (UnqualifiedName u) }
 
 ProgVar :: { Located (ProgVar PStage) }
   : NameVar { scopeName `fmap` $1 }
@@ -639,6 +641,9 @@ parseProg base = Parser \toks -> do
   mkP <- parseProg_ toks
   mkP base
 
+parseModule :: Parser PModule
+parseModule = parseProg emptyModule
+
 parseType :: Parser PType
 parseType = Parser $ parseType_ . dropNewlines
 
@@ -652,8 +657,7 @@ feedParser :: Parser a -> String -> ParseM a
 feedParser = flip lexer
 
 runParser :: Parser a -> String -> Either (NonEmpty Diagnostic) a
-runParser parser = runParseM (ModuleName "") . feedParser parser
--- TODO: Pass in the actual module.
+runParser parser = runParseM . feedParser parser
 
 -- | Runs a parser with the contents of the provided file. This function may
 -- throw for all of the reasons 'readFile' may throw.

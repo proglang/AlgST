@@ -14,8 +14,6 @@ module AlgST.Parse.ParseUtils
   ( -- * Parse monad
     ParseM,
     runParseM,
-    mkName,
-    mkNameU,
     UnscopedName (..),
     scopeName,
 
@@ -74,25 +72,17 @@ import Data.Maybe
 import Data.Singletons
 import Syntax.Base
 
-type ParseM = ValidateT (DNonEmpty Diagnostic) (Reader ModuleName)
+type ParseM = Validate (DNonEmpty Diagnostic)
 
 -- | Evaluates a value in the 'ParseM' monad producing a list of errors and
 -- maybe a result.
-runParseM :: ModuleName -> ParseM a -> Either (NonEmpty Diagnostic) a
-runParseM m = mapErrors DL.toNonEmpty >>> runValidateT >>> flip runReader m
+runParseM :: ParseM a -> Either (NonEmpty Diagnostic) a
+runParseM = mapErrors DL.toNonEmpty >>> runValidate
 
 newtype UnscopedName = UName (forall scope. PName scope)
 
 scopeName :: UnscopedName -> PName scope
 scopeName (UName n) = n
-
-mkName :: Unqualified -> ParseM (PName scope)
-mkName = fmap scopeName . mkNameU
-
-mkNameU :: Unqualified -> ParseM UnscopedName
-mkNameU u = do
-  m <- ask
-  pure $ UName $ Name m u
 
 addError :: Pos -> [ErrorMessage] -> ParseM ()
 addError !p err = addErrors [PosError p err]

@@ -19,7 +19,7 @@
 
 module AlgST.Syntax.Name
   ( -- * Type/Value Names
-    Name (..),
+    Name (.., UnqualifiedName),
     nameWritten,
     nameUnqualified,
     nameWrittenModule,
@@ -190,6 +190,9 @@ data Name stage scope where
   -- Equalitiy, ordering and hashing does not consider the "written" component,
   -- it is purely cosmetic.
   ResolvedName :: Name Written scope -> ModuleName -> !ResolvedId -> Name Resolved scope
+
+pattern UnqualifiedName :: Unqualified -> Name Written scope
+pattern UnqualifiedName u = Name (ModuleName "") u
 
 deriving stock instance Lift (Name stage scope)
 
