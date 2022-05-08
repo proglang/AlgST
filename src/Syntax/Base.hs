@@ -35,6 +35,9 @@ import Language.Haskell.TH.Syntax (Lift)
 data Pos = Pos !Int !Int
   deriving stock (Eq, Ord, Lift)
 
+instance Show Pos where
+  show (Pos l c) = show l ++ ":" ++ show c
+
 -- | Attaches a position to a value of type @a@.
 --
 -- Ordering/Equality is not defined for this type to avoid confusion wether the

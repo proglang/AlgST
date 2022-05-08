@@ -13,6 +13,7 @@ module AlgST.Util.ErrorMessage
     Diagnostic (..),
     DiagKind (..),
     pattern PosError,
+    unlocatedError,
     MsgTag (..),
   )
 where
@@ -70,6 +71,9 @@ pattern PosError p errs =
 
 {-# COMPLETE PosError #-}
 
+unlocatedError :: [ErrorMessage] -> Diagnostic
+unlocatedError = PosError defaultPos
+
 instance ErrorMsg DiagKind where
   msg = \case
     DiagError -> "error"
@@ -93,6 +97,10 @@ instance ErrorMsg String where
 
 instance (Unparse (E.XExp x), Unparse (T.XType x)) => ErrorMsg (E.Exp x) where
   msg = show
+  msgStyling _ = redFGStyling
+
+instance ErrorMsg ModuleName where
+  msg = unModuleName
   msgStyling _ = redFGStyling
 
 instance ErrorMsg (Name stage scope) where

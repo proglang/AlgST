@@ -29,9 +29,6 @@ import Data.Map.Strict qualified as Map
 import Data.Void
 import Syntax.Base
 
-instance Show Pos where
-  show (Pos l c) = show l ++ ":" ++ show c
-
 instance Show Multiplicity where
   show Un = "U"
   show Lin = "L"
