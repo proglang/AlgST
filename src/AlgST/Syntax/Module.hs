@@ -38,6 +38,7 @@ import GHC.Conc
 import Instances.TH.Lift ()
 import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2
+import Syntax.Base
 
 -- | Groups the @ForallX@ constraint synonym from "AlgST.Syntax.Decl",
 -- "AlgST.Syntax.Type", and "AlgST.Syntax.Expression".
@@ -48,16 +49,19 @@ type ForallX (c :: Hs.Type -> Hs.Constraint) x =
     E.ForallX c x
   )
 
+-- | Describes a single import statement.
 data Import = Import
   { -- | Full name of the imported module.
     importTarget :: ModuleName,
     -- | The qualifier for imported identifiers. Can be empty (@ModuleName ""@)
     -- in which case names are imported unqualified.
     importQualifier :: ModuleName,
+    -- | The set of imported identifiers.
     importSelection :: ImportSelection
   }
   deriving stock (Show, Lift)
 
+-- | Describes the set of imported identifiers.
 data ImportSelection
   = -- | Import all public definitions from this module and rename/hide
     -- identifiers as specified in the 'ImportItem's.
@@ -66,17 +70,21 @@ data ImportSelection
     ImportOnly [ImportItem]
   deriving stock (Show, Lift)
 
+-- | Describes the import behaviour regarding a single identifier.
 data ImportItem
-  = ImportName Unqualified
-  | ImportHide Unqualified
-  | ImportRename Unqualified Unqualified
+  = -- | Import this identifier unchanged.
+    ImportName Unqualified
+  | -- | Do not import this identifier.
+    ImportHide Unqualified
+  | -- | Import this identifier under a different name.
+    ImportRename Unqualified Unqualified
   deriving stock (Show, Lift)
 
 data Module x = Module
   { moduleTypes :: !(TypesMap x),
     moduleValues :: !(ValuesMap x),
     moduleSigs :: !(SignaturesMap x),
-    moduleImports :: [Import]
+    moduleImports :: [Located Import]
   }
 
 deriving stock instance (ForallX Lift x) => Lift (Module x)

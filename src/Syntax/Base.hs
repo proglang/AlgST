@@ -17,6 +17,7 @@ module Syntax.Base
     Located (..),
     (@-),
     unL,
+    foldL,
     uncurryL,
     onUnL,
     Position (..),
@@ -48,6 +49,9 @@ infix 9 :@, @-
 
 unL :: Located a -> a
 unL (_ :@ a) = a
+
+foldL :: (a -> b) -> Located a -> b
+foldL f = f . unL
 
 uncurryL :: (Pos -> a -> b) -> Located a -> b
 uncurryL f (p :@ a) = f p a

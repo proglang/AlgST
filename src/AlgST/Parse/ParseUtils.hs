@@ -181,7 +181,7 @@ moduleTypeDecl v tydecl =
     parsedValues' <- lift $ mergeNoDuplicates (moduleValues p) constructors
     pure p {moduleTypes = parsedTypes', moduleValues = parsedValues'}
 
-addImport :: Import -> ModuleBuilder
+addImport :: Located Import -> ModuleBuilder
 addImport i = Kleisli \m -> pure $ m {moduleImports = i : moduleImports m}
 
 -- | Inserts the value under the given key into the map. If there is already a

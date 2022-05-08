@@ -152,7 +152,7 @@ noteDependencies name mod = do
 moduleDependencies :: ModuleName -> Module x -> Dependencies
 moduleDependencies this =
   moduleImports
-    >>> fmap importTarget
+    >>> fmap (foldL importTarget)
     >>> G.vertices
     >>> G.connect (G.vertex this)
 

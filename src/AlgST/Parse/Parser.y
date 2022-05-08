@@ -151,16 +151,16 @@ Imports :: { ModuleBuilder }
   : Import              { addImport $1 }
   | Imports NL Import   { $1 <<< addImport $3 }
 
-Import :: { Import }
+Import :: { Located Import }
   : import ModuleName ImportList {
-      Import {
+      $1 @- Import {
         importTarget = unL $2,
         importQualifier = emptyModuleName,
         importSelection = $3
       }
     }
   | import ModuleName as ModuleName ImportList {
-      Import {
+      $1 @- Import {
         importTarget = unL $2,
         importQualifier = unL $4,
         importSelection = $5
@@ -423,7 +423,7 @@ Pattern :: { (Located (ProgVar PStage), [Located (ProgVar PStage)]) }
   : Constructor ProgVarWildSeq            { ($1, $2) }
   | '(,)' ProgVarWildSeq                  { ($1 @- PairCon, $2) }
   | '(' ProgVarWild ',' ProgVarWild ')'   {% do
-      when (onUnL (==) $2 $4 && not (isWild (unL $2))) do
+      when (onUnL (==) $2 $4 && not (foldL isWild $2)) do
         addErrors [errorDuplicateBind $2 (pos $2) (pos $4)]
       pure ($1 @- PairCon, [$2, $4])
     }
