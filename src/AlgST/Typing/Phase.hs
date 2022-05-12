@@ -10,9 +10,9 @@ import AlgST.Parse.Unparser
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
-import AlgST.Syntax.Module (Module)
 import AlgST.Syntax.Name
 import AlgST.Syntax.Phases
+import AlgST.Syntax.Program (Module)
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
 import AlgST.Syntax.Type qualified as T

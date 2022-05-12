@@ -28,8 +28,8 @@ where
 
 import AlgST.Parse.Parser qualified as P
 import AlgST.Parse.Phase
-import AlgST.Syntax.Module
 import AlgST.Syntax.Name
+import AlgST.Syntax.Program
 import AlgST.Util (plural)
 import AlgST.Util.Error
 import AlgST.Util.ErrorMessage

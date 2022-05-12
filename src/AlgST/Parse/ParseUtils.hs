@@ -54,8 +54,8 @@ import AlgST.Parse.Operators
 import AlgST.Parse.Phase
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
-import AlgST.Syntax.Module
 import AlgST.Syntax.Name
+import AlgST.Syntax.Program
 import AlgST.Util.ErrorMessage
 import Control.Arrow
 import Control.Monad.Reader

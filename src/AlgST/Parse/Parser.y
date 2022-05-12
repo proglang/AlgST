@@ -45,7 +45,7 @@ import           AlgST.Parse.Phase
 import           AlgST.Syntax.Decl
 import           AlgST.Syntax.Expression       as E
 import qualified AlgST.Syntax.Kind             as K
-import           AlgST.Syntax.Module
+import           AlgST.Syntax.Program
 import           AlgST.Syntax.Name
 import qualified AlgST.Syntax.Type             as T
 import           AlgST.Util

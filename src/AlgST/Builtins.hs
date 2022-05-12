@@ -6,7 +6,7 @@ module AlgST.Builtins where
 import AlgST.Builtins.TH
 import AlgST.Parse.Phase
 import AlgST.Syntax.Decl
-import AlgST.Syntax.Module
+import AlgST.Syntax.Program
 import Prelude hiding (all)
 
 builtins :: PModule

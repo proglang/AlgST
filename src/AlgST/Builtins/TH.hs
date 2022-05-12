@@ -8,8 +8,8 @@ import AlgST.Builtins.Names
 import AlgST.Parse.Parser
 import AlgST.Parse.Phase
 import AlgST.Syntax.Decl
-import AlgST.Syntax.Module
 import AlgST.Syntax.Name
+import AlgST.Syntax.Program
 import AlgST.Util
 import Control.Monad
 import Data.List.NonEmpty (nonEmpty)

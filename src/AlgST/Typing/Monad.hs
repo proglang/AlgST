@@ -8,8 +8,8 @@ import AlgST.Rename
 import AlgST.Rename.Fresh
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Kind qualified as K
-import AlgST.Syntax.Module
 import AlgST.Syntax.Name
+import AlgST.Syntax.Program
 import AlgST.Typing.Phase
 import AlgST.Util.ErrorMessage (Diagnostic)
 import AlgST.Util.Lenses

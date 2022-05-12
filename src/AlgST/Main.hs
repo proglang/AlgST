@@ -12,8 +12,8 @@ import AlgST.Parse.Phase
 import AlgST.Rename
 import AlgST.Rename.Fresh
 import AlgST.Syntax.Decl qualified as D
-import AlgST.Syntax.Module
 import AlgST.Syntax.Name
+import AlgST.Syntax.Program
 import AlgST.Typing
 import AlgST.Util.Error
 import AlgST.Util.Output

@@ -21,8 +21,8 @@ import AlgST.Parse.Unparser ()
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
-import AlgST.Syntax.Module
 import AlgST.Syntax.Name
+import AlgST.Syntax.Program
 import AlgST.Syntax.Type qualified as T
 import Control.Category ((>>>))
 import Control.Monad

@@ -7,8 +7,8 @@ import AlgST.Builtins (builtins)
 import AlgST.Parse.Parser
 import AlgST.Rename
 import AlgST.Rename.Fresh
-import AlgST.Syntax.Module
 import AlgST.Syntax.Name
+import AlgST.Syntax.Program
 import AlgST.Syntax.Tree
 import System.FilePath
 import Test.Golden
