@@ -152,45 +152,61 @@ Imports :: { ModuleBuilder }
   | Imports NL Import   { $1 <<< addImport $3 }
 
 Import :: { Located Import }
-  : import ModuleName ImportList {
-      $1 @- Import {
+  : import ModuleName ImportList {% do
+      selection <- $3 $! pos $1
+      pure $ $1 @- Import {
         importTarget = unL $2,
         importQualifier = emptyModuleName,
-        importSelection = $3
+        importSelection = selection
       }
     }
-  | import ModuleName as ModuleName ImportList {
-      $1 @- Import {
+  | import ModuleName as ModuleName ImportList {% do
+      selection <- $5 $! pos $1
+      pure $ $1 @- Import {
         importTarget = unL $2,
         importQualifier = unL $4,
-        importSelection = $5
+        importSelection = selection
       }
     }
 
-ImportList :: { ImportSelection }
-  -- optional NL: allow closing parenthesis to appear in column 0.
-  : {- empty -}                       { ImportAll [] }
-  | '(*)'                             { ImportAll [] }
-  | '()'                              { ImportOnly [] }
-  | '(' opt(NL) ')'                   { ImportOnly [] }
+ImportList :: { Pos -> ParseM ImportSelection }
+  -- The optional NL tokens allow closing the parenthesis to appear on a new
+  -- line in column 0.
+  : {- empty -}                       { \p -> pure $ ImportAll p mempty mempty }
+  | '(*)'                             { const $ pure $ ImportAll (pos $1) mempty mempty }
+  | '()'                              { const $ pure $ ImportOnly mempty }
+  | '(' opt(NL) ')'                   { const $ pure $ ImportOnly mempty }
   | '(' ImportSelection opt(NL) ')'   { $2 }
 
-ImportSelection :: { ImportSelection }
-  : ImportItems         opt(',')      { ImportOnly (DL.toList $1) }
-  | '*'                 opt(',')      { ImportAll [] }
-  | '*' ',' ImportItems opt(',')      { ImportAll (DL.toList $3) }
+ImportSelection :: { Pos -> ParseM ImportSelection }
+  : ImportItems opt(',')
+    { \stmtLoc -> mergeImportOnly stmtLoc (DL.toList $1) }
+  | '*' ',' ImportItems opt(',')
+    { \stmtLoc -> mergeImportAll stmtLoc (pos $1) (DL.toList $3) }
+  | '*' opt(',')
+    { \_ -> pure $ ImportAll (pos $1) mempty mempty }
 
 ImportItems :: { DL.DList ImportItem }
   : ImportItem                        { DL.singleton $1 }
   | ImportItems ',' ImportItem        { $1 `DL.snoc` $3 }
 
 ImportItem :: { ImportItem }
-  : UnqualifiedVar                    { ImportName (unL $1) }
-  | UnqualifiedCon                    { ImportName (unL $1) }
-  | UnqualifiedVar as '_'             { ImportHide (unL $1) }
-  | UnqualifiedCon as '_'             { ImportHide (unL $1) }
-  | UnqualifiedVar as UnqualifiedVar  { ImportRename (unL $1) (unL $3) }
-  | UnqualifiedCon as UnqualifiedCon  { ImportRename (unL $1) (unL $3) }
+  : ImportScope UnqualifiedVar
+    { mkImportItem $1 $2 ImportAsIs }
+  | ImportScope UnqualifiedCon
+    { mkImportItem $1 $2 ImportAsIs }
+  | ImportScope UnqualifiedVar as '_'
+    { mkImportItem $1 $2 ImportHide }
+  | ImportScope UnqualifiedCon as '_'
+    { mkImportItem $1 $2 ImportHide }
+  | ImportScope UnqualifiedVar as UnqualifiedVar 
+    { mkImportItem $1 $4 (ImportFrom (unL $2)) }
+  | ImportScope UnqualifiedCon as UnqualifiedCon 
+    { mkImportItem $1 $4 (ImportFrom (unL $2)) }
+
+ImportScope :: { Pos -> Located Scope }
+  : {- empty -}   { \p -> p  @- Values }
+  | type          { \_ -> $1 @- Types }
 
 
 -------------------------------------------------------------------------------

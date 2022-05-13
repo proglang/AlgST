@@ -27,7 +27,10 @@ module AlgST.Syntax.Program
     -- * Imports
     Import (..),
     ImportSelection (..),
-    ImportItem (..),
+    ImportKey,
+    ImportHidden,
+    ImportRenamed,
+    ImportBehaviour (..),
   )
 where
 
@@ -73,19 +76,37 @@ data Import = Import
 data ImportSelection
   = -- | Import all public definitions from this module and rename/hide
     -- identifiers as specified in the 'ImportItem's.
-    ImportAll [ImportItem]
-  | -- | Import only the names specified, potentially renaming imported names.
-    ImportOnly [ImportItem]
+    --
+    -- The 'Pos' gives the location of the @*@ token indicating the
+    -- @ImportAll@. In the case of no import list it points to the beginning of
+    -- the import statement.
+    --
+    -- The set contains the hidden identifiers. The map contains renamed
+    -- identifiers. The map's keys are the new names.
+    ImportAll !Pos !ImportHidden !ImportRenamed
+  | -- | Import only the names specified, potentially renaming imported
+    -- identifiers.
+    --
+    -- The map contains the identifiers to be imported. If no renaming is
+    -- applied the two 'Unqualified' components are the same. Otherwise the
+    -- value points to the original name and the key gives the new name.
+    ImportOnly !ImportRenamed
   deriving stock (Show, Lift)
 
+type ImportKey = (Scope, Unqualified)
+
+type ImportHidden = Map.Map ImportKey Pos
+
+type ImportRenamed = Map.Map ImportKey (Located Unqualified)
+
 -- | Describes the import behaviour regarding a single identifier.
-data ImportItem
-  = -- | Import this identifier unchanged.
-    ImportName Unqualified
-  | -- | Do not import this identifier.
-    ImportHide Unqualified
-  | -- | Import this identifier under a different name.
-    ImportRename Unqualified Unqualified
+data ImportBehaviour
+  = -- | Import the associated identifier.
+    ImportAsIs
+  | -- | @ImportFrom target@ imports identifier @target@ under the new name.
+    ImportFrom Unqualified
+  | -- | Hide the associated identifier in case the whole module is imported.
+    ImportHide
   deriving stock (Show, Lift)
 
 data Module x = Module

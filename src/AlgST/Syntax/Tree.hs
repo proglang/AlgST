@@ -311,15 +311,22 @@ instance LabeledTree Import where
 instance LabeledTree ImportSelection where
   labeledTree =
     pure . \case
-      ImportAll iis -> tree "ImportAll" (labeledTree <$> iis)
-      ImportOnly iis -> tree "ImportOnly" (labeledTree <$> iis)
-
-instance LabeledTree ImportItem where
-  labeledTree =
-    pure . leaf . unwords . \case
-      ImportName un -> ["use", getUnqualified un]
-      ImportHide un -> ["hide", getUnqualified un]
-      ImportRename u1 u2 -> ["use", getUnqualified u1, "as", getUnqualified u2]
+      ImportAll _ hiddenSet renamedMap ->
+        tree "ImportAll" [hidden hiddenSet, renamed renamedMap]
+      ImportOnly useMap ->
+        tree "ImportOnly" [renamed useMap]
+    where
+      hidden =
+        Map.keys >>> fmap \(s, n) ->
+          leaf $ unwords ["hide", scope s, name n]
+      renamed =
+        Map.toList >>> fmap \((s, n), _ :@ o) ->
+          leaf $ unwords ["use", scope s, name o, "as", name n]
+      scope = \case
+        Values -> "value"
+        Types -> "type"
+      name (Unqualified x) =
+        "‘" ++ x ++ "’"
 
 labeledMapTree ::
   (a -> b -> String) ->

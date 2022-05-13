@@ -14,31 +14,31 @@ import M4
 |
 `- ImportOnly
    |
-   +- use (*)
+   +- use value ‘(*)’ as ‘(*)’
    |
-   `- use add
+   `- use value ‘add’ as ‘add’
 
 import M5
 |
 `- ImportAll
    |
-   `- use x as y
+   `- use value ‘x’ as ‘y’
 
 import M6
 |
 `- ImportOnly
    |
-   +- use foo as bar
+   +- use value ‘Con1’ as ‘Con2’
    |
-   +- use Con1 as Con2
+   +- use value ‘(+)’ as ‘add’
    |
-   `- use (+) as add
+   `- use value ‘foo’ as ‘bar’
 
 import M7
 |
 `- ImportAll
    |
-   +- hide hide_this
+   +- hide value ‘(*)’
    |
-   `- hide (*)
+   `- hide value ‘hide_this’
 

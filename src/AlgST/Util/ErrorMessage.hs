@@ -103,6 +103,10 @@ instance ErrorMsg ModuleName where
   msg = unModuleName
   msgStyling _ = redFGStyling
 
+instance ErrorMsg Unqualified where
+  msg = getUnqualified
+  msgStyling _ = redFGStyling
+
 instance ErrorMsg (Name stage scope) where
   msg = pprName
   msgStyling _ = redFGStyling

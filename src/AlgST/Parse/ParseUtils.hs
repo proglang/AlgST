@@ -6,7 +6,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -41,7 +43,13 @@ module AlgST.Parse.ParseUtils
     moduleValueDecl,
     moduleValueBinding,
     moduleTypeDecl,
+
+    -- ** Import statements
     addImport,
+    ImportItem (..),
+    mkImportItem,
+    mergeImportAll,
+    mergeImportOnly,
 
     -- * Checking for duplicates
     DuplicateError,
@@ -57,6 +65,7 @@ import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Name
 import AlgST.Syntax.Program
 import AlgST.Util.ErrorMessage
+import AlgST.Util.Lenses
 import Control.Arrow
 import Control.Monad.Reader
 import Control.Monad.State
@@ -65,12 +74,33 @@ import Data.DList.DNonEmpty (DNonEmpty)
 import Data.DList.DNonEmpty qualified as DL
 import Data.Function
 import Data.Functor.Identity
+import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Map.Merge.Strict qualified as Merge
 import Data.Map.Strict qualified as Map
 import Data.Maybe
+import Data.Set qualified as Set
 import Data.Singletons
+import Lens.Family2 hiding ((&))
+import Lens.Family2.Stock qualified as L
 import Syntax.Base
+
+data ImportMergeState = IMS
+  { -- | A subset of the keys of 'imsRenamed'.
+    imsAsIs :: !(Set.Set ImportKey),
+    imsHidden :: !ImportHidden,
+    imsRenamed :: !ImportRenamed
+  }
+
+emptyMergeState :: ImportMergeState
+emptyMergeState = IMS mempty mempty mempty
+
+{- ORMOLU_DISABLE -}
+makeLenses ''ImportMergeState
+imsAsIsL :: Lens' ImportMergeState (Set.Set ImportKey)
+imsHiddenL :: Lens' ImportMergeState ImportHidden
+imsRenamedL :: Lens' ImportMergeState ImportRenamed
+{- ORMOLU_ENABLE -}
 
 type ParseM = Validate (DNonEmpty Diagnostic)
 
@@ -183,6 +213,121 @@ moduleTypeDecl v tydecl =
 
 addImport :: Located Import -> ModuleBuilder
 addImport i = Kleisli \m -> pure $ m {moduleImports = i : moduleImports m}
+
+data ImportItem = ImportItem
+  { importScope :: !Scope,
+    importIdent :: !Unqualified,
+    importBehaviour :: !ImportBehaviour,
+    importLocation :: !Pos
+  }
+
+importKey :: ImportItem -> ImportKey
+importKey = (,) <$> importScope <*> importIdent
+
+mkImportItem :: (Pos -> Located Scope) -> Located Unqualified -> ImportBehaviour -> ImportItem
+mkImportItem getScope ident behaviour =
+  ImportItem
+    { importScope = scope,
+      importIdent = unL ident,
+      importBehaviour = behaviour,
+      importLocation = loc
+    }
+  where
+    loc :@ scope = getScope $ pos ident
+
+-- | Inserts the given 'ImportItem' into the 'ImportMergeState' or emits an
+-- error message if the addition conflicts with imports already present.
+--
+-- ==== __@ImportItem@ Conflicts__
+--
+-- The table below describes which kinds of 'ImportItem's are compatible.
+-- Renamed items are are compared with other items based on the new name not
+-- the original name.
+--
+-- +--------------+--------------+--------------+--------------+
+-- |              | __hidden__   | __as-is__    | __renamed__  |
+-- +--------------+--------------+--------------+--------------+
+-- | __hidden__   | ✱            | ✗            | ✓            |
+-- +--------------+--------------+--------------+--------------+
+-- | __as-is__    | ✗            | ✱            | ✗            |
+-- +--------------+--------------+--------------+--------------+
+-- | __renamed__  | ✓            | ✗            | ✗            |
+-- +--------------+--------------+--------------+--------------+
+--
+-- [✓]: Mixing an explicit hide with a rename to the hidden name is
+-- __accepted:__
+--
+--     > import Some.Module (*, someName as _, otherName as someName)
+--
+-- [✗]: Mixing of as-is imports while hiding the same name, or mixing a rename
+-- to /X/ with any other rename to /X/ is __disallowed:__
+--
+--     > import Some.Module (someName, someName as _)
+--     > import Some.Module (someName, someOtherName as someName)
+--     > import Some.Module (name1 as someName, name2 as someName)
+--
+-- [✱]: Importing the same identifier twice as-is, or hiding it twice is
+-- accepted for now. Once we have the infrastructure for warnings we might want
+-- to emit a warning.
+--
+--     > import Some.Module (someName, someName)
+--     > import Some.Module (*, someName as _, someName as _)
+addImportItem :: Pos -> ImportMergeState -> ImportItem -> ParseM ImportMergeState
+addImportItem stmtLoc ims ii@ImportItem {..} = case importBehaviour of
+  ImportHide
+    | Just other <- Map.lookup (importKey ii) (imsRenamed ims),
+      Set.member (importKey ii) (imsAsIs ims) ->
+      -- Hiding once and importing as-is conflicts.
+      conflict $ other @- ImportAsIs
+    | otherwise ->
+      -- Hiding twice is alright (we might want to emit a warning). Hiding also
+      -- explicitly allows some other identifier to reuse the name.
+      ok $ imsHiddenL . L.at' (importKey ii) .~ Just importLocation
+  ImportAsIs
+    | Just hideLoc <- Map.lookup (importKey ii) (imsHidden ims) ->
+      -- Hiding once and importing as-is conflicts.
+      conflict $ hideLoc @- ImportHide
+    | Just (otherLoc :@ orig) <- Map.lookup (importKey ii) (imsRenamed ims),
+      Set.notMember (importKey ii) (imsAsIs ims) ->
+      -- Importing once as-is and mapping another identifier to this name
+      -- conflicts.
+      conflict $ otherLoc @- ImportFrom orig
+    | otherwise ->
+      -- Importing twice as-is is alright (we might want to emit a warning).
+      -- Remeber this import.
+      ok $
+        imsAsIsL %~ Set.insert (importKey ii)
+          >>> imsRenamedL . L.at' (importKey ii) .~ Just (importLocation @- importIdent)
+  ImportFrom orig
+    | Just (otherLoc :@ otherName) <- Map.lookup (importKey ii) (imsRenamed ims) -> do
+      -- Mapping another identifier to the same name conflicts, be it via an
+      -- explicit rename or an as-is import.
+      let isAsIs = Set.member (importKey ii) (imsAsIs ims)
+      conflict $ otherLoc @- if isAsIs then ImportAsIs else ImportFrom otherName
+    | otherwise ->
+      -- An explicit hide is ok.
+      ok $ imsRenamedL . L.at' (importKey ii) .~ Just (importLocation @- orig)
+  where
+    ok f = pure (f ims)
+    conflict other =
+      ims
+        <$ addErrors
+          [ errorConflictingImports
+              stmtLoc
+              (importKey ii)
+              other
+              (importLocation @- importBehaviour)
+          ]
+
+mergeImportAll :: Pos -> Pos -> [ImportItem] -> ParseM ImportSelection
+mergeImportAll stmtLoc allLoc =
+  foldM (addImportItem stmtLoc) emptyMergeState
+    >>> fmap (ImportAll allLoc <$> imsHidden <*> imsRenamed)
+
+mergeImportOnly :: Pos -> [ImportItem] -> ParseM ImportSelection
+mergeImportOnly stmtLoc =
+  foldM (addImportItem stmtLoc) emptyMergeState
+    >>> fmap (ImportOnly . imsRenamed)
 
 -- | Inserts the value under the given key into the map. If there is already a
 -- value under that key an error as with 'errorMultipleDeclarations' is added
@@ -365,3 +510,31 @@ errorMisplacedPairCon loc _ =
       Error "It can only appear in patterns and with ‘select’."
     ]
 {-# NOINLINE errorMisplacedPairCon #-}
+
+errorConflictingImports ::
+  Pos ->
+  ImportKey ->
+  Located ImportBehaviour ->
+  Located ImportBehaviour ->
+  Diagnostic
+errorConflictingImports importLoc (scope, name) i1 i2 =
+  PosError (max (pos i1) (pos i2)) . List.intercalate [ErrLine] $
+    [ [ Error $
+          "Conflicting imports of" ++ case scope of
+            Types -> " type"
+            Values -> "",
+        Error name
+      ],
+      describe i1,
+      describe i2,
+      [Error "In import statement at", Error importLoc]
+    ]
+  where
+    describe (p :@ i) = case i of
+      ImportHide ->
+        [Error "    hidden at", Error p]
+      ImportAsIs ->
+        [Error "    imported at", Error p]
+      ImportFrom orig ->
+        [Error "    renamed from", Error orig, Error "at", Error p]
+{-# NOINLINE errorConflictingImports #-}

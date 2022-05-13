@@ -2,11 +2,11 @@ import Data.List as List
 |
 `- ImportOnly
    |
-   `- use unwords as joinSpaces
+   `- use value ‘unwords’ as ‘joinSpaces’
 
 import Control.Monad as Control.Monad
 |
 `- ImportAll
    |
-   `- hide join
+   `- hide value ‘join’
 

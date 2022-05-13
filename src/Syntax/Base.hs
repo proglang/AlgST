@@ -45,7 +45,7 @@ instance Show Pos where
 -- simplify comparing and similar functions which do not consider the
 -- position.
 data Located a = !Pos :@ a
-  deriving stock (Lift)
+  deriving stock (Show, Lift)
   deriving stock (Functor, Foldable, Traversable)
 
 infix 9 :@, @-

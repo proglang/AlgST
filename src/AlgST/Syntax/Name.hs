@@ -145,7 +145,7 @@ newtype Unqualified = Unqualified {getUnqualified :: String}
 
 -- | Type level tag to differentiate between type level and value level names.
 data Scope = Types | Values
-  deriving stock (Eq, Ord, Generic)
+  deriving stock (Eq, Ord, Show, Generic, Lift)
 
 instance Hashable Scope
 
