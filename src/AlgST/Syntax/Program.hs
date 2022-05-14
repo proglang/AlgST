@@ -5,6 +5,7 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -37,9 +38,9 @@ where
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Name
+import AlgST.Syntax.Phases
 import AlgST.Syntax.Type qualified as T
 import Data.HashMap.Strict (HashMap)
-import Data.Kind qualified as Hs
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import GHC.Conc
@@ -53,7 +54,8 @@ newtype Program x = Program {programModules :: HashMap ModuleName (Module x)}
 
 -- | Groups the @ForallX@ constraint synonym from "AlgST.Syntax.Decl",
 -- "AlgST.Syntax.Type", and "AlgST.Syntax.Expression".
-type ForallX (c :: Hs.Type -> Hs.Constraint) x =
+type ForallX :: CAll
+type ForallX c x =
   ( D.ForallDeclX c x,
     D.ForallConX c x,
     T.ForallX c x,
