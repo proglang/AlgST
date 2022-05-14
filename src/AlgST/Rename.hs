@@ -1,12 +1,14 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -14,7 +16,6 @@
 module AlgST.Rename
   ( RnM,
     RenameEnv (..),
-    emptyEnv,
     runRename,
     withRenamedModule,
     Rn,
@@ -43,37 +44,59 @@ import AlgST.Syntax.Traversal
 import AlgST.Syntax.Type qualified as T
 import AlgST.Util.Lenses
 import Control.Applicative
-import Control.Category ((>>>))
 import Control.Monad.Cont
 import Control.Monad.Eta
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Data.Bitraversable
 import Data.Functor.Compose
+import Data.Generics.Lens.Lite
 import Data.Map.Strict qualified as Map
 import Data.Maybe
 import Data.Singletons
 import Data.Traversable
+import GHC.Generics (Generic)
 import Lens.Family2
 import Lens.Family2.State.Strict
+import Lens.Family2.Stock qualified as L
 import Prelude hiding (lookup)
 
 -- | A map from the user written name to the renamed version.
-type Bindings s = NameMap s (RnName s)
+newtype Bindings s = Bindings (NameMap s (RnName s))
+  deriving newtype (Monoid, Semigroup)
+
+-- | Gives access to the underlying map of a @'Bindings' s@ value.
+--
+-- The type is intentionally more restricted. We usually don't want to replace
+-- the whole map with a differently scoped version. This should also improve
+-- type inference.
+_Bindings :: Lens' (Bindings s) (NameMap s (RnName s))
+_Bindings = coerced
+{-# INLINE _Bindings #-}
 
 data RenameEnv = RenameEnv
   { rnTyVars :: !(Bindings Types),
     rnProgVars :: !(Bindings Values)
   }
+  deriving stock (Generic)
 
-emptyEnv :: RenameEnv
-emptyEnv = RenameEnv mempty mempty
+instance Monoid RenameEnv where
+  mempty = RenameEnv mempty mempty
 
-{- ORMOLU_DISABLE -}
-makeLenses ''RenameEnv
-rnTyVarsL :: Lens' RenameEnv (Bindings Types)
-rnProgVarsL :: Lens' RenameEnv (Bindings Values)
-{- ORMOLU_ENABLE -}
+instance Semigroup RenameEnv where
+  e1 <> e2 =
+    RenameEnv
+      { rnTyVars = rnTyVars e1 <> rnTyVars e2,
+        rnProgVars = rnProgVars e1 <> rnProgVars e2
+      }
+
+instance ScopeIndexed RenameEnv Bindings where
+  typesScopeL = field @"rnTyVars"
+  valuesScopeL = field @"rnProgVars"
+
+varMapL :: forall s. SingI s => Lens' RenameEnv (Bindings s)
+varMapL = scopeL @s
+{-# INLINE varMapL #-}
 
 type RnM = ReaderT RenameEnv Fresh
 
@@ -84,7 +107,7 @@ instance SynTraversal RnM Parse Rn where
   bind _ = bindingAll
 
 runRename :: RnM a -> Fresh a
-runRename = flip runReaderT emptyEnv
+runRename = flip runReaderT mempty
 
 withRenamedModule :: PModule -> (RnModule -> RnM a) -> Fresh a
 withRenamedModule p f = runRename $ renameModule p >>= f
@@ -100,12 +123,6 @@ bindingAllPTVars vs = withBindings \bind ->
   traverse (bitraverse bind bind) vs
 {-# INLINEABLE bindingAllPTVars #-}
 
-varMapL :: forall s. SingI s => Lens' RenameEnv (Bindings s)
-varMapL = case sing @s of
-  STypes -> rnTyVarsL
-  SValues -> rnProgVarsL
-{-# INLINE varMapL #-}
-
 withBindings ::
   (forall f. Applicative f => (forall s. SingI s => RnName s -> f (RnName s)) -> f a) ->
   (a -> RnM b) ->
@@ -114,18 +131,15 @@ withBindings f k = etaRnM do
   let bind :: SingI s => RnName s -> StateT RenameEnv Fresh (RnName s)
       bind v = do
         v' <- lift $ freshResolved v
-        varMapL %= Map.insert v v'
+        varMapL . _Bindings %= Map.insert v v'
         pure v'
-  (a, binds) <- lift $ runStateT (f bind) emptyEnv
+  (a, binds) <- lift $ runStateT (f bind) mempty
 
-  -- Don't use (<>~) here! (<>)/union on Data.Map prefers values from the left
-  -- operand on duplicate keys. But the values from `binds` have to replace
-  -- (shadow) the already known bindings.
-  local
-    ( rnTyVarsL %~ (rnTyVars binds <>)
-        >>> rnProgVarsL %~ (rnProgVars binds <>)
-    )
-    (k a)
+  -- It is important that `binds` appears on the LEFT side of the `(<>)`
+  -- operator! When unioning the underlying maps prefer values from the left
+  -- operand. The new bindings in `binds` have to shadow/replace older
+  -- bindings.
+  local (binds <>) (k a)
 {-# INLINE withBindings #-}
 
 -- | @lookup v@ looks for a binding for @v@ and returns the renamed
@@ -139,7 +153,7 @@ withBindings f k = etaRnM do
 lookup :: SingI s => RnName s -> RnM (RnName s)
 lookup v = do
   env <- ask
-  pure $ fromMaybe v $ env ^. varMapL . to (Map.lookup v)
+  pure $ fromMaybe v $ env ^. varMapL . _Bindings . L.at' v
 
 renameModule :: Module Parse -> RnM (Module Rn)
 renameModule p = do

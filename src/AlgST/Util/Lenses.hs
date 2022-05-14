@@ -8,6 +8,7 @@ import Data.Coerce
 import Language.Haskell.TH qualified as TH
 import Lens.Family2
 import Lens.Family2.TH qualified as Lens
+import Lens.Family2.Unchecked qualified as L
 
 class LensResult a where
   makeLenses :: a
@@ -25,3 +26,7 @@ instance LensResult ([TH.Name] -> TH.Name -> TH.DecsQ) where
 coerced :: forall b a. Coercible a b => Lens' a b
 coerced f = fmap coerce . f . coerce
 {-# INLINE coerced #-}
+
+coercing :: (Coercible s a, Coercible t b) => Adapter s t a b
+coercing = L.adapter coerce coerce
+{-# INLINE coercing #-}

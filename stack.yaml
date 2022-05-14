@@ -41,6 +41,7 @@ packages:
 #   commit: e7b331f14bcffb8367cd58fbfc8b40ec7642100a
 #
 extra-deps:
+  - generic-lens-lite-0.1@sha256:8fe76096941926171ba31d26ba02eb15f2aeaf0bbdb3dfe62990de5e32d62614,1646
   - lens-family-2.1.1@sha256:dc7b2f404f201e37f9d5c3baea4c15ee2beeb0b79f7ccd43c4b38331e22205c7,2026
   - lens-family-core-2.1.0@sha256:124b4371ffc147a8f2fb59a7bda339ce20eec83f887a647a63497e1efc56f837,2290
 

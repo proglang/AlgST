@@ -5,6 +5,13 @@
 
 packages:
 - completed:
+    hackage: generic-lens-lite-0.1@sha256:8fe76096941926171ba31d26ba02eb15f2aeaf0bbdb3dfe62990de5e32d62614,1646
+    pantry-tree:
+      size: 315
+      sha256: 867c77c5af61d152bab4d6fc36a604559efe0b35da19c55ce5548c4787fe39f6
+  original:
+    hackage: generic-lens-lite-0.1@sha256:8fe76096941926171ba31d26ba02eb15f2aeaf0bbdb3dfe62990de5e32d62614,1646
+- completed:
     hackage: lens-family-2.1.1@sha256:dc7b2f404f201e37f9d5c3baea4c15ee2beeb0b79f7ccd43c4b38331e22205c7,2026
     pantry-tree:
       size: 612

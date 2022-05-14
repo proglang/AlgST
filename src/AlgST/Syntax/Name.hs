@@ -3,9 +3,9 @@
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -72,8 +72,13 @@ module AlgST.Syntax.Name
     modulePath,
     moduleFromPath,
 
-    -- * Type Level Tags
+    -- * Scopes
     Scope (..),
+    ScopeIndexed (..),
+    scopeL,
+    scopeL',
+
+    -- * Type Level Tags
     SScope (..),
     TypesSym0,
     ValuesSym0,
@@ -93,6 +98,7 @@ import Data.Set qualified as Set
 import Data.Singletons.TH
 import GHC.Generics (Generic)
 import Language.Haskell.TH.Syntax (Lift)
+import Lens.Family2 qualified as L
 import System.FilePath qualified as FP
 
 -- | The name of a module.
@@ -157,6 +163,21 @@ data Stage = Written | Resolved
 instance Hashable Stage
 
 $(genSingletons [''Scope, ''Stage])
+
+type ScopeIndexed :: Type -> (Scope -> Type) -> Constraint
+class ScopeIndexed t f | t -> f where
+  typesScopeL :: L.Lens' t (f Types)
+  valuesScopeL :: L.Lens' t (f Values)
+
+scopeL :: forall scope t f. (SingI scope, ScopeIndexed t f) => L.Lens' t (f scope)
+scopeL = scopeL' (sing @scope)
+{-# INLINE scopeL #-}
+
+scopeL' :: ScopeIndexed t f => Sing scope -> L.Lens' t (f scope)
+scopeL' = \case
+  STypes -> typesScopeL
+  SValues -> valuesScopeL
+{-# INLINE scopeL' #-}
 
 newtype ResolvedId = ResolvedId Word
   deriving stock (Eq, Ord, Show, Generic, Lift)
