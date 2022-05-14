@@ -20,12 +20,22 @@
 module AlgST.Syntax.Name
   ( -- * Type/Value Names
     Name (.., UnqualifiedName),
+
+    -- ** Pretty-printing names
+    pprName,
+    pprResolved,
+
+    -- ** Accessing name parts
     nameWritten,
     nameUnqualified,
     nameWrittenModule,
     nameResolvedModule,
-    pprName,
-    pprResolved,
+    nameResolvedId,
+    nameWrittenL,
+    nameUnqualifiedL,
+    nameWrittenModuleL,
+    nameResolvedModuleL,
+    nameResolvedIdL,
 
     -- ** Predefined names
     pattern Wildcard,
@@ -99,6 +109,7 @@ import Data.Singletons.TH
 import GHC.Generics (Generic)
 import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2 qualified as L
+import Lens.Family2.Unchecked qualified as L
 import System.FilePath qualified as FP
 
 -- | The name of a module.
@@ -248,17 +259,48 @@ isWild Wildcard = True
 isWild _ = False
 
 nameWritten :: Name stage scope -> Name Written scope
-nameWritten n@Name {} = n
-nameWritten (ResolvedName n _ _) = n
-
-nameResolvedModule :: Name Resolved scope -> ModuleName
-nameResolvedModule (ResolvedName _ m _) = m
-
-nameWrittenModule :: Name stage scope -> ModuleName
-nameWrittenModule (nameWritten -> Name m _) = m
+nameWritten = L.view nameWrittenL
 
 nameUnqualified :: Name stage scope -> Unqualified
-nameUnqualified (nameWritten -> Name _ u) = u
+nameUnqualified = L.view nameUnqualifiedL
+
+nameWrittenModule :: Name stage scope -> ModuleName
+nameWrittenModule = L.view nameWrittenModuleL
+
+nameResolvedModule :: Name Resolved scope -> ModuleName
+nameResolvedModule = L.view nameResolvedModuleL
+
+nameResolvedId :: Name Resolved scope -> ResolvedId
+nameResolvedId = L.view nameResolvedIdL
+
+nameWrittenL :: L.Lens' (Name stage scope) (Name Written scope)
+nameWrittenL f n@Name {} = f n
+nameWrittenL f (ResolvedName n m r) = (\n' -> ResolvedName n' m r) <$> f n
+{-# INLINE nameWrittenL #-}
+
+nameUnqualifiedL :: L.Lens' (Name stage scope) Unqualified
+nameUnqualifiedL =
+  nameWrittenL . L.lens (\(Name _ u) -> u) (\(Name m _) u -> Name m u)
+{-# INLINE nameUnqualifiedL #-}
+
+nameWrittenModuleL :: L.Lens' (Name stage scope) ModuleName
+nameWrittenModuleL =
+  nameWrittenL . L.lens (\(Name m _) -> m) (\(Name _ u) m -> Name m u)
+{-# INLINE nameWrittenModuleL #-}
+
+nameResolvedModuleL :: L.Lens' (Name Resolved scope) ModuleName
+nameResolvedModuleL =
+  L.lens
+    (\(ResolvedName _ m _) -> m)
+    (\(ResolvedName n _ r) m -> ResolvedName n m r)
+{-# INLINE nameResolvedModuleL #-}
+
+nameResolvedIdL :: L.Lens' (Name Resolved scope) ResolvedId
+nameResolvedIdL =
+  L.lens
+    (\(ResolvedName _ _ r) -> r)
+    (\(ResolvedName n m _) r -> ResolvedName n m r)
+{-# INLINE nameResolvedIdL #-}
 
 pprName :: Name stage scope -> String
 pprName (nameWritten -> n) = fold modulePrefix ++ getUnqualified (nameUnqualified n)
