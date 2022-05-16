@@ -62,3 +62,7 @@ sortPos' =
   -- The @Position@ is usually very easy to access, there is no need for the
   -- decorate-sort-undecorate paradigm used by 'sortOn'.
   List.sortBy (comparing fst)
+
+mguard :: Monoid m => Bool -> m -> m
+mguard True m = m
+mguard False _ = mempty

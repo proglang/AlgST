@@ -22,6 +22,8 @@ import M5
 |
 `- ImportAll
    |
+   +- hide value ‘x’
+   |
    `- use value ‘x’ as ‘y’
 
 import M6

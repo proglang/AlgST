@@ -9,6 +9,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -65,7 +66,7 @@ import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Name
 import AlgST.Syntax.Program
 import AlgST.Util.ErrorMessage
-import AlgST.Util.Lenses
+import AlgST.Util.Lenses qualified as L
 import Control.Arrow
 import Control.Monad.Reader
 import Control.Monad.State
@@ -74,20 +75,21 @@ import Data.DList.DNonEmpty (DNonEmpty)
 import Data.DList.DNonEmpty qualified as DL
 import Data.Function
 import Data.Functor.Identity
+import Data.HashMap.Strict qualified as HM
+import Data.HashSet (HashSet)
+import Data.HashSet qualified as HS
 import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Map.Merge.Strict qualified as Merge
 import Data.Map.Strict qualified as Map
 import Data.Maybe
-import Data.Set qualified as Set
 import Data.Singletons
 import Lens.Family2 hiding ((&))
-import Lens.Family2.Stock qualified as L
 import Syntax.Base
 
 data ImportMergeState = IMS
   { -- | A subset of the keys of 'imsRenamed'.
-    imsAsIs :: !(Set.Set ImportKey),
+    imsAsIs :: !(HashSet ImportKey),
     imsHidden :: !ImportHidden,
     imsRenamed :: !ImportRenamed
   }
@@ -96,8 +98,8 @@ emptyMergeState :: ImportMergeState
 emptyMergeState = IMS mempty mempty mempty
 
 {- ORMOLU_DISABLE -}
-makeLenses ''ImportMergeState
-imsAsIsL :: Lens' ImportMergeState (Set.Set ImportKey)
+L.makeLenses ''ImportMergeState
+imsAsIsL :: Lens' ImportMergeState (HashSet ImportKey)
 imsHiddenL :: Lens' ImportMergeState ImportHidden
 imsRenamedL :: Lens' ImportMergeState ImportRenamed
 {- ORMOLU_ENABLE -}
@@ -275,20 +277,20 @@ mkImportItem getScope ident behaviour =
 addImportItem :: Pos -> ImportMergeState -> ImportItem -> ParseM ImportMergeState
 addImportItem stmtLoc ims ii@ImportItem {..} = case importBehaviour of
   ImportHide
-    | Just other <- Map.lookup (importKey ii) (imsRenamed ims),
-      Set.member (importKey ii) (imsAsIs ims) ->
+    | Just other <- HM.lookup (importKey ii) (imsRenamed ims),
+      HS.member (importKey ii) (imsAsIs ims) ->
       -- Hiding once and importing as-is conflicts.
       conflict $ other @- ImportAsIs
     | otherwise ->
       -- Hiding twice is alright (we might want to emit a warning). Hiding also
       -- explicitly allows some other identifier to reuse the name.
-      ok $ imsHiddenL . L.at' (importKey ii) .~ Just importLocation
+      ok $ imsHiddenL . L.hashAt (importKey ii) .~ Just importLocation
   ImportAsIs
-    | Just hideLoc <- Map.lookup (importKey ii) (imsHidden ims) ->
+    | Just hideLoc <- HM.lookup (importKey ii) (imsHidden ims) ->
       -- Hiding once and importing as-is conflicts.
       conflict $ hideLoc @- ImportHide
-    | Just (otherLoc :@ orig) <- Map.lookup (importKey ii) (imsRenamed ims),
-      Set.notMember (importKey ii) (imsAsIs ims) ->
+    | Just (otherLoc :@ orig) <- HM.lookup (importKey ii) (imsRenamed ims),
+      not $ HS.member (importKey ii) (imsAsIs ims) ->
       -- Importing once as-is and mapping another identifier to this name
       -- conflicts.
       conflict $ otherLoc @- ImportFrom orig
@@ -296,17 +298,17 @@ addImportItem stmtLoc ims ii@ImportItem {..} = case importBehaviour of
       -- Importing twice as-is is alright (we might want to emit a warning).
       -- Remeber this import.
       ok $
-        imsAsIsL %~ Set.insert (importKey ii)
-          >>> imsRenamedL . L.at' (importKey ii) .~ Just (importLocation @- importIdent)
+        imsAsIsL %~ HS.insert (importKey ii)
+          >>> imsRenamedL . L.hashAt (importKey ii) .~ Just (importLocation @- importIdent)
   ImportFrom orig
-    | Just (otherLoc :@ otherName) <- Map.lookup (importKey ii) (imsRenamed ims) -> do
+    | Just (otherLoc :@ otherName) <- HM.lookup (importKey ii) (imsRenamed ims) -> do
       -- Mapping another identifier to the same name conflicts, be it via an
       -- explicit rename or an as-is import.
-      let isAsIs = Set.member (importKey ii) (imsAsIs ims)
+      let isAsIs = HS.member (importKey ii) (imsAsIs ims)
       conflict $ otherLoc @- if isAsIs then ImportAsIs else ImportFrom otherName
     | otherwise ->
       -- An explicit hide is ok.
-      ok $ imsRenamedL . L.at' (importKey ii) .~ Just (importLocation @- orig)
+      ok $ imsRenamedL . L.hashAt (importKey ii) .~ Just (importLocation @- orig)
   where
     ok f = pure (f ims)
     conflict other =
@@ -322,7 +324,21 @@ addImportItem stmtLoc ims ii@ImportItem {..} = case importBehaviour of
 mergeImportAll :: Pos -> Pos -> [ImportItem] -> ParseM ImportSelection
 mergeImportAll stmtLoc allLoc =
   foldM (addImportItem stmtLoc) emptyMergeState
-    >>> fmap (ImportAll allLoc <$> imsHidden <*> imsRenamed)
+    >>> fmap \ims -> do
+      -- Add the implicitly hidden set to the explicitly hidden set. If an
+      -- identifier is hidden explicitly we prefer that entry.
+      --
+      -- At the moment implicit hides are associated with 'defaultPos'.
+      -- TODO: When we have error messages of the form “identifier was
+      -- (implicitly) hidden at …” we might want to keep the location of the
+      -- implicit hide including a differntiation between implicit and explicit
+      -- hides.
+      let allHidden =
+            HM.foldlWithKey'
+              (\hm (scope, _) (_ :@ u) -> HM.insertWith const (scope, u) defaultPos hm)
+              (imsHidden ims)
+              (imsRenamed ims)
+      ImportAll allLoc allHidden (imsRenamed ims)
 
 mergeImportOnly :: Pos -> [ImportItem] -> ParseM ImportSelection
 mergeImportOnly stmtLoc =

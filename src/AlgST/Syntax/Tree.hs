@@ -28,7 +28,10 @@ import Control.Category ((>>>))
 import Control.Monad
 import Data.Foldable
 import Data.Functor.Identity
+import Data.HashMap.Strict qualified as HM
+import Data.List qualified as List
 import Data.Map.Strict qualified as Map
+import Data.Ord
 import Data.Tree
 import Data.Void
 import Syntax.Base
@@ -317,10 +320,10 @@ instance LabeledTree ImportSelection where
         tree "ImportOnly" [renamed useMap]
     where
       hidden =
-        Map.keys >>> fmap \(s, n) ->
+        HM.keys >>> List.sort >>> fmap \(s, n) ->
           leaf $ unwords ["hide", scope s, name n]
       renamed =
-        Map.toList >>> fmap \((s, n), _ :@ o) ->
+        HM.toList >>> List.sortBy (comparing fst) >>> fmap \((s, n), _ :@ o) ->
           leaf $ unwords ["use", scope s, name o, "as", name n]
       scope = \case
         Values -> "value"

@@ -83,8 +83,9 @@ data ImportSelection
     -- @ImportAll@. In the case of no import list it points to the beginning of
     -- the import statement.
     --
-    -- The set contains the hidden identifiers. The map contains renamed
-    -- identifiers. The map's keys are the new names.
+    -- The set contains the hidden identifiers. The hidden identifiers include
+    -- all renamed identifiers. The map contains renamed identifiers. The map's
+    -- keys are the new names.
     ImportAll !Pos !ImportHidden !ImportRenamed
   | -- | Import only the names specified, potentially renaming imported
     -- identifiers.
@@ -97,9 +98,9 @@ data ImportSelection
 
 type ImportKey = (Scope, Unqualified)
 
-type ImportHidden = Map.Map ImportKey Pos
+type ImportHidden = HashMap ImportKey Pos
 
-type ImportRenamed = Map.Map ImportKey (Located Unqualified)
+type ImportRenamed = HashMap ImportKey (Located Unqualified)
 
 -- | Describes the import behaviour regarding a single identifier.
 data ImportBehaviour

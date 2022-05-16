@@ -21,9 +21,9 @@ module Syntax.Base
     uncurryL,
     onUnL,
     Position (..),
-    Multiplicity (..),
+    earlier,
     defaultPos,
-    negPos,
+    Multiplicity (..),
   )
 where
 
@@ -83,8 +83,16 @@ instance (Position a, Position b) => Position (Either a b) where
 defaultPos :: Pos
 defaultPos = Pos 0 0
 
-negPos :: Pos -> Pos
-negPos (Pos i j) = Pos (negate i) (negate j)
+-- | Return the element located earlier. An equal location gives precedence to
+-- the first argument.
+--
+-- 'defaultPos' does not get special treatement and is considered the earliest
+-- valid location. (If required this behaviour could be changed to give
+-- precedence to properly located arguments first.)
+earlier :: Position a => a -> a -> a
+earlier x y
+  | pos x <= pos y = x
+  | otherwise = y
 
 -- Multiplicity for types and expressions
 
