@@ -21,7 +21,7 @@ type RnName     = XName     Rn
 type RnExp      = E.Exp     Rn
 type RnBind     = E.Bind    Rn
 type RnCaseMap  = E.CaseMap Rn
-type RnModule  = Module   Rn
+type RnModule   = Module    Rn
 type RnType     = T.Type    Rn
 
 type RnStage               = Resolved

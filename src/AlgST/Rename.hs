@@ -6,35 +6,40 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module AlgST.Rename
-  ( RnM,
-    RenameEnv (..),
-    runRename,
-    withRenamedModule,
-    Rn,
-    RnExp,
-    RnBind,
-    RnCaseMap,
-    RnModule,
-    RnType,
-    renameSyntax,
-    renameModule,
-    bindingParams,
+  ( -- * Aliases and Types
+    module AlgST.Rename.Phase,
 
-    -- * Internals
-    etaRnM,
+    -- * Renaming
+    RnM,
+    Globals,
+    ModuleMap,
+    renameModule,
+    renameModuleExtra,
+    RenameExtra (..),
+    renameSyntax,
+
+    -- * Handling imports
+    RenameEnv,
+    resolveImport,
+    resolveImports,
+    moduleImportsEnv,
   )
 where
 
 import AlgST.Parse.Phase
+import AlgST.Rename.Error (MonadErrors, addError, fatalError)
+import AlgST.Rename.Error qualified as Error
 import AlgST.Rename.Fresh
+import AlgST.Rename.Modules
 import AlgST.Rename.Phase
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
@@ -42,35 +47,87 @@ import AlgST.Syntax.Name
 import AlgST.Syntax.Program
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Type qualified as T
+import AlgST.Util
+import AlgST.Util.ErrorMessage (DErrors)
 import AlgST.Util.Lenses
-import Control.Applicative
-import Control.Monad.Cont
-import Control.Monad.Eta
+import AlgST.Util.Lenses qualified as L
+import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
+import Control.Monad.Validate
 import Data.Bitraversable
+import Data.Coerce
+import Data.Foldable
 import Data.Functor.Compose
 import Data.Generics.Lens.Lite
-import Data.Map.Strict qualified as Map
+import Data.HashMap.Strict qualified as HM
+import Data.Map qualified as Map
 import Data.Maybe
+import Data.Monoid
+import Data.Semigroup
 import Data.Singletons
-import Data.Traversable
 import GHC.Generics (Generic)
 import Lens.Family2
-import Lens.Family2.State.Strict
-import Lens.Family2.Stock qualified as L
-import Prelude hiding (lookup)
+import Lens.Family2.State.Strict ((%=))
+import Lens.Family2.Stock
+import Syntax.Base
 
--- | A map from the user written name to the renamed version.
-newtype Bindings s = Bindings (NameMap s (RnName s))
-  deriving newtype (Monoid, Semigroup)
+-- | A partial resolve keeps track of a set of identifiers imported under the
+-- same name.
+--
+-- Each identifier is annotated with where it was imported from. This gives the
+-- user a bit of leeway when multiple unqualified/equal qualfied imports export
+-- the same identifier. An error message is delayed to the usage site.
+--
+-- The usage of a map strucuture here instead of a simple list is deliberate:
+-- This allows the same identifier (same origin) to be imported multiple times
+-- and be used without problems. Consider:
+--
+-- > import M1 (*)
+-- > import M1 (someName)
+--
+-- Although this use case is relatively contrived it would be quite stranger to
+-- emit an error at the usage site of @someName@ along the lines of “Did you
+-- mean @M1.someName@ or @M1.someName@?”.
+--
+-- This type has intentionally no 'Monoid' instance since it should always
+-- contain at least one element. Its 'Semigroup' instance merges the maps and
+-- chooses the first 'Error.AmbigousOrigin' in case of a duplicate import.
+data PartialResolve scope
+  = PartialResolve !(Map.Map (NameR scope) Error.AmbiguousOrigin)
+  | UniqueLocal !(NameR scope)
 
--- | Gives access to the underlying map of a @'Bindings' s@ value.
+instance Semigroup (PartialResolve scope) where
+  PartialResolve x <> PartialResolve y =
+    PartialResolve $ Map.unionWith earlier x y
+  UniqueLocal x <> _ = UniqueLocal x
+  _ <> UniqueLocal x = UniqueLocal x
+  stimes = stimesIdempotent
+
+resolvedUnique :: NameR scope -> Error.AmbiguousOrigin -> PartialResolve scope
+resolvedUnique name origin = PartialResolve (Map.singleton name origin)
+
+viewUniqueResolve :: PartialResolve scope -> Either [Error.AmbiguousOrigin] (NameR scope)
+viewUniqueResolve = \case
+  PartialResolve m
+    | [name] <- Map.keys m -> Right name
+    | otherwise -> Left (Map.elems m)
+  UniqueLocal name -> Right name
+
+-- | A map from user written names to the globally unique renamed version.
+newtype Bindings scope = Bindings (NameMapG Written scope (PartialResolve scope))
+  deriving newtype (Monoid)
+
+instance Semigroup (Bindings scope) where
+  Bindings x <> Bindings y = Bindings $ Map.unionWith (<>) x y
+  stimes = stimesIdempotentMonoid
+
+-- | Gives access to the underlying map of a @Bindings' scope@ value.
 --
 -- The type is intentionally more restricted. We usually don't want to replace
 -- the whole map with a differently scoped version. This should also improve
 -- type inference.
-_Bindings :: Lens' (Bindings s) (NameMap s (RnName s))
+_Bindings :: Lens' (Bindings scope) (NameMapG Written scope (PartialResolve scope))
 _Bindings = coerced
 {-# INLINE _Bindings #-}
 
@@ -94,107 +151,231 @@ instance ScopeIndexed RenameEnv Bindings where
   typesScopeL = field @"rnTyVars"
   valuesScopeL = field @"rnProgVars"
 
-varMapL :: forall s. SingI s => Lens' RenameEnv (Bindings s)
-varMapL = scopeL @s
-{-# INLINE varMapL #-}
+moduleImportsEnv :: MonadErrors m => Globals -> Module x -> m RenameEnv
+moduleImportsEnv globals = resolveImports globals . moduleImports
 
-type RnM = ReaderT RenameEnv Fresh
+resolveImports ::
+  MonadErrors m => Globals -> [Located Import] -> m RenameEnv
+resolveImports modules =
+  getAp . foldMap' (Ap . resolveImport modules)
+
+-- | Resolve a single 'Import' to the starting 'RenameEnv'.
+resolveImport ::
+  MonadErrors m => Globals -> Located Import -> m RenameEnv
+resolveImport modules stmt = getAp do
+  -- At the moment the driver diagnoses unresolvable imports. Therefore here we
+  -- fail silently.
+  flip foldMap (HM.lookup (foldL importTarget stmt) modules) $
+    Ap . selectedRenameEnv stmt
+
+-- | Apply an 'ImportSelection' to a 'ModuleMap'. Essentially this restricts
+-- the 'ModuleMap' and/or applies renamings. However this function does more
+-- work:
+--
+-- * Unresolvable identifiers are diagnosed.
+-- * It returns a complete 'RenameEnv'. The names contained inside have been
+-- adjusted based on the 'importQualifier'.
+selectedRenameEnv ::
+  forall m.
+  MonadErrors m =>
+  Located Import ->
+  ModuleMap ->
+  m RenameEnv
+selectedRenameEnv stmt mm =
+  case foldL importSelection stmt of
+    ImportAll allLoc hides renames -> do
+      -- The allSet contains all identifiers which are not hidden.
+      let allSet = allItems allLoc \itemKey -> not $ HM.member itemKey hides
+      -- Add all the renamed items on top of the `allSet`.
+      getAp $ pure allSet <> HM.foldMapWithKey (coerce addItem) renames
+    ImportOnly renames ->
+      getAp $ HM.foldMapWithKey (coerce addItem) renames
+  where
+    nameHereQ = Name (foldL importQualifier stmt)
+
+    singleBinding loc unq nameR =
+      Bindings . Map.singleton (nameHereQ unq) $
+        resolvedUnique
+          (nameR & nameWrittenL .~ nameHereQ unq)
+          (Error.AmbiguousImport loc (foldL importTarget stmt))
+
+    allItems :: Pos -> (ImportKey -> Bool) -> RenameEnv
+    allItems allLoc include = do
+      let item :: forall scope. SingI scope => Unqualified -> NameR scope -> Bindings scope
+          item unqualified nameR =
+            mguard
+              (include (demote @scope, unqualified))
+              (singleBinding allLoc unqualified nameR)
+      RenameEnv
+        { rnTyVars = HM.foldMapWithKey item (modMapTypes mm ^. _TopLevels),
+          rnProgVars = HM.foldMapWithKey item (modMapValues mm ^. _TopLevels)
+        }
+
+    addItem :: ImportKey -> Located Unqualified -> m RenameEnv
+    addItem (scope, nameHere) item@(_ :@ nameThere) = withSomeSing scope \sscope -> do
+      let resolvedItem = mm ^. scopeL' sscope . _TopLevels . L.hashAt nameThere
+      when (isNothing resolvedItem) do
+        addError $
+          Error.unknownImportItem
+            (pos stmt)
+            (foldL importTarget stmt)
+            scope
+            item
+      pure $ flip foldMap resolvedItem \nameThereR ->
+        mempty & scopeL' sscope .~ singleBinding (pos item) nameHere nameThereR
+
+type RnM = ValidateT DErrors (ReaderT (ModuleMap, RenameEnv) Fresh)
 
 instance SynTraversal RnM Parse Rn where
-  typeVariable _ x = fmap (T.Var x) . lookup
-  valueVariable _ x = fmap (E.Var x) . lookup
-  useConstructor _ = pure
-  bind _ = bindingAll
+  typeVariable _ x = fmap (T.Var x) . lookupName Error.Var x
+  valueVariable _ x = fmap (E.Var x) . lookupName Error.Var x
+  useConstructor _ = lookupName Error.Con
+  bind _ vs = withBindings \f -> traverse f vs
 
-runRename :: RnM a -> Fresh a
-runRename = flip runReaderT mempty
+lookupName :: SingI scope => Error.NameKind -> Pos -> NameW scope -> RnM (NameR scope)
+lookupName kind loc w = do
+  resolve <- asks . view $ _2 . scopeL . _Bindings . at w
+  case viewUniqueResolve <$> resolve of
+    Nothing ->
+      fatalError $ Error.unboundName loc kind w
+    Just (Right r) ->
+      pure r
+    Just (Left choices) ->
+      fatalError $ Error.ambiguousUsage loc kind w choices
 
-withRenamedModule :: PModule -> (RnModule -> RnM a) -> Fresh a
-withRenamedModule p f = runRename $ renameModule p >>= f
+bindingParams :: D.Params PStage -> (D.Params RnStage -> RnM a) -> RnM a
+bindingParams params = withBindings \f ->
+  traverse (bitraverse (traverse f) pure) params
 
--- | Binds all variables traversed over in @f@. If there are duplicate names an
--- error will be emitted at the provided location.
-bindingAll :: (Traversable t, SingI s) => t (RnName s) -> (t (RnName s) -> RnM a) -> RnM a
-bindingAll vs = withBindings \x -> traverse x vs
-{-# INLINEABLE bindingAll #-}
-
-bindingAllPTVars :: Traversable f => f AName -> (f AName -> RnM a) -> RnM a
-bindingAllPTVars vs = withBindings \bind ->
+bindingANames ::
+  Traversable f => f (ANameG Written) -> (f (ANameG Resolved) -> RnM a) -> RnM a
+bindingANames vs = withBindings \bind ->
   traverse (bitraverse bind bind) vs
-{-# INLINEABLE bindingAllPTVars #-}
+{-# INLINEABLE bindingANames #-}
 
 withBindings ::
-  (forall f. Applicative f => (forall s. SingI s => RnName s -> f (RnName s)) -> f a) ->
+  (forall f. Applicative f => (forall s. SingI s => PName s -> f (RnName s)) -> f a) ->
   (a -> RnM b) ->
   RnM b
-withBindings f k = etaRnM do
-  let bind :: SingI s => RnName s -> StateT RenameEnv Fresh (RnName s)
+withBindings f k = do
+  let bind :: SingI s => PName s -> StateT RenameEnv Fresh (RnName s)
       bind v = do
         v' <- lift $ freshResolved v
-        varMapL . _Bindings %= Map.insert v v'
+        scopeL . _Bindings %= Map.insert v (UniqueLocal v')
         pure v'
-  (a, binds) <- lift $ runStateT (f bind) mempty
+  (a, binds) <- lift $ lift $ runStateT (f bind) mempty
 
   -- It is important that `binds` appears on the LEFT side of the `(<>)`
   -- operator! When unioning the underlying maps prefer values from the left
   -- operand. The new bindings in `binds` have to shadow/replace older
   -- bindings.
-  local (binds <>) (k a)
-{-# INLINE withBindings #-}
+  local (fmap (binds <>)) (k a)
 
--- | @lookup v@ looks for a binding for @v@ and returns the renamed
--- variable.
---
--- In case the variable is unbound it is assumed to be a global definition.
--- Diagnosing this case is not considered the renamer's responsibility.
---
--- TODO: Should diagnosing unbound globals be part of the renamer? Then there
--- could be one place at which "did you mean ..." hints could be generated.
-lookup :: SingI s => RnName s -> RnM (RnName s)
-lookup v = do
-  env <- ask
-  pure $ fromMaybe v $ env ^. varMapL . _Bindings . L.at' v
+newtype RenameExtra = RenameExtra (forall a. (RnModule -> RnM a) -> Either DErrors a)
 
-renameModule :: Module Parse -> RnM (Module Rn)
-renameModule p = do
-  rnTypes <- traverse renameTypeDecl (moduleTypes p)
-  rnValues <- traverse (bitraverse renameConDecl renameValueDecl) (moduleValues p)
-  rnSigs <- traverse renameSignature (moduleSigs p)
+renameModule :: ModuleName -> PModule -> (ModuleMap, Globals -> Validate DErrors RnModule)
+renameModule name m =
+  ( moduleMap,
+    \g -> do
+      RenameExtra extra <- rename g
+      let errOrA = extra pure
+      either refute pure errOrA
+  )
+  where
+    (moduleMap, rename) = renameModuleExtra name m
+
+renameModuleExtra ::
+  ModuleName -> PModule -> (ModuleMap, Globals -> Validate DErrors RenameExtra)
+renameModuleExtra moduleName m =
+  -- Renaming traverses the module top-levels twice. Overall this is acceptable
+  -- but it might be possible using laziness and recrursive definitions to
+  -- reduce it to one traversal.
+  -- The difficult part, however, is to ensure that it is not possible to
+  -- "deadlock" yourself in an infinite recursion.
+  (toplevels, renameBodies)
+  where
+    ((toplevels, localsEnv), nextRid) =
+      moduleTopLevels m
+        & unFresh
+        & flip runReaderT moduleName
+        & flip runState firstResolvedId
+    renameBodies globals = do
+      importsEnv <- moduleImportsEnv globals m
+      let baseEnv = localsEnv <> importsEnv
+      pure $ RenameExtra \k ->
+        (doRename m >>= k)
+          & runValidateT
+          & flip runReaderT (toplevels, baseEnv)
+          & unFresh
+          & flip runReaderT moduleName
+          & flip evalState nextRid
+
+moduleTopLevels :: PModule -> Fresh (ModuleMap, RenameEnv)
+moduleTopLevels m = do
+  let entry nameW decl = do
+        nameR <- freshResolved nameW
+        pure
+          ( (nameUnqualified nameW, nameR),
+            resolvedUnique nameR $ Error.AmbiguousDefine $ pos decl
+          )
+  typs <- Map.traverseWithKey entry $ moduleTypes m
+  vals <- Map.traverseWithKey entry $ moduleValues m
+  sigs <- Map.traverseWithKey entry $ moduleSigs m
+  pure
+    ( ModuleMap
+        { modMapTypes =
+            TopLevels . HM.fromList $
+              fst <$> Map.elems typs,
+          modMapValues =
+            TopLevels . HM.fromList $
+              (fst <$> Map.elems sigs) ++ (fst <$> Map.elems vals)
+        },
+      RenameEnv
+        { rnTyVars = Bindings $ fmap snd typs,
+          rnProgVars = Bindings $ fmap snd (vals <> sigs)
+        }
+    )
+
+doRename :: PModule -> RnM RnModule
+doRename m = do
+  typs <- renameGlobalNameMap renameTypeDecl (moduleTypes m)
+  sigs <- renameGlobalNameMap renameSigDecl (moduleSigs m)
+  vals <-
+    renameGlobalNameMap
+      (bitraverse renameConDecl renameValDecl)
+      (moduleValues m)
   pure
     Module
-      { moduleTypes = rnTypes,
-        moduleValues = rnValues,
-        moduleSigs = rnSigs,
-        -- In theory the imports should not be needed any more after this
-        -- stage. Let's just keep them around anyways unless we have a good
-        -- reason to throw them out.
-        moduleImports = moduleImports p
+      { moduleTypes = typs,
+        moduleValues = vals,
+        moduleSigs = sigs,
+        moduleImports = moduleImports m
       }
 
 renameSyntax :: SynTraversable (s Parse) Parse (s Rn) Rn => s Parse -> RnM (s Rn)
 renameSyntax = traverseSyntaxBetween (Proxy @Parse) (Proxy @Rn)
 
-renameSignature :: D.SignatureDecl Parse -> RnM (D.SignatureDecl Rn)
-renameSignature (D.SignatureDecl x ty) = D.SignatureDecl x <$> renameSyntax ty
+renameGlobalNameMap ::
+  SingI scope =>
+  (a -> RnM a') ->
+  NameMapG Written scope a ->
+  RnM (NameMapG Resolved scope a')
+renameGlobalNameMap rn m = do
+  tls <- asks fst
+  fmap Map.fromList . sequenceA $
+    [ (nameR,) <$> rn a
+      | (nameUnqualified -> u, a) <- Map.toList m,
+        nameR <- tls ^.. scopeL . _TopLevels . hashAt u . traverse
+    ]
 
-renameValueDecl :: D.ValueDecl Parse -> RnM (D.ValueDecl Rn)
-renameValueDecl vd =
-  bindingAllPTVars (Compose $ D.valueParams vd) \(Compose ps) -> etaRnM do
-    t <- renameSyntax (D.valueType vd)
-    e <- renameSyntax (D.valueBody vd)
-    pure vd {D.valueParams = ps, D.valueType = t, D.valueBody = e}
-
-renameConDecl :: D.ConstructorDecl Parse -> RnM (D.ConstructorDecl Rn)
-renameConDecl =
-  etaRnM . \case
-    D.DataCon x parent params mul items -> do
-      (params', items') <- bindingParams params \params' ->
-        (params',) <$> traverse renameSyntax items
-      pure $ D.DataCon x parent params' mul items'
-    D.ProtocolCon x parent params items -> do
-      (params', items') <- bindingParams params \params' ->
-        (params',) <$> traverse renameSyntax items
-      pure $ D.ProtocolCon x parent params' items'
+renameTypeDecl :: D.TypeDecl Parse -> RnM (D.TypeDecl Rn)
+renameTypeDecl = \case
+  D.AliasDecl x alias ->
+    D.AliasDecl x <$> renameAlias alias
+  D.DataDecl x decl ->
+    D.DataDecl x <$> renameNominal renameSyntax decl
+  D.ProtoDecl x decl ->
+    D.ProtoDecl x <$> renameNominal renameSyntax decl
 
 renameAlias :: D.TypeAlias Parse -> RnM (D.TypeAlias Rn)
 renameAlias alias = bindingParams (D.aliasParams alias) \ps -> do
@@ -208,7 +389,10 @@ renameAlias alias = bindingParams (D.aliasParams alias) \ps -> do
 
 renameNominal :: (a -> RnM b) -> D.TypeNominal PStage a -> RnM (D.TypeNominal RnStage b)
 renameNominal f nom = bindingParams (D.nominalParams nom) \ps -> do
-  cs <- D.traverseConstructors (const f) (D.nominalConstructors nom)
+  cs <-
+    renameGlobalNameMap
+      (traverse (traverse f))
+      (D.nominalConstructors nom)
   pure
     D.TypeNominal
       { nominalParams = ps,
@@ -216,22 +400,33 @@ renameNominal f nom = bindingParams (D.nominalParams nom) \ps -> do
         nominalKind = D.nominalKind nom
       }
 
-bindingParams :: D.Params PStage -> (D.Params RnStage -> RnM a) -> RnM a
-bindingParams params f =
-  etaRnM
-    let (ps, ks) = unzip params
-     in bindingAll (Compose ps) \(Compose ps') -> f (zip ps' ks)
+renameSigDecl :: D.SignatureDecl Parse -> RnM (D.SignatureDecl Rn)
+renameSigDecl (D.SignatureDecl x ty) = D.SignatureDecl x <$> renameSyntax ty
 
-renameTypeDecl :: D.TypeDecl Parse -> RnM (D.TypeDecl Rn)
-renameTypeDecl =
-  etaRnM . \case
-    D.AliasDecl x alias ->
-      D.AliasDecl x <$> renameAlias alias
-    D.DataDecl x decl ->
-      D.DataDecl x <$> renameNominal renameSyntax decl
-    D.ProtoDecl x decl ->
-      D.ProtoDecl x <$> renameNominal renameSyntax decl
+renameConDecl :: D.ConstructorDecl Parse -> RnM (D.ConstructorDecl Rn)
+renameConDecl = \case
+  D.DataCon x parent params mul items -> do
+    parentR <- resolveParent parent
+    (params', items') <- bindingParams params \params' ->
+      (params',) <$> traverse renameSyntax items
+    pure $ D.DataCon x parentR params' mul items'
+  D.ProtocolCon x parent params items -> do
+    parentR <- resolveParent parent
+    (params', items') <- bindingParams params \params' ->
+      (params',) <$> traverse renameSyntax items
+    pure $ D.ProtocolCon x parentR params' items'
+  where
+    resolveParent p =
+      asks . view $
+        _1
+          . scopeL
+          . _TopLevels
+          . hashAt (nameUnqualified p)
+          . to (fromMaybe $ error $ "DataCon parent name not found: " ++ pprName p)
 
-etaRnM :: RnM a -> RnM a
-etaRnM = etaReaderT . mapReaderT etaFresh
-{-# INLINE etaRnM #-}
+renameValDecl :: D.ValueDecl Parse -> RnM (D.ValueDecl Rn)
+renameValDecl vd =
+  bindingANames (Compose $ D.valueParams vd) \(Compose ps) -> do
+    t <- renameSyntax (D.valueType vd)
+    e <- renameSyntax (D.valueBody vd)
+    pure vd {D.valueParams = ps, D.valueType = t, D.valueBody = e}

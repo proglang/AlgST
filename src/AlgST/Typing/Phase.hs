@@ -149,8 +149,9 @@ type TcBind                = E.Bind Tc
 type TcCaseMap f g         = E.CaseMap' f g Tc
 type TcModule             = Module Tc
 
--- TODO: Change to `Resolved`.
-type TcStage               = Written
+type TcStage               = Resolved
+type TcNameMap scope       = NameMapG TcStage scope
+type TcNameSet scope       = NameSetG TcStage scope
 type instance XStage    Tc = TcStage
 
 type instance E.XLit    Tc = Pos

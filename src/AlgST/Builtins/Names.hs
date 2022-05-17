@@ -1,30 +1,41 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module AlgST.Builtins.Names where
 
+import AlgST.Builtins.TH2
 import AlgST.Syntax.Name
+import Data.Char qualified as C
 
--- TODO: Change this to "Builtin" once proper name resolution is implemented.
+$( runDefines (ModuleName "Builtin") "builtinsModuleMap" do
+     let prefix p s = p ++ C.toUpper (head s) : tail s
+     let typ x = defineType (prefix "type" x) (Unqualified x)
+     let con x = defineValue (prefix "con" x) (Unqualified x)
+     let val x = defineValue (prefix "val" x) (Unqualified x)
+     let op n x = defineValue (prefix "op" n) $ Unqualified $ "(" ++ x ++ ")"
+
+     defineValue "conPair" $ Unqualified "(,)"
+
+     typ "Int"
+     typ "Char"
+     typ "String"
+
+     typ "Bool"
+     con "True"
+     con "False"
+
+     op "add" "+"
+     op "sub" "-"
+     op "mul" "*"
+     op "div" "/"
+     op "mod" "%"
+     op "LEQ" "<="
+
+     val "send"
+     val "receive"
+ )
+
 pattern BuiltinsModule :: ModuleName
-pattern BuiltinsModule = ModuleName ""
-
-pattern Builtin :: String -> NameW scope
-pattern Builtin s = Name BuiltinsModule (Unqualified s)
-
-pattern TypeInt :: NameW Types
-pattern TypeInt = Builtin "Int"
-
-pattern TypeChar :: NameW Types
-pattern TypeChar = Builtin "Char"
-
-pattern TypeString :: NameW Types
-pattern TypeString = Builtin "String"
-
-pattern TypeBool :: NameW Types
-pattern TypeBool = Builtin "Bool"
-
-pattern ConTrue, ConFalse :: NameW Values
-pattern ConTrue = Builtin "True"
-pattern ConFalse = Builtin "False"
+pattern BuiltinsModule = ModuleName "Builtin"

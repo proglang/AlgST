@@ -2,7 +2,6 @@
 
 module AlgST.Syntax.Operators where
 
-import AlgST.Builtins.Names
 import AlgST.Syntax.Name
 import Data.Function
 import Data.Map.Strict qualified as Map
@@ -63,7 +62,7 @@ knownOperators = Map.unions (opMap <$> ops)
     opMap op =
       let name1 = opName op
           name2 = operatorValueName (opName op)
-          opNamed = op {opName = Builtin name2}
+          opNamed = op {opName = Name emptyModuleName (Unqualified name2)}
        in Map.empty
             & Map.insert (Unqualified name1) opNamed
             & Map.insert (Unqualified name2) opNamed

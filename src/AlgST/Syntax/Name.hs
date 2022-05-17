@@ -87,6 +87,8 @@ module AlgST.Syntax.Name
     ScopeIndexed (..),
     scopeL,
     scopeL',
+    ScopedVariants,
+    scopedVariants,
 
     -- * Type Level Tags
     SScope (..),
@@ -109,6 +111,7 @@ import Data.Singletons.TH
 import GHC.Generics (Generic)
 import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2 qualified as L
+import Lens.Family2.Stock qualified as L
 import Lens.Family2.Unchecked qualified as L
 import System.FilePath qualified as FP
 
@@ -179,6 +182,16 @@ type ScopeIndexed :: Type -> (Scope -> Type) -> Constraint
 class ScopeIndexed t f | t -> f where
   typesScopeL :: L.Lens' t (f Types)
   valuesScopeL :: L.Lens' t (f Values)
+
+instance ScopeIndexed (f Types, f Values) f where
+  typesScopeL = L._1
+  valuesScopeL = L._2
+
+type ScopedVariants :: (Scope -> Type) -> Type
+type ScopedVariants f = (f Types, f Values)
+
+scopedVariants :: (forall scope. SingI scope => f scope) -> ScopedVariants f
+scopedVariants x = (x, x)
 
 scopeL :: forall scope t f. (SingI scope, ScopeIndexed t f) => L.Lens' t (f scope)
 scopeL = scopeL' (sing @scope)
@@ -254,8 +267,10 @@ pattern PairCon :: Name Written scope
 pattern PairCon = Name (ModuleName "") (Unqualified "(,)")
 
 -- | Checks wether the given name is a wildcard pattern.
-isWild :: Name Written scope -> Bool
-isWild Wildcard = True
+--
+-- FIXME: Defering to 'nameWritten' feels quite fragile.
+isWild :: Name stage scope -> Bool
+isWild (nameWritten -> Wildcard) = True
 isWild _ = False
 
 nameWritten :: Name stage scope -> Name Written scope

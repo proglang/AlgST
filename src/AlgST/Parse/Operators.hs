@@ -17,7 +17,6 @@ module AlgST.Parse.Operators
   )
 where
 
-import AlgST.Builtins.Names
 import AlgST.Parse.Phase
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Name
@@ -200,12 +199,12 @@ foldOperators e0 ops0 = \case
 
 buildOpApplication :: ResolvedOp -> PExp -> Maybe PExp -> PExp
 buildOpApplication op lhs mrhs
-  | Builtin "<|" <- operatorName op,
+  | Name (ModuleName "") (Unqualified "<|") <- operatorName op,
     null (operatorTyArgs op),
     Just rhs <- mrhs =
     -- Desugar operator to direct function application.
     E.App (pos op) lhs rhs
-  | Builtin "|>" <- operatorName op,
+  | Name (ModuleName "") (Unqualified "|>") <- operatorName op,
     null (operatorTyArgs op),
     Just rhs <- mrhs =
     -- Desugar operator to (flipped) direct function application.
@@ -226,8 +225,7 @@ resolveOperators ::
   m (f ResolvedOp)
 resolveOperators = traverse \case
   (p :@ v, tys)
-    | Builtin _ <- v,
-      Just i <- Map.lookup (nameUnqualified v) knownOperators ->
+    | Just i <- Map.lookup (nameUnqualified v) knownOperators ->
       pure
         ResolvedOp
           { operatorName = v,

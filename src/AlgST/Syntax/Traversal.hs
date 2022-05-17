@@ -215,7 +215,6 @@ typeSubstitions s = emptySubstitutions {typeVarSubs = s}
 termSubstitions :: NameMapG (XStage x) Values (E.Exp x) -> Substitutions x
 termSubstitions s = emptySubstitutions {progVarSubs = s}
 
--- TODO: Remove `XStage x ~ Written`.
 instance (Monad m, x ~ y) => SynTraversal (ReaderT (Substitutions x) m) x y where
   valueVariable _ x = etaReaderT . asks . subVar (E.Var x) progVarSubs
   typeVariable _ x = etaReaderT . asks . subVar (T.Var x) typeVarSubs
@@ -238,7 +237,6 @@ subVar ::
   a
 subVar def f v = fromMaybe (def v) . Map.lookup v . f
 
--- TODO: Remove `XStage x ~ Written`.
 applySubstitutions ::
   forall a x.
   (SynTraversable a x a x) =>
@@ -249,22 +247,18 @@ applySubstitutions s a
   | otherwise = runReader (traverseSyntaxIn (Proxy @x) a) s
 
 -- | Substitute a single 'TypeVar'.
---
--- TODO: Remove `XStage x ~ Written`.
 substituteType ::
   forall x a.
-  (SynTraversable a x a x, XStage x ~ Written) =>
-  NameMap Types (T.Type x) ->
+  (SynTraversable a x a x) =>
+  NameMapG (XStage x) Types (T.Type x) ->
   (a -> a)
 substituteType = applySubstitutions . typeSubstitions
 
 -- | Substitute a single 'ProgVar'.
---
--- TODO: Remove `XStage x ~ Written`.
 substituteTerm ::
   forall x a.
-  (SynTraversable a x a x, XStage x ~ Written) =>
-  NameMap Values (E.Exp x) ->
+  (SynTraversable a x a x) =>
+  NameMapG (XStage x) Values (E.Exp x) ->
   (a -> a)
 substituteTerm = applySubstitutions . termSubstitions
 

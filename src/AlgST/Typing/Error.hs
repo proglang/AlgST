@@ -7,7 +7,6 @@
 
 module AlgST.Typing.Error where
 
-import AlgST.Builtins.Names
 import AlgST.Parse.Unparser
 import AlgST.Rename
 import AlgST.Syntax.Decl
@@ -86,10 +85,7 @@ expectedBool p ty =
       Error "  ",
       Error ty,
       ErrLine,
-      Error "with expected type",
-      ErrLine,
-      Error "  ",
-      Error $ T.Con @Rn defaultPos $ Builtin "Bool",
+      Error "with expected type Bool.",
       ErrLine,
       Error "A suitable ‘Bool’ type must have exactly two nullary constructors named ‘True’ and ‘False’."
     ]
@@ -240,7 +236,7 @@ invalidNominalKind loc nomKind name actual allowed =
     ]
 {-# NOINLINE invalidNominalKind #-}
 
-mismatchedBind :: Pos -> AName -> TcType -> Diagnostic
+mismatchedBind :: Pos -> ANameG scope -> TcType -> Diagnostic
 mismatchedBind loc var t =
   PosError loc $
     Error (choose "Binding of variable" "Binding of type variable") :

@@ -4,7 +4,6 @@
 
 module AlgST.Builtins.TH where
 
-import AlgST.Builtins.Names
 import AlgST.Parse.Parser
 import AlgST.Parse.Phase
 import AlgST.Syntax.Decl
@@ -32,7 +31,7 @@ parseStatic' baseProg sigs lines = Code.do
             reportError $ "Can't parse signature of ‘" ++ name ++ "’:" ++ err
             pure Nothing
           Right ty -> do
-            pure $ Just (Builtin name, ty)
+            pure $ Just (Name (ModuleName "") (Unqualified name), ty)
   let addSig sigsMap (name, sig)
         | name `Map.member` sigsMap = do
           reportError $ "Multiple definitions of " ++ showVar name

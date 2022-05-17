@@ -97,7 +97,7 @@ Potential for optimization
 * Check and probably improve strictness of the `nf` algorithm.
 -}
 
-collectForalls :: TcType -> (TcType -> TcType, NameSet Types, TcType)
+collectForalls :: TcType -> (TcType -> TcType, TcNameSet Types, TcType)
 collectForalls = go id mempty
   where
     go f vs = \case

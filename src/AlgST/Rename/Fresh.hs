@@ -5,13 +5,14 @@
 {-# LANGUAGE RankNTypes #-}
 
 module AlgST.Rename.Fresh
-  ( Fresh (..),
+  ( Fresh,
+    FreshT (..),
     runFresh,
+    runFreshT,
     etaFresh,
     currentModule,
     freshResolved,
     freshResolvedParams,
-    freshResolved',
   )
 where
 
@@ -21,38 +22,32 @@ import Control.Monad.Eta
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Data.Bitraversable
+import Data.Functor.Identity
 
-newtype Fresh a = Fresh {unFresh :: ReaderT ModuleName (State ResolvedId) a}
+newtype FreshT m a = Fresh {unFresh :: ReaderT ModuleName (StateT ResolvedId m) a}
   deriving newtype (Functor, Applicative, Monad, MonadFix)
 
-{- ORMOLU_DISABLE -}
--- TODO: Change these `Resolved` and `NameR` respectively and unfold the type
--- aliases.
-type FStage = Written
-type FName = NameW
-{- ORMOLU_ENABLE -}
+type Fresh = FreshT Identity
+
+instance MonadTrans FreshT where
+  lift = Fresh . lift . lift
+
+runFreshT :: Monad m => ModuleName -> FreshT m a -> m a
+runFreshT m (Fresh a) = evalStateT (runReaderT a m) firstResolvedId
 
 runFresh :: ModuleName -> Fresh a -> a
-runFresh m (Fresh a) = evalState (runReaderT a m) firstResolvedId
+runFresh m = runIdentity . runFreshT m
 
-currentModule :: Fresh ModuleName
+currentModule :: Monad m => FreshT m ModuleName
 currentModule = Fresh ask
 
-freshResolved :: Name stage scope -> Fresh (FName scope)
+freshResolved :: Monad m => Name stage scope -> FreshT m (NameR scope)
 freshResolved n = do
-  _mod <- currentModule
-  Fresh $ state \ !nextId ->
-    -- TODO: Return a resolved name.
-    -- (ResolvedName (nameWritten n) mod nextId, nextResolvedId nextId)
-    (nameWritten n, nextResolvedId nextId)
-
-freshResolved' :: Name stage scope -> Fresh (NameR scope)
-freshResolved' n = do
   mod <- currentModule
   Fresh $ state \ !nextId ->
     (ResolvedName (nameWritten n) mod nextId, nextResolvedId nextId)
 
-freshResolvedParams :: Params stage -> Fresh (Params FStage)
+freshResolvedParams :: Monad m => Params stage -> FreshT m (Params Resolved)
 freshResolvedParams = traverse (bitraverse (traverse freshResolved) pure)
 
 etaFresh :: Fresh a -> Fresh a

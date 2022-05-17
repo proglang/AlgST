@@ -40,9 +40,9 @@ data Usage
   | -- | A used 'Lin' variable, associated with the usage location.
     LinUsed Pos
 
-type TypeEnv = NameMap Values Var
+type TypeEnv = TcNameMap Values Var
 
-type KindEnv = NameMap Types K.Kind
+type KindEnv = TcNameMap Types K.Kind
 
 -- | Enivronment for all typing operations.
 --
@@ -67,7 +67,7 @@ data TcValue
   | ValueCon (ConstructorDecl Tc)
 
 -- | Like 'ValuesMap' but the values in the map are of type 'TcValue'.
-type TcValuesMap = NameMap Values TcValue
+type TcValuesMap = TcNameMap Values TcValue
 
 data TyTypingEnv = TyTypingEnv
   { tcKiTypingEnv :: KiTypingEnv,
@@ -77,10 +77,10 @@ data TyTypingEnv = TyTypingEnv
     --
     -- 'Left' values represent protocol constructors. These don't form valid
     -- expressions. The associated value is the parent type's name.
-    tcCheckedValues :: NameMap Values TcValue
+    tcCheckedValues :: TcNameMap Values TcValue
   }
 
-newtype KiSt = KiSt {tcAliases :: NameMap Types Alias}
+newtype KiSt = KiSt {tcAliases :: TcNameMap Types Alias}
 
 -- | State during type checking of expressions. The main part is the 'TypeEnv'
 -- which maps the variables in scope to their 'Usage' status.
@@ -102,9 +102,9 @@ data Alias
 
 data RecursiveSets
   = RecursiveSets
-      (NameSet Types)
+      (TcNameSet Types)
       [(Pos, TypeVar TcStage, TypeAlias Rn)]
-      !(Map.Map (NameSet Types) [(Pos, TypeVar TcStage, TypeAlias Rn)])
+      !(Map.Map (TcNameSet Types) [(Pos, TypeVar TcStage, TypeAlias Rn)])
 
 instance Semigroup RecursiveSets where
   RecursiveSets a b recs <> RecursiveSets _ _ recs' =
@@ -119,7 +119,7 @@ makeLenses ['tcKiTypingEnv] ''TyTypingEnv
 tcKiTypingEnvL :: Lens' TyTypingEnv KiTypingEnv
 
 makeLenses ''KiSt
-tcAliasesL :: Lens' KiSt (NameMap Types Alias)
+tcAliasesL :: Lens' KiSt (TcNameMap Types Alias)
 
 makeLenses ''TySt
 tcTypeEnvL :: Lens' TySt TypeEnv

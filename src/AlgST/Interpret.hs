@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -11,6 +12,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module AlgST.Interpret
   ( -- * Evaluating
@@ -178,7 +180,10 @@ data Value
 
 -- | Pairs are represented through the 'Con' constructor with a name of 'PairConId'.
 pattern Pair :: Value -> Value -> Value
-pattern Pair a b = Con PairCon [a, b]
+pattern Pair a b <-
+  Con ((conPair ==) -> True) [a, b]
+  where
+    Pair a b = Con conPair [a, b]
 
 instance Show Value where
   showsPrec p =
@@ -360,27 +365,27 @@ programEnvironment p =
 builtinsEnv :: Env
 builtinsEnv =
   Map.fromList
-    [ intFun "(+)" \x y -> Number (x + y),
-      intFun "(-)" \x y -> Number (x - y),
-      intFun "(*)" \x y -> Number (x * y),
-      intFun "(/)" \x y -> Number (x `div` y),
-      intFun "(%)" \x y -> Number (x `rem` y),
-      intFun "(<=)" \x y ->
+    [ intFun opAdd \x y -> Number (x + y),
+      intFun opSub \x y -> Number (x - y),
+      intFun opMul \x y -> Number (x * y),
+      intFun opDiv \x y -> Number (x `div` y),
+      intFun opMod \x y -> Number (x `rem` y),
+      intFun opLEQ \x y ->
         if x <= y
-          then Con ConTrue []
-          else Con ConFalse [],
-      closure "send" \(_ :@ val) (p :@ channel) -> do
+          then Con conTrue []
+          else Con conFalse [],
+      closure valSend \(_ :@ val) (p :@ channel) -> do
         c <- unwrap p TChannel channel
         putChannel c val
         pure channel,
-      closure "receive" \(p :@ channel) -> do
+      closure valReceive \(p :@ channel) -> do
         c <- unwrap p TChannel channel
         v <- readChannel c
         pure $ Pair v channel
     ]
   where
     closure name body =
-      (Builtin name, Right (buildClosure name body))
+      (name, Right (buildClosure (pprName name) body))
     intFun name f = closure name \(p1 :@ a) (p2 :@ b) -> do
       a' <- unwrap p1 TNumber a
       b' <- unwrap p2 TNumber b

@@ -1,13 +1,13 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
@@ -60,8 +60,8 @@ where
 
 import AlgST.Builtins.Names
 import AlgST.Parse.Phase
-import AlgST.Rename
 import AlgST.Rename.Fresh
+import AlgST.Rename
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind ((<=?))
@@ -125,7 +125,7 @@ type RunTyM = forall env st a. (HasKiEnv env, HasKiSt st) => TypeM a -> TcM env 
 type RunKiM = forall a. TcM KiTypingEnv KiSt a -> Fresh (Either (NonEmpty Diagnostic) a)
 
 checkWithModule ::
-  Module Rn ->
+  RnModule ->
   (RunTyM -> RunKiM -> TcModule -> Fresh (Either (NonEmpty Diagnostic) r)) ->
   Fresh (Either (NonEmpty Diagnostic) r)
 checkWithModule prog k = runExceptT $ do
@@ -278,10 +278,10 @@ checkValueBodies embed = Map.traverseMaybeWithKey \_name -> \case
   ValueCon condecl -> do
     -- Constructors have no body to check.
     pure $ Just $ Left condecl
-  ValueGlobal (Just vd) ty -> do
+  ValueGlobal (Just ValueDecl {..}) ty -> do
     -- Align the binds with the values type and check the body.
-    body <- embed $ checkAlignedBinds ty (valueParams vd) (valueBody vd)
-    pure $ Just $ Right vd {valueType = ty, valueBody = body}
+    body <- embed $ checkAlignedBinds ty valueParams valueBody
+    pure $ Just $ Right ValueDecl {valueType = ty, valueBody = body, ..}
   ValueGlobal Nothing _ -> do
     -- Non-global values are not possible on this level.
     pure Nothing
@@ -300,10 +300,10 @@ embedTypeM env m = do
     Left errs -> refute errs
     Right a -> pure a
 
-checkAlignedBinds :: TcType -> [Located AName] -> RnExp -> TypeM TcExp
+checkAlignedBinds :: TcType -> [Located (ANameG TcStage)] -> RnExp -> TypeM TcExp
 checkAlignedBinds fullTy allVs e = go fullTy fullTy allVs
   where
-    go :: TcType -> TcType -> [Located AName] -> TypeM TcExp
+    go :: TcType -> TcType -> [Located (ANameG TcStage)] -> TypeM TcExp
     go _ t [] = tycheck e t
     go _ (T.Arrow k mul t u) (p :@ Right pv : vs) = do
       withProgVarBind (unrestrictedLoc k mul) p pv t do
@@ -702,13 +702,13 @@ tysynth =
       pat <- extractMatchableType "Pattern let expression" (pos e) eTy
       let branch =
             E.CaseBranch
-              { branchPos = p,
+              { branchPos = pos c,
                 branchExp = body,
                 branchBinds = vs
               }
       let cases =
             E.CaseMap
-              { casesPatterns = Map.singleton c branch,
+              { casesPatterns = Map.singleton (unL c) branch,
                 casesWildcard = Nothing
               }
       checkPatternExpression p e' cases pat
@@ -716,6 +716,7 @@ tysynth =
     --
     E.Cond p e eThen eElse -> do
       (e', eTy) <- tysynth e
+      requireBoolType e eTy
 
       (mty, (eThen', eElse')) <- runBranchT p do
         (,)
@@ -723,14 +724,10 @@ tysynth =
           <*> liftBranchT (Error.CondElse (pos eElse)) (checkOrSynth eElse)
       let ty = error "impossible: branches have no type" `fromMaybe` mty
 
-      hasBool <- asks (isBoolType eTy)
-      when (not hasBool) do
-        addError (Error.expectedBool (pos e) eTy)
-
       let branches =
             Map.fromList
-              [ (ConTrue, E.CaseBranch (pos eThen) [] eThen'),
-                (ConFalse, E.CaseBranch (pos eElse) [] eElse')
+              [ (conTrue, E.CaseBranch (pos eThen) [] eThen'),
+                (conFalse, E.CaseBranch (pos eElse) [] eElse')
               ]
       let eCase =
             E.Exp . ValueCase p e' $
@@ -747,7 +744,7 @@ tysynth =
       checkPatternExpression p e' cases pat
 
     --
-    E.Select p lcon@(_ :@ PairCon) -> do
+    E.Select p lcon@(_ :@ con) | con == conPair -> do
       v1 <- freshLocal "a"
       v2 <- freshLocal "b"
       let tyX = T.Var @Tc (p @- kiX)
@@ -808,15 +805,15 @@ originalPatternType = \case
   PatternRef r -> T.Type r
   PatternPair x t1 t2 -> T.Pair x t1 t2
 
-patternBranches :: PatternType -> TypeM (NameMap Values [TcType])
+patternBranches :: PatternType -> TypeM (TcNameMap Values [TcType])
 patternBranches = \case
   PatternRef ref -> do
     let subst d = substituteTypeConstructors (typeRefSubstitutions d ref) d
+    let missingCon = Error.undeclaredCon (typeRefPos ref) (typeRefName ref)
     mdecl <- asks $ tcCheckedTypes >>> Map.lookup (typeRefName ref)
-    fmap (fmap snd . subst) $
-      maybeError (Error.undeclaredCon (typeRefPos ref) (typeRefName ref)) mdecl
+    fmap snd . subst <$> maybeError missingCon mdecl
   PatternPair _ t1 t2 ->
-    pure $ Map.singleton PairCon [t1, t2]
+    pure $ Map.singleton conPair [t1, t2]
 
 data MatchableType
   = MatchValue PatternType
@@ -841,26 +838,6 @@ extractMatchableType s p t = etaTcM do
       pure $ MatchValue p
     _ ->
       addFatalError $ Error.invalidPatternExpr s p t tNF
-
--- | Checks that the given type references the builtin @Bool@ type.
---
--- When the refences type is a data declaration with 'OriginBuiltin' we are
--- satisfied.
-isBoolType :: TcType -> TyTypingEnv -> Bool
-isBoolType ty env
-  | -- Is it a reference to some parameter-less type named "Bool"?
-    T.Type
-      TypeRef
-        { typeRefName = name@(Builtin "Bool"),
-          typeRefArgs = []
-        } <-
-      ty,
-    -- Does it reference a builtin data declaration?
-    Just (DataDecl OriginBuiltin _) <-
-      Map.lookup name (tcCheckedTypes env) =
-    True
-  | otherwise =
-    False
 
 -- | Looks up the type for the given 'ProgVar'. This function works correctly
 -- for local variables, globals and constructors.
@@ -1058,7 +1035,7 @@ data BranchSt r = forall b.
   BranchSt
   { -- | Variables which have been consumed in at least one of the encountered
     -- branches.
-    branchesConsumed :: !(NameMap Values BranchConsumed),
+    branchesConsumed :: !(TcNameMap Values BranchConsumed),
     -- | A previously encountered branch.
     --
     -- Used in error messages in the likes of /… variable is consumed there
@@ -1111,7 +1088,7 @@ runBranchT p (BranchT m) = do
 --
 -- @env1@ and @env2@ should be related in that @env2@ should be derived from
 -- @env1@. Any variables whicha appear only in one environment are discarded.
-filterAdditionalConsumed :: TypeEnv -> TypeEnv -> NameMap Values (Var, Pos)
+filterAdditionalConsumed :: TypeEnv -> TypeEnv -> TcNameMap Values (Var, Pos)
 filterAdditionalConsumed =
   Merge.merge Merge.dropMissing Merge.dropMissing (Merge.zipWithMaybeMatched f)
   where
@@ -1126,7 +1103,7 @@ filterAdditionalConsumed =
 -- | @markConsumed p env vars@ marks all variables in @env@ which appear also
 -- as keys in @vars@ as used at @p@. Variables which appear in @vars@ but not
 -- in @env@ are ignored.
-markConsumed :: Pos -> TypeEnv -> NameMap Values a -> TypeEnv
+markConsumed :: Pos -> TypeEnv -> TcNameMap Values a -> TypeEnv
 markConsumed !p =
   Merge.merge Merge.preserveMissing Merge.dropMissing (Merge.zipWithMatched mark)
   where
@@ -1143,9 +1120,9 @@ markConsumed !p =
 -- might not actually be the branches in which the variables were consumed.
 checkConsumedOverlap ::
   (Error.BranchSpec a, Error.BranchSpec b, MonadValidate Errors m) =>
-  NameMap Values BranchConsumed ->
+  TcNameMap Values BranchConsumed ->
   a ->
-  NameMap Values BranchConsumed ->
+  TcNameMap Values BranchConsumed ->
   b ->
   m ()
 checkConsumedOverlap m1 other1 m2 other2 = addErrors errors
@@ -1160,9 +1137,9 @@ checkConsumedOverlap m1 other1 m2 other2 = addErrors errors
 litType :: Pos -> E.Lit -> TcType
 litType p = \case
   E.Unit -> T.Unit p
-  E.Int _ -> builtinRef TypeInt
-  E.Char _ -> builtinRef TypeChar
-  E.String _ -> builtinRef TypeString
+  E.Int _ -> builtinRef typeInt
+  E.Char _ -> builtinRef typeChar
+  E.String _ -> builtinRef typeString
   where
     builtinRef name =
       T.Type @Tc
@@ -1282,6 +1259,16 @@ requireEqual e t1 t2 = do
   nf2 <- normalize t2
   when (Eq.Alpha nf1 /= Eq.Alpha nf2) do
     addError (Error.typeMismatch e t1 nf1 t2 nf2)
+
+requireBoolType :: RnExp -> TcType -> TypeM ()
+requireBoolType e t =
+  requireEqual e t . T.Type $
+    TypeRef
+      { typeRefPos = defaultPos,
+        typeRefName = typeBool,
+        typeRefArgs = [],
+        typeRefKind = K.TU
+      }
 
 -- | Returns the normalform of the given type or throws an error at the given
 -- position.

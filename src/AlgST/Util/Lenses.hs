@@ -29,6 +29,9 @@ coerced :: forall b a. Coercible a b => Lens' a b
 coerced f = fmap coerce . f . coerce
 {-# INLINE coerced #-}
 
+coercedFrom :: Coercible a b => (b -> a) -> Lens' a b
+coercedFrom _ = coerced
+
 coercing :: (Coercible s a, Coercible t b) => Adapter s t a b
 coercing = L.adapter coerce coerce
 {-# INLINE coercing #-}
