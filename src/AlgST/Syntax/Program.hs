@@ -48,6 +48,7 @@ import Instances.TH.Lift ()
 import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2
 import Syntax.Base
+import Data.Map ((\\))
 
 -- | A program is a collection of modules.
 newtype Program x = Program {programModules :: HashMap ModuleName (Module x)}
@@ -145,7 +146,8 @@ moduleOrigins f p = do
 --
 -- Note that merging modules after renaming or typechecking will usually
 -- invalidate the guarantees made by these stages.
-mergeModules :: Module x -> Module x -> (Module x, NameSet Types, NameSet Values)
+mergeModules ::
+  XStage x ~ Written => Module x -> Module x -> (Module x, NameSet Types, NameSet Values)
 mergeModules p1 p2 =
   ( Module
       { moduleTypes = moduleTypes p1 <> moduleTypes p2,
@@ -176,7 +178,7 @@ importModule p =
 
 -- | @withoutDefinitions p1 p2@ removes all definitions from @p1@ which
 -- also appear in @p2π /in the same field./
-withoutDefinitions :: Module x -> Module y -> Module x
+withoutDefinitions :: XStage x ~ XStage y => Module x -> Module y -> Module x
 withoutDefinitions p1 p2 =
   Module
     { moduleTypes = moduleTypes p1 \\ moduleTypes p2,
@@ -184,16 +186,13 @@ withoutDefinitions p1 p2 =
       moduleSigs = moduleSigs p1 \\ moduleSigs p2,
       moduleImports = moduleImports p1
     }
-  where
-    (\\) :: NameMap s v -> NameMap s v' -> NameMap s v
-    (\\) = Map.difference
 
 -- | Mapping between type names and the type declarations.
-type TypesMap x = NameMap Types (D.TypeDecl x)
+type TypesMap x = NameMapG (XStage x) Types (D.TypeDecl x)
 
 -- | Mapping between value names and their declaration, which is either a
 -- constructor or a value/function binding.
-type ValuesMap x = NameMap Values (Either (D.ConstructorDecl x) (D.ValueDecl x))
+type ValuesMap x = NameMapG (XStage x) Values (Either (D.ConstructorDecl x) (D.ValueDecl x))
 
 -- | Mapping between value/function names and their signatures.
-type SignaturesMap x = NameMap Values (D.SignatureDecl x)
+type SignaturesMap x = NameMapG (XStage x) Values (D.SignatureDecl x)

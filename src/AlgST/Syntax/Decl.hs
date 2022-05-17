@@ -191,7 +191,7 @@ instance Position (SignatureDecl x) where
 data ValueDecl x = ValueDecl
   { valueOrigin :: Origin,
     valueType :: T.Type x,
-    valueParams :: [Located AName],
+    valueParams :: [Located (ANameG (XStage x))],
     valueBody :: E.Exp x
   }
 

@@ -161,9 +161,9 @@ data Exp x
     UnLet (XUnLet x) !(XProgVar x) (Maybe (T.Type x)) (Exp x) (Exp x)
   | -- | > PatLet _ c [x̅] e₁ e₂       ~ let c x̅ = e₁ in e₂
     --
-    -- The first 'ProgVar' should be constructor name, the remaining 'ProgVar's
-    -- should be variable names or wildcards.
-    PatLet (XPatLet x) !(XProgVar x) [Located (XProgVar x)] (Exp x) (Exp x)
+    -- The first 'ProgVar' should be the constructor name, the remaining
+    -- 'ProgVar's should be variable names or wildcards.
+    PatLet (XPatLet x) !(Located (XProgVar x)) [Located (XProgVar x)] (Exp x) (Exp x)
   | -- | > Rec _ x t r                ~ rec x : t = r
     Rec (XRec x) !(XProgVar x) (T.Type x) (RecLam x)
   | -- | > New _ t                    ~ new [t]

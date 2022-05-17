@@ -2,16 +2,16 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LinearTypes #-}
 {-# LANGUAGE RankNTypes #-}
 
 module AlgST.Rename.Fresh
-  ( Fresh,
+  ( Fresh (..),
     runFresh,
     etaFresh,
     currentModule,
     freshResolved,
     freshResolvedParams,
+    freshResolved',
   )
 where
 
@@ -45,6 +45,12 @@ freshResolved n = do
     -- TODO: Return a resolved name.
     -- (ResolvedName (nameWritten n) mod nextId, nextResolvedId nextId)
     (nameWritten n, nextResolvedId nextId)
+
+freshResolved' :: Name stage scope -> Fresh (NameR scope)
+freshResolved' n = do
+  mod <- currentModule
+  Fresh $ state \ !nextId ->
+    (ResolvedName (nameWritten n) mod nextId, nextResolvedId nextId)
 
 freshResolvedParams :: Params stage -> Fresh (Params FStage)
 freshResolvedParams = traverse (bitraverse (traverse freshResolved) pure)

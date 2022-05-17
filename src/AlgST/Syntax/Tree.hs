@@ -121,7 +121,7 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (E.Ex
           ]
       E.PatLet x c vs e1 e2 ->
         tree
-          ("Exp.PatLet " ++ unwords (describeName . unL <$> defaultPos :@ c : vs))
+          ("Exp.PatLet " ++ unwords (describeName . unL <$> c : vs))
           [ labeledTree x,
             labeledTree e1,
             labeledTree e2

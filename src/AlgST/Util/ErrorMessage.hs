@@ -10,6 +10,7 @@
 module AlgST.Util.ErrorMessage
   ( ErrorMessage (..),
     ErrorMsg (..),
+    DErrors,
     Diagnostic (..),
     DiagKind (..),
     pattern PosError,
@@ -26,6 +27,7 @@ import AlgST.Syntax.Type qualified as T
 import AlgST.Util.Output
 import Data.Coerce
 import Data.DList qualified as DL
+import Data.DList.DNonEmpty (DNonEmpty)
 import Data.List (intercalate)
 import Syntax.Base
 import System.Console.ANSI
@@ -48,6 +50,8 @@ data ErrorMessage where
 
 data DiagKind
   = DiagError
+
+type DErrors = DNonEmpty Diagnostic
 
 data Diagnostic = Diagnostic
   { diagnosticKind :: !DiagKind,

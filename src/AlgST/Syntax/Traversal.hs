@@ -76,6 +76,7 @@ import Data.Set qualified as Set
 import Data.Singletons
 import Data.Void
 import GHC.Exts (Proxy#, proxy#)
+import Syntax.Base
 
 type Pxy x y = Proxy# (x, y)
 
@@ -94,6 +95,7 @@ class Applicative f => SynTraversal f x y where
   useConstructor ::
     SingI scope =>
     Pxy x y ->
+    Pos ->
     XName x scope ->
     f (XName y scope)
 
@@ -134,7 +136,7 @@ instance Monoid (CollectFree stage) where
 instance (x ~ y, XStage x ~ stage) => SynTraversal (Const (CollectFree stage)) x y where
   typeVariable _ _ = varCollectFree
   valueVariable _ _ = varCollectFree
-  useConstructor _ = pure
+  useConstructor _ _ = pure
 
   bind _ vs f = Const . CollectFree $ oneShot \bound -> oneShot \acc ->
     let !bound' = foldl' (flip $ Set.insert . liftName) bound vs
@@ -162,7 +164,7 @@ instance Semigroup (Any stage) where
 instance (x ~ y, XStage x ~ stage) => SynTraversal (Const (Any stage)) x y where
   valueVariable _ _ = anyVariable
   typeVariable _ _ = anyVariable
-  useConstructor _ = pure
+  useConstructor _ _ = pure
 
   -- When a variable is bound it will be removed from the set of intresting
   -- variables. If the set becomes empty we will short-circuit to False.
@@ -188,6 +190,8 @@ data Substitutions x = Substitutions
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
     SynTraversable (T.XType x) x (T.XType y) y,
+    Position (E.XCon x),
+    Position (T.XCon x),
     E.SameX x y,
     T.SameX x y,
     XStage x ~ XStage y
@@ -215,7 +219,7 @@ termSubstitions s = emptySubstitutions {progVarSubs = s}
 instance (Monad m, x ~ y) => SynTraversal (ReaderT (Substitutions x) m) x y where
   valueVariable _ x = etaReaderT . asks . subVar (E.Var x) progVarSubs
   typeVariable _ x = etaReaderT . asks . subVar (T.Var x) typeVarSubs
-  useConstructor _ = pure
+  useConstructor _ _ = pure
 
   -- Remove the bound variables from the maps.
   bind _ vs f = etaReaderT do
@@ -306,6 +310,8 @@ instance
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
     SynTraversable (T.XType x) x (T.XType y) y,
+    Position (E.XCon x),
+    Position (T.XCon x),
     E.SameX x y,
     T.SameX x y
   ) =>
@@ -318,7 +324,7 @@ instance
       valueVariable pxy x v
     E.Con x c ->
       E.Con x
-        <$> useConstructor pxy c
+        <$> useConstructor pxy (pos x) c
     E.Abs x b ->
       E.Abs x
         <$> traverseSyntax pxy b
@@ -339,9 +345,9 @@ instance
         <*> bindOne pxy v \v' -> (v',) <$> traverseSyntax pxy k
     E.PatLet x v vs e k -> do
       let patLet v' e' (vs', k') =
-            E.PatLet x v' vs' e' k'
+            E.PatLet x (v @- v') vs' e' k'
       patLet
-        <$> useConstructor pxy v
+        <$> uncurryL (useConstructor pxy) v
         <*> traverseSyntax pxy e
         <*> bind pxy (Compose vs) \(Compose vs') -> (vs',) <$> traverseSyntax pxy k
     E.Rec x v ty e -> do
@@ -369,9 +375,11 @@ instance
     E.New x t ->
       E.New x
         <$> traverseSyntax pxy t
-    E.Select x c ->
-      E.Select x
-        <$> traverse (useConstructor pxy) c
+    E.Select x c -> do
+      let select c' =
+            E.Select x (c @- c')
+      select
+        <$> uncurryL (useConstructor pxy) c
     E.Fork x e ->
       E.Fork x
         <$> traverseSyntax pxy e
@@ -385,6 +393,8 @@ instance
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
     SynTraversable (T.XType x) x (T.XType y) y,
+    Position (E.XCon x),
+    Position (T.XCon x),
     E.SameX x y,
     T.SameX x y
   ) =>
@@ -397,6 +407,8 @@ instance
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
     SynTraversable (T.XType x) x (T.XType y) y,
+    Position (E.XCon x),
+    Position (T.XCon x),
     E.SameX x y,
     T.SameX x y,
     Traversable f,
@@ -412,6 +424,8 @@ instance
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
     SynTraversable (T.XType x) x (T.XType y) y,
+    Position (E.XCon x),
+    Position (T.XCon x),
     E.SameX x y,
     T.SameX x y,
     Traversable f
@@ -430,6 +444,8 @@ instance
 instance
   ( SynTraversable (E.XExp x) x (E.XExp y) y,
     SynTraversable (T.XType x) x (T.XType y) y,
+    Position (E.XCon x),
+    Position (T.XCon x),
     E.SameX x y,
     T.SameX x y
   ) =>
@@ -444,6 +460,7 @@ instance
 
 instance
   ( SynTraversable (T.XType x) x (T.XType y) y,
+    Position (T.XCon x),
     T.SameX x y
   ) =>
   SynTraversable (T.Type x) x (T.Type y) y
@@ -472,7 +489,7 @@ instance
       typeVariable pxy x v
     T.Con x v ->
       T.Con x
-        <$> useConstructor pxy v
+        <$> useConstructor pxy (pos x) v
     T.App x t u ->
       T.App x
         <$> traverseSyntax pxy t
@@ -499,7 +516,7 @@ instance
       K.Bind p v' k <$> traverseSyntax pxy t
 
 traverseNameMap ::
-  (SynTraversal f x y, SingI scope) =>
+  (SynTraversal f x y, SingI scope, Position a) =>
   Pxy x y ->
   (a -> f b) ->
   NameMapG (XStage x) scope a ->
@@ -508,5 +525,5 @@ traverseNameMap pxy f =
   -- We can't assume that 'useConstructor' is monotonic in respect to name
   -- ordering.
   Map.toAscList
-    >>> traverse (bitraverse (useConstructor pxy) f)
+    >>> traverse (\(n, a) -> (,) <$> useConstructor pxy (pos a) n <*> f a)
     >>> fmap Map.fromList

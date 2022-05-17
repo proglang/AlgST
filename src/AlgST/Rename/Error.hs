@@ -1,7 +1,11 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 module AlgST.Rename.Error where
 
@@ -12,6 +16,7 @@ import Control.Monad.Validate
 import Data.DList.DNonEmpty (DNonEmpty)
 import Data.DList.DNonEmpty qualified as DNE
 import Data.List qualified as List
+import Data.Singletons
 import Syntax.Base
 
 type Errors = DNonEmpty Diagnostic
@@ -33,12 +38,28 @@ instance Position AmbiguousOrigin where
     AmbiguousImport p _ -> p
     AmbiguousDefine p -> p
 
-ambiguousUsage :: Pos -> NameW scope -> [AmbiguousOrigin] -> Diagnostic
-ambiguousUsage loc name amb =
+data NameKind = Con | Var
+
+nameKind :: forall (scope :: Scope) proxy. SingI scope => NameKind -> proxy scope -> String
+nameKind k _ =
+  eitherName @scope
+    (case k of Con -> "type"; Var -> "type variable")
+    (case k of Con -> "constructor"; Var -> "variable")
+
+ambiguousUsage ::
+  forall scope.
+  SingI scope =>
+  Pos ->
+  NameKind ->
+  NameW scope ->
+  [AmbiguousOrigin] ->
+  Diagnostic
+ambiguousUsage loc k name amb =
   PosError loc $ List.intercalate [ErrLine] $ intro : fmap choice (sortPos amb)
   where
     intro =
-      [ Error "Usage of identifier",
+      [ Error "Usage of",
+        Error $ nameKind k name,
         Error name,
         Error "is ambiguous. It may refer to"
       ]
@@ -71,3 +92,10 @@ unknownImportItem stmtLoc modName scope (itemLoc :@ item) =
     scopePrefix = case scope of
       Types -> (Error "Type" :)
       Values -> id
+{-# NOINLINE unknownImportItem #-}
+
+unboundName ::
+  forall stage scope. SingI scope => Pos -> NameKind -> Name stage scope -> Diagnostic
+unboundName loc kind v =
+  PosError loc [Error "Unbound", Error $ nameKind kind v, Error v]
+{-# NOINLINE unboundName #-}

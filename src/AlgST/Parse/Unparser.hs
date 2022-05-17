@@ -196,7 +196,7 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Exp x) where
     where
       s =
         "let" :
-        (pprName . unL <$> defaultPos :@ x : xs)
+        (pprName . unL <$> x : xs)
           ++ ["=", l, "in", r]
       l = bracket (unparse e1) Op.L inRator
       r = bracket (unparse e2) Op.R inRator

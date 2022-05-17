@@ -24,8 +24,7 @@ type RnCaseMap  = E.CaseMap Rn
 type RnModule  = Module   Rn
 type RnType     = T.Type    Rn
 
--- TODO: Change to `Resolved`.
-type RnStage               = Written
+type RnStage               = Resolved
 type instance XStage    Rn = RnStage
 
 type instance E.XLit    Rn = Pos
