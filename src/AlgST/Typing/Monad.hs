@@ -45,14 +45,6 @@ type TypeEnv = TcNameMap Values Var
 type KindEnv = TcNameMap Types K.Kind
 
 -- | Enivronment for all typing operations.
---
--- The two context fields 'tcContext' and 'tcCheckedContext' hold the same
--- information. The need to carry both arises because when checking the context
--- itself we need access to the declarations. More concretly this allows the
--- checked declarations to refer to each other mutually recursively viw
--- 'TypeRef' nodes. This is achieved via lazyness which allows to access the
--- checked program during its checking. At the same time all strict lookups
--- have to go through the unchecked, readily available 'tcContext'.
 data KiTypingEnv = KiTypingEnv
   { -- | Maps type variables to their kind.
     tcKindEnv :: KindEnv,
