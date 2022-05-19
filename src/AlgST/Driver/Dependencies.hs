@@ -1,21 +1,37 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
 
-module AlgST.Driver.Dependencies where
+module AlgST.Driver.Dependencies
+  ( DepVertex,
+    Cycles (..),
+    DepsGraph,
+    emptyDepsGraph,
+    Dependency (..),
+    insertDependency,
+    depsMember,
+    removeCycles,
+    traverseGraphPar,
+    ImportLocation (..),
+    importLocPath,
+  )
+where
 
+import AlgST.Syntax.Name
 import Algebra.Graph.AdjacencyMap qualified as G
+import Algebra.Graph.AdjacencyMap.Algorithm qualified as G
 import Control.Category ((>>>))
 import Control.Scheduler
+import Data.Coerce
 import Data.Foldable
 import Data.Function
 import Data.HashMap.Strict (HashMap)
 import Data.HashMap.Strict qualified as HM
-import Data.Hashable
 import Data.IORef
 import Data.Kind
-import Data.List.NonEmpty (nonEmpty)
+import Data.List.NonEmpty (NonEmpty (..), nonEmpty)
 import Data.Map qualified as Map
 import Data.Ord
 import Data.Semigroup
@@ -52,12 +68,16 @@ instance Monoid ImportLocation where
   mempty = ImportLocation $ defaultPos @- ""
   mconcat = filter (/= mempty) >>> nonEmpty >>> foldMap minimum
 
-type Acyclic = True
+data Cycles
+  = Acyclic
+  | MaybeCyclic
 
-type DepsGraph :: Bool -> Type -> Type
-data DepsGraph acyclic a = DepsGraph
+type DepVertex = ModuleName
+
+type DepsGraph :: Cycles -> Type
+data DepsGraph cycles = DepsGraph
   { -- | A map from @(x,y)@ to the location where @x@ imported @y@.
-    dgEdges :: !(HashMap (a, a) ImportLocation),
+    dgEdges :: !(HashMap (DepVertex, DepVertex) ImportLocation),
     -- | Vertices are conntected to the vertices they depend on.
     --
     -- E.g. @X@ depends on @Y@ and @Z@, and @Y@ depends on @Z@ gives
@@ -68,7 +88,7 @@ data DepsGraph acyclic a = DepsGraph
     -- >  +---- X
     --
     -- This is the transposition of 'dgVerticesToUsedBy'.
-    dgVerticesToDeps :: !(G.AdjacencyMap a),
+    dgVerticesToDeps :: !(G.AdjacencyMap DepVertex),
     -- | Vertices are conncted to the vertices they are used by.
     --
     -- E.g. @X@ depends on @Y@ and @Z@, and @Y@ depends on @Z@ gives
@@ -79,17 +99,29 @@ data DepsGraph acyclic a = DepsGraph
     -- >  +---> X
     --
     -- This is the transposition of 'dgVerticesToDeps'.
-    dgVerticesToUsedBy :: !(G.AdjacencyMap a)
+    dgVerticesToUsedBy :: !(G.AdjacencyMap DepVertex)
   }
 
-data Dependency a = DependsOn a a
+-- | The empty 'DepsGraph'.
+emptyDepsGraph :: DepsGraph acyclic
+emptyDepsGraph = DepsGraph HM.empty G.empty G.empty
 
+-- | Check if the given node is recorded in the dependency graph.
+depsMember :: DepVertex -> DepsGraph acyclic -> Bool
+depsMember v dg = G.hasVertex v (dgVerticesToDeps dg)
+
+-- | Data type to help with understanding the direction of the depedency.
+-- Consider using the constructor in its infix form:
+--
+-- > x `DependsOn` y
+data Dependency = DependsOn DepVertex DepVertex
+
+-- | Records a dependency in the graph.
 insertDependency ::
-  (Ord a, Hashable a) =>
   ImportLocation ->
-  Dependency a ->
-  DepsGraph acyclic a ->
-  DepsGraph False a
+  Dependency ->
+  DepsGraph cycles ->
+  DepsGraph MaybeCyclic
 insertDependency loc (x `DependsOn` y) dg =
   DepsGraph
     { dgEdges = HM.insertWith (<>) (x, y) loc (dgEdges dg),
@@ -97,16 +129,52 @@ insertDependency loc (x `DependsOn` y) dg =
       dgVerticesToUsedBy = G.edge y x <> dgVerticesToUsedBy dg
     }
 
+-- | Removes edges from the graph until it is acyclic.
+--
+-- The order of returned cycles is unspecified. The first edge of each cycle
+-- corresponds to edge missing from the resulting graph.
+removeCycles ::
+  DepsGraph cycles ->
+  (DepsGraph Acyclic, [G.Cycle (DepVertex, ImportLocation)])
+removeCycles dg0@DepsGraph {dgEdges = labels} = go [] dg0
+  where
+    go cs dg = case G.topSort (dgVerticesToDeps dg) of
+      Left c -> go (labelCycle c : cs) (breakCycle c dg)
+      Right _ -> (coerce dg, cs)
+    breakCycle c dg = do
+      let (x, y) = case c of
+            v :| [] -> (v, v)
+            v :| w : _ -> (v, w)
+      DepsGraph
+        { dgEdges = HM.delete (x, y) (dgEdges dg),
+          dgVerticesToDeps = G.removeEdge x y (dgVerticesToDeps dg),
+          dgVerticesToUsedBy = G.removeEdge y x (dgVerticesToUsedBy dg)
+        }
+    labelCycle (v0 :| vs) = do
+      let lookupLabel x y = case HM.lookup (x, y) labels of
+            Nothing -> error "missing edge label"
+            Just lbl -> lbl
+      let f x (dep, annots) =
+            (x, (x, lookupLabel x dep) : annots)
+      let (v1, annots) = foldr f (v0, []) vs
+      (v0, lookupLabel v0 v1) :| annots
+
 data TraverseState a = TraverseState !Int [a]
 
-traverseGraphPar :: forall a b. Ord a => DepsGraph Acyclic a -> ([b] -> a -> IO b) -> IO [b]
+-- | Execute an action for each node in the depdency graph. The execution is
+-- paralellized as much as possible.
+--
+-- Each action gets the results from its dependencies as inputs. The result
+-- corresponds to the list of all action outputs. The ordering of the list is
+-- unpsecified.
+traverseGraphPar :: forall a. DepsGraph Acyclic -> ([a] -> DepVertex -> IO a) -> IO [a]
 traverseGraphPar dg op = withScheduler Par \s -> mdo
   -- For each vertex we create an action which waits for N inputs. When the
   -- N-th input arrives it runs `op`.
   --
   -- When `op` completes the action is tasked with sending the result to each
   -- depending vertex-action.
-  let runOp :: [b] -> a -> IO b
+  let runOp :: [a] -> DepVertex -> IO a
       runOp bs a = do
         b <- op bs a
         for_ (G.postSet a (dgVerticesToUsedBy dg)) \a' ->
@@ -115,7 +183,7 @@ traverseGraphPar dg op = withScheduler Par \s -> mdo
         pure b
   let superflousInput =
         fail "received input for already scheduled vertex"
-  let vertexAction :: a -> Set.Set dep -> IO (b -> IO ())
+  let vertexAction :: DepVertex -> Set.Set dep -> IO (a -> IO ())
       vertexAction a deps
         | Set.null deps = do
           scheduleWork s $ runOp [] a

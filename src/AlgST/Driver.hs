@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
@@ -26,35 +27,32 @@ module AlgST.Driver
   )
 where
 
+import AlgST.Driver.Dependencies
 import AlgST.Parse.Parser qualified as P
 import AlgST.Parse.Phase
+import AlgST.Rename qualified as Rn
 import AlgST.Syntax.Name
 import AlgST.Syntax.Program
 import AlgST.Util (plural)
 import AlgST.Util.Error
 import AlgST.Util.ErrorMessage
 import AlgST.Util.RecursiveLock
-import Algebra.Graph.AdjacencyMap qualified as G
 import Algebra.Graph.AdjacencyMap.Algorithm qualified as G (Cycle)
-import Algebra.Graph.Labelled.AdjacencyMap qualified as LG
-import Algebra.Graph.ToGraph qualified as G
 import Control.Category ((>>>))
 import Control.Exception
 import Control.Monad.Cont
 import Control.Monad.Reader
 import Control.Monad.ST (RealWorld)
+import Control.Monad.Validate
 import Control.Scheduler hiding (Scheduler, traverse_)
 import Control.Scheduler qualified as S
 import Data.Foldable
-import Data.Function
 import Data.HashMap.Strict (HashMap)
 import Data.HashMap.Strict qualified as HM
 import Data.IORef
 import Data.List qualified as List
-import Data.List.NonEmpty (NonEmpty (..), nonEmpty, (<|))
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe
-import Data.Ord
-import Data.Semigroup
 import Data.Sequence (Seq (..))
 import Syntax.Base
 import System.FilePath
@@ -70,55 +68,21 @@ data Settings = Settings
 
 data DriverState = DriverState
   { driverSettings :: !Settings,
-    driverDeps :: !(IORef Dependencies),
+    driverDeps :: !(IORef (DepsGraph MaybeCyclic)),
     driverErrors :: !(IORef Bool),
     driverOutputLock :: !(RecursiveLock OutputMode)
   }
 
 type Source = (FilePath, String)
 
-type Dependencies = LG.AdjacencyMap ImportLocation ModuleName
-
-type ParseResult = Maybe (ModuleInfo Parse)
-
-type Scheduler = S.Scheduler RealWorld ParseResult
-
-newtype ImportLocation = ImportLocation (Located FilePath)
-
-importLocPath :: ImportLocation -> FilePath
-importLocPath (ImportLocation iloc) = unL iloc
-
-instance Position ImportLocation where
-  pos (ImportLocation iloc) = pos iloc
-
--- | Two 'ImportLocation' values are considered equal if their contained 'Pos'
--- values are equal.
---
--- The stored 'FilePath' is not considered. this is mostly a slight
--- optimization since all edge labels from a module should originate from the
--- same source file.
-instance Eq ImportLocation where
-  a == b = compare a b == EQ
-
--- | See 'Eq' instance.
-instance Ord ImportLocation where
-  compare = comparing pos
-
-instance Semigroup ImportLocation where
-  a <> b = mconcat [a, b]
-  sconcat = toList >>> mconcat
-  stimes = stimesIdempotentMonoid
-
-instance Monoid ImportLocation where
-  mempty = ImportLocation $ defaultPos @- ""
-  mconcat = filter (/= mempty) >>> nonEmpty >>> foldMap minimum
+type Scheduler = S.Scheduler RealWorld
 
 newtype Driver a = Driver {unDriver :: ReaderT DriverState IO a}
   deriving newtype (Functor, Applicative, Monad, MonadIO)
 
 runDriver :: OutputMode -> Settings -> Driver a -> IO (Either a a)
 runDriver mode driverSettings m = do
-  driverDeps <- newIORef mempty
+  driverDeps <- newIORef emptyDepsGraph
   driverErrors <- newIORef False
   driverOutputLock <- newRecursiveLockIO mode
   a <- runDriverSt DriverState {..} m
@@ -171,23 +135,35 @@ addModuleSourceIO name fp settings = do
   src <- readFile fp
   pure $ addModuleSource name fp src settings
 
-data ModuleInfo x = ModuleInfo
-  { modName :: ModuleName,
-    modPath :: FilePath,
-    modData :: Module x
+parScheduled :: (Scheduler a -> Driver b) -> Driver [a]
+parScheduled m = Driver . withScheduler Par $ unDriver . m
+
+addTask :: Scheduler a -> Driver a -> Driver ()
+addTask scheduler m = do
+  env <- askState
+  liftIO $ scheduleWork scheduler $ runDriverSt env m
+
+data ParsedModule = ParsedModule
+  { pmName :: ModuleName,
+    pmPath :: FilePath,
+    pmModule :: PModule,
+    pmMap :: Rn.ModuleMap,
+    pmRename :: Rn.Globals -> Validate DErrors Rn.RenameExtra
   }
 
 -- | Parse the given module and all dependencies. The result does not contain
 -- any modules where errors occured.
-parseAllModules :: ModuleName -> Driver [ModuleInfo Parse]
+parseAllModules :: ModuleName -> Driver (DepsGraph Acyclic, [ParsedModule])
 parseAllModules firstName = do
-  mods <- Driver . fmap catMaybes . withScheduler Par $ \scheduler -> do
-    unDriver $ parseModule scheduler mempty firstName
+  mods <- parScheduled $ \scheduler -> do
+    parseModule scheduler mempty firstName
   deps <- liftIO . readIORef =<< asksState driverDeps
-  for_ (cycleError <$> dependencyCycles deps) \case
-    Left (fp, diag) -> reportErrors fp [diag]
-    Right diag -> reportErrors "" [diag]
-  pure mods
+  let (acyclicDeps, cycles) = removeCycles deps
+  for_ cycles $
+    cycleError >>> \case
+      Left (fp, diag) -> reportErrors fp [diag]
+      Right diag -> reportErrors "" [diag]
+  pure (acyclicDeps, catMaybes mods)
 
 -- | Tries to locate the source code for the module with the given name using
 -- the drivers settings (see 'Settings', 'driverSources', 'driverSearchPaths').
@@ -197,7 +173,7 @@ parseAllModules firstName = do
 -- code fails an error is emitted.
 parseModule ::
   -- | Where to schedule parsing of the module.
-  Scheduler ->
+  Scheduler (Maybe ParsedModule) ->
   -- | Where this module was imported from. Used only for error messages.
   ImportLocation ->
   -- | Name of the module.
@@ -209,22 +185,20 @@ parseModule scheduler iloc name = do
     Nothing -> do
       reportErrors (importLocPath iloc) [missingModuleError (pos iloc) name]
     Just (fp, src) -> do
-      env <- askState
-      liftIO . scheduleWork scheduler . runDriverSt env $
-        parseModuleNow scheduler name fp src
+      addTask scheduler $ parseModuleNow scheduler name fp src
 
 -- | Immediately begin parsing of the provided module. Any unparsed
 -- dependencies are scheduled for parsing using the provided scheduler.
 parseModuleNow ::
   -- | Where to schedule the dependent unparsed modules.
-  Scheduler ->
+  Scheduler (Maybe ParsedModule) ->
   -- | Name of the module.
   ModuleName ->
   -- | Path to the code of the module. Used only for error messages.
   FilePath ->
   -- | Source code of the module.
   String ->
-  Driver ParseResult
+  Driver (Maybe ParsedModule)
 parseModuleNow scheduler moduleName modulePath moduleSource = do
   outputString $ "Parsing " ++ unModuleName moduleName
   let parseResult = P.runParser P.parseModule moduleSource
@@ -233,9 +207,17 @@ parseModuleNow scheduler moduleName modulePath moduleSource = do
       reportErrors modulePath errs
       pure Nothing
     Right parsed -> do
+      let (topLevels, rnExtra) = Rn.renameModuleExtra moduleName parsed
       newDeps <- noteDependencies moduleName modulePath parsed
       traverse_ (uncurry $ parseModule scheduler) newDeps
-      pure $ Just ModuleInfo {modName = moduleName, modPath = modulePath, modData = parsed}
+      pure . Just $
+        ParsedModule
+          { pmName = moduleName,
+            pmPath = modulePath,
+            pmModule = parsed,
+            pmMap = topLevels,
+            pmRename = rnExtra
+          }
 
 missingModuleError :: Pos -> ModuleName -> Diagnostic
 missingModuleError loc name = PosError loc [Error "Cannot locate module", Error name]
@@ -281,17 +263,15 @@ noteDependencies :: ModuleName -> FilePath -> Module x -> Driver [(ImportLocatio
 noteDependencies name fp mod = do
   depsRef <- asksState driverDeps
   let depList = moduleDependencies fp mod
-  -- We calculate the graph strictly so that we reduce the amount of time we
-  -- spend in the body of `atomicModifyIORef'`.
-  let !depGraph = LG.overlays [LG.edge iloc name target | (iloc, target) <- depList]
   -- Update the dependency graph. This step also signals to any other workers
   -- that this worker will be responsible for delegating parsing of any
   -- unparsed dependencies.
-  oldDeps <- liftIO $ atomicModifyIORef' depsRef \deps ->
-    (deps <> depGraph, deps)
+  oldDeps <- liftIO $ atomicModifyIORef' depsRef \deps -> do
+    let add (iloc, target) = insertDependency iloc (name `DependsOn` target)
+    (foldl' (flip add) deps depList, deps)
   -- Return the list of unparsed dependencies. Those are the ones not appearing
   -- as vertices in `oldDeps`.
-  let isUnparsed (_, m) = m /= name && not (LG.hasVertex m oldDeps)
+  let isUnparsed (_, m) = m /= name && depsMember m oldDeps
   pure $ filter isUnparsed depList
 
 moduleDependencies :: FilePath -> Module x -> [(ImportLocation, ModuleName)]
@@ -299,25 +279,6 @@ moduleDependencies thisPath m =
   [ (ImportLocation (p @- thisPath), target)
     | p :@ Import {importTarget = target} <- moduleImports m
   ]
-
-dependencyCycles :: Dependencies -> [G.Cycle (ModuleName, ImportLocation)]
-dependencyCycles deps =
-  deps
-    & G.toAdjacencyMap
-    & go
-    & fmap annotCycle
-  where
-    go deps = case G.topSort deps of
-      Left c -> c : go (breakCycle c deps)
-      Right _ -> []
-    breakCycle = \case
-      v :| [] -> G.removeEdge v v
-      v :| w : _ -> G.removeEdge v w
-    annotCycle c@(v0 :| _) =
-      let go = \case
-            v :| [] -> (v, LG.edgeLabel v v0 deps) :| []
-            v :| v' : vs -> (v, LG.edgeLabel v v' deps) <| go (v' :| vs)
-       in go c
 
 cycleError :: G.Cycle (ModuleName, ImportLocation) -> Either (FilePath, Diagnostic) Diagnostic
 cycleError ((m, iloc) :| []) = Left (importLocPath iloc, err)
