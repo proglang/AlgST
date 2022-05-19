@@ -6,6 +6,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeApplications #-}
 
 module AlgST.Driver
   ( -- * Driver monad
@@ -24,6 +25,8 @@ module AlgST.Driver
 
     -- * Actions
     parseAllModules,
+    renameAll,
+    checkAll,
   )
 where
 
@@ -31,8 +34,12 @@ import AlgST.Driver.Dependencies
 import AlgST.Parse.Parser qualified as P
 import AlgST.Parse.Phase
 import AlgST.Rename qualified as Rn
+import AlgST.Rename.Fresh (runFresh)
+import AlgST.Rename.Modules qualified as Rn
 import AlgST.Syntax.Name
 import AlgST.Syntax.Program
+import AlgST.Typing (TcModule)
+import AlgST.Typing qualified as Tc
 import AlgST.Util (plural)
 import AlgST.Util.Error
 import AlgST.Util.ErrorMessage
@@ -41,6 +48,7 @@ import Algebra.Graph.AdjacencyMap.Algorithm qualified as G (Cycle)
 import Control.Category ((>>>))
 import Control.Exception
 import Control.Monad.Cont
+import Control.Monad.IO.Unlift
 import Control.Monad.Reader
 import Control.Monad.ST (RealWorld)
 import Control.Monad.Validate
@@ -78,16 +86,23 @@ type Source = (FilePath, String)
 type Scheduler = S.Scheduler RealWorld
 
 newtype Driver a = Driver {unDriver :: ReaderT DriverState IO a}
-  deriving newtype (Functor, Applicative, Monad, MonadIO)
+  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadUnliftIO)
 
-runDriver :: OutputMode -> Settings -> Driver a -> IO (Either a a)
+data ErrorAbortException = ErrorAbortException
+  deriving stock (Show)
+
+instance Exception ErrorAbortException
+
+runDriver :: OutputMode -> Settings -> Driver a -> IO (Maybe a)
 runDriver mode driverSettings m = do
   driverDeps <- newIORef emptyDepsGraph
   driverErrors <- newIORef False
   driverOutputLock <- newRecursiveLockIO mode
-  a <- runDriverSt DriverState {..} m
+  res <- try @ErrorAbortException $ runDriverSt DriverState {..} m
   hasError <- readIORef driverErrors
-  pure if hasError then Left a else Right a
+  case res of
+    Right a | not hasError -> pure (Just a)
+    _ -> pure Nothing
 
 runDriverSt :: DriverState -> Driver a -> IO a
 runDriverSt dst (Driver m) = runReaderT m dst
@@ -146,9 +161,7 @@ addTask scheduler m = do
 data ParsedModule = ParsedModule
   { pmName :: ModuleName,
     pmPath :: FilePath,
-    pmModule :: PModule,
-    pmMap :: Rn.ModuleMap,
-    pmRename :: Rn.Globals -> Validate DErrors Rn.RenameExtra
+    pmModule :: PModule
   }
 
 -- | Parse the given module and all dependencies. The result does not contain
@@ -207,17 +220,72 @@ parseModuleNow scheduler moduleName modulePath moduleSource = do
       reportErrors modulePath errs
       pure Nothing
     Right parsed -> do
-      let (topLevels, rnExtra) = Rn.renameModuleExtra moduleName parsed
       newDeps <- noteDependencies moduleName modulePath parsed
       traverse_ (uncurry $ parseModule scheduler) newDeps
       pure . Just $
         ParsedModule
           { pmName = moduleName,
             pmPath = modulePath,
-            pmModule = parsed,
-            pmMap = topLevels,
-            pmRename = rnExtra
+            pmModule = parsed
           }
+
+renameAll ::
+  DepsGraph Acyclic ->
+  [ParsedModule] ->
+  Driver [(DepVertex, Rn.RnModule)]
+renameAll dg mods =
+  filterResults <$> traverseGraphPar dg \deps name -> do
+    case HM.lookup name modsByName of
+      Nothing -> pure (name, Rn.emptyModuleMap, Nothing)
+      Just pm -> rename pm deps
+  where
+    modsByName = HM.fromList [(pmName pm, pm) | pm <- mods]
+    filterResults xs = [(n, m) | (n, _, Just m) <- xs]
+
+    rename pm deps = do
+      let (rnMap, rnAction) =
+            Rn.renameModule (pmName pm) (pmModule pm)
+      let availableImports =
+            HM.fromList [(depName, depGlobals) | (depName, depGlobals, _) <- deps]
+      case runValidate (rnAction availableImports) of
+        Left errs -> do
+          reportErrors (pmPath pm) errs
+          pure (pmName pm, rnMap, Nothing)
+        Right rnMod -> do
+          pure (pmName pm, rnMap, Just rnMod)
+
+checkAll :: DepsGraph Acyclic -> [ParsedModule] -> Driver TcModule
+checkAll dg parsed = do
+  renamed <- renameAll dg parsed
+
+  -- TODO: Think about in which cases we can/want to progess with type checking
+  -- after (partially) failed renaming. For now we only continue if there have
+  -- not been any errors up to this point.
+  checkNoError
+
+  -- Type checking is done by merging all the modules together. This is safe to
+  -- do because after renaming all names are qualified by their module.
+  --
+  -- Type checking has to run inside 'Fresh'. We use a name which is not a
+  -- valid module name to ensure uniqueness.
+  --
+  -- FIXME: By doing this we loose the possibility for file specific error
+  -- messages.
+  let merge a b =
+        Module
+          { moduleTypes = moduleTypes a <> moduleTypes b,
+            moduleValues = moduleValues a <> moduleValues b,
+            moduleSigs = moduleSigs a <> moduleSigs b,
+            -- No need to keep track of all the imports.
+            moduleImports = []
+          }
+  let bigModule = foldl' merge emptyModule . fmap snd $ renamed
+  case runFresh (ModuleName "$TC") $ Tc.checkModule bigModule of
+    Left errs -> do
+      reportErrors "" errs
+      fatalErrors
+    Right res -> do
+      pure res
 
 missingModuleError :: Pos -> ModuleName -> Diagnostic
 missingModuleError loc name = PosError loc [Error "Cannot locate module", Error name]
@@ -308,6 +376,15 @@ setError :: Driver ()
 setError = do
   ref <- asksState driverErrors
   liftIO $ writeIORef ref True
+
+checkNoError :: Driver ()
+checkNoError = do
+  ref <- asksState driverErrors
+  err <- liftIO $ readIORef ref
+  when err fatalErrors
+
+fatalErrors :: Driver a
+fatalErrors = liftIO $ throwIO ErrorAbortException
 
 -- | Report the errors to the user.
 reportErrors :: Foldable f => FilePath -> f Diagnostic -> Driver ()

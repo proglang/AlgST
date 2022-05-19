@@ -23,6 +23,7 @@ import AlgST.Syntax.Name
 import Algebra.Graph.AdjacencyMap qualified as G
 import Algebra.Graph.AdjacencyMap.Algorithm qualified as G
 import Control.Category ((>>>))
+import Control.Monad.IO.Unlift
 import Control.Scheduler
 import Data.Coerce
 import Data.Foldable
@@ -167,42 +168,49 @@ data TraverseState a = TraverseState !Int [a]
 -- Each action gets the results from its dependencies as inputs. The result
 -- corresponds to the list of all action outputs. The ordering of the list is
 -- unpsecified.
-traverseGraphPar :: forall a. DepsGraph Acyclic -> ([a] -> DepVertex -> IO a) -> IO [a]
-traverseGraphPar dg op = withScheduler Par \s -> mdo
-  -- For each vertex we create an action which waits for N inputs. When the
-  -- N-th input arrives it runs `op`.
-  --
-  -- When `op` completes the action is tasked with sending the result to each
-  -- depending vertex-action.
-  let runOp :: [a] -> DepVertex -> IO a
-      runOp bs a = do
-        b <- op bs a
-        for_ (G.postSet a (dgVerticesToUsedBy dg)) \a' ->
-          for_ (Map.lookup a' actions) \f ->
-            f b
-        pure b
-  let superflousInput =
-        fail "received input for already scheduled vertex"
-  let vertexAction :: DepVertex -> Set.Set dep -> IO (a -> IO ())
-      vertexAction a deps
-        | Set.null deps = do
-          scheduleWork s $ runOp [] a
-          pure $ const superflousInput
-        | otherwise = do
-          r <- newIORef $ Just $ TraverseState (Set.size deps) []
-          pure \b -> do
-            bs <- atomicModifyIORef' r \case
-              Nothing -> (Nothing, Nothing)
-              Just (TraverseState 1 bs) -> do
-                (Nothing, Just (b : bs))
-              Just (TraverseState n bs) -> do
-                (Just $! TraverseState (n - 1) (b : bs), Just [])
-            case bs of
-              Just [] -> pure ()
-              Just bs -> scheduleWork s $ runOp bs a
-              Nothing -> superflousInput
-  actions <-
-    dgVerticesToDeps dg
-      & G.adjacencyMap
-      & Map.traverseWithKey vertexAction
-  pure ()
+traverseGraphPar ::
+  forall a m.
+  MonadUnliftIO m =>
+  DepsGraph Acyclic ->
+  ([a] -> DepVertex -> m a) ->
+  m [a]
+traverseGraphPar dg op = withScheduler Par \s ->
+  askRunInIO >>= \runIO -> liftIO mdo
+    -- For each vertex we create an action which waits for N inputs. When the
+    -- N-th input arrives it runs `op`.
+    --
+    -- When `op` completes the action is tasked with sending the result to each
+    -- depending vertex-action.
+    let runOp :: [a] -> DepVertex -> IO a
+        runOp bs a = do
+          b <- runIO $ op bs a
+          for_ (G.postSet a (dgVerticesToUsedBy dg)) \a' ->
+            for_ (Map.lookup a' actions) \f ->
+              f b
+          pure b
+    let superflousInput =
+          fail "received input for already scheduled vertex"
+    let vertexAction :: DepVertex -> Set.Set dep -> IO (a -> IO ())
+        vertexAction a deps
+          | Set.null deps = do
+            scheduleWork s $ runOp [] a
+            pure $ const superflousInput
+          | otherwise = do
+            r <- newIORef $ Just $ TraverseState (Set.size deps) []
+            pure \b -> do
+              bs <- atomicModifyIORef' r \case
+                Nothing -> (Nothing, Nothing)
+                Just (TraverseState 1 bs) -> do
+                  (Nothing, Just (b : bs))
+                Just (TraverseState n bs) -> do
+                  (Just $! TraverseState (n - 1) (b : bs), Just [])
+              case bs of
+                Just [] -> pure ()
+                Just bs -> scheduleWork s $ runOp bs a
+                Nothing -> superflousInput
+    actions <-
+      dgVerticesToDeps dg
+        & G.adjacencyMap
+        & Map.traverseWithKey vertexAction
+        & liftIO
+    pure ()
