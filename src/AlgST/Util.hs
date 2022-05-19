@@ -2,10 +2,12 @@
 
 module AlgST.Util where
 
+import Data.Foldable
 import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe
 import Data.Ord
+import Data.Sequence (Seq)
 import Syntax.Base (Pos, Position (..))
 
 joinConnector :: String -> NonEmpty String -> ShowS
@@ -47,6 +49,9 @@ instance Counted [a] where
 
 instance Counted (NonEmpty a) where
   pluralZ (_ :| as) _zero one many = pluralZ as one many many
+
+instance Counted (Seq a) where
+  pluralZ = pluralZ . toList
 
 plural :: (Counted a, one ~ b, many ~ b) => a -> one -> many -> b
 plural a one many = pluralZ a many one many

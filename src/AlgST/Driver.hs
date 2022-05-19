@@ -233,7 +233,7 @@ renameAll ::
   DepsGraph Acyclic ->
   [ParsedModule] ->
   Driver [(DepVertex, Rn.RnModule)]
-renameAll dg mods =
+renameAll dg mods = wrapDebug "BEGIN RENAME" "FINISHED RENAME" do
   filterResults <$> traverseGraphPar dg \deps name -> do
     case HM.lookup name modsByName of
       Nothing -> pure (name, Rn.emptyModuleMap, Nothing)
@@ -293,7 +293,7 @@ missingModuleError loc name = PosError loc [Error "Cannot locate module", Error 
 
 findModule :: ModuleName -> Driver (Maybe (FilePath, String))
 findModule name = uninterleavedDebugOutput $ flip runContT final do
-  lift $ debug $ "Locating module " ++ unModuleName name
+  lift $ debug $ "Locating module ‘" ++ unModuleName name ++ "’"
 
   -- Check if it is a known virtual module.
   virtual <- lift $ asksState $ driverSettings >>> driverSources >>> HM.lookup name
@@ -305,7 +305,7 @@ findModule name = uninterleavedDebugOutput $ flip runContT final do
   -- Not a virtual module. Look through the search paths instead.
   env <- lift askState
   let paths = driverSearchPaths $ driverSettings env
-  let npaths = show (length paths) ++ plural (length paths) "search path" "search paths"
+  let npaths = plural paths "one search path" $ show (length paths) ++ " search paths"
   lift $ debug $ ".. not a virtual module, looking through " ++ npaths ++ " instead"
   res <- liftIO . tryIOError . asum $ runDriverSt env . tryRead <$> paths
   lift $ debug $ ".. " ++ npaths ++ " enumerated"
@@ -331,6 +331,12 @@ noteDependencies :: ModuleName -> FilePath -> Module x -> Driver [(ImportLocatio
 noteDependencies name fp mod = do
   depsRef <- asksState driverDeps
   let depList = moduleDependencies fp mod
+  debug . unwords $
+    [ "‘" ++ unModuleName name ++ "’",
+      "has",
+      plural depList "one dependency" $
+        show (length depList) ++ " dependencies"
+    ]
   -- Update the dependency graph. This step also signals to any other workers
   -- that this worker will be responsible for delegating parsing of any
   -- unparsed dependencies.
@@ -339,7 +345,7 @@ noteDependencies name fp mod = do
     (foldl' (flip add) deps depList, deps)
   -- Return the list of unparsed dependencies. Those are the ones not appearing
   -- as vertices in `oldDeps`.
-  let isUnparsed (_, m) = m /= name && depsMember m oldDeps
+  let isUnparsed (_, m) = m /= name && not (depsMember m oldDeps)
   pure $ filter isUnparsed depList
 
 moduleDependencies :: FilePath -> Module x -> [(ImportLocation, ModuleName)]
@@ -413,6 +419,9 @@ debug :: String -> Driver ()
 debug str = do
   debug <- asksState $ driverDebugOutput . driverSettings
   when debug $ outputString str
+
+wrapDebug :: String -> String -> Driver a -> Driver a
+wrapDebug a b m = debug a *> m <* debug b
 
 -- | When debug messages are enabled (see 'driverDebugOutput') this function
 -- executes the given action with the output loock held (see 'output' and

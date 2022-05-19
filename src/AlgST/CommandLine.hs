@@ -20,6 +20,7 @@ import Control.Applicative
 import Numeric.Natural (Natural)
 import Options.Applicative qualified as O
 import System.FilePath
+import System.IO
 
 data Source
   = SourceFile !FilePath
@@ -43,7 +44,9 @@ sourceIsTerm = \case
 
 readSource :: Source -> IO String
 readSource = \case
-  SourceStdin -> getContents
+  -- When reading from STDIN we wait for all the input to avoid the case where
+  -- messages may overlap with the input prompt.
+  SourceStdin -> getContents'
   SourceFile fp -> readFile fp
 
 sourceParser :: O.Parser Source

@@ -1,35 +1,18 @@
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeApplications #-}
-
 module AlgST.Main (main) where
 
-import AlgST.Builtins (builtins)
 import AlgST.CommandLine
-import AlgST.Interpret
-import AlgST.Parse.Parser
-import AlgST.Parse.Phase
-import AlgST.Rename
-import AlgST.Rename.Fresh
-import AlgST.Syntax.Decl qualified as D
+import AlgST.Driver qualified as Driver
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
-import AlgST.Typing
 import AlgST.Util.Error
 import AlgST.Util.Output
 import Control.Applicative
-import Control.DeepSeq
-import Control.Exception
 import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.Trans.Maybe
-import Data.Foldable
-import Data.Map.Strict qualified as Map
-import Data.Traversable.WithIndex
-import System.Console.ANSI
+import Data.Function
+import Data.Maybe
 import System.Exit
 import System.IO
-import System.IO.Unsafe
 
 data Options = Options
   { runOpts :: !RunOpts,
@@ -46,10 +29,11 @@ main = do
       <*> maybe (discoverMode stderr) pure (optsOutputMode runOpts)
 
   inputIsTerm <- (sourceIsTerm (optsSource runOpts) &&) <$> hIsTerminalDevice stdin
-  -- Force the input completely so that the output and remaining input do not
-  -- overlap. This is only "required" in the case when reading from STDIN but
-  -- should be alright for all the toy files to force always.
-  src <- evaluate . force =<< readSource (optsSource runOpts)
+
+  let srcName = case optsSource runOpts of
+        SourceFile fp -> fp
+        SourceStdin -> "«stdin»"
+  src <- readSource (optsSource runOpts)
 
   -- When we read the source code from STDIN and STDIN + one of the output
   -- streams are terminal devices we output a seperating newline.
@@ -61,102 +45,18 @@ main = do
           lift $ hPutChar h '\n'
     checkOut stdout <|> checkOut stderr
 
-  let mainModule =
-        -- TODO: Use the actual module here!
-        ModuleName ""
-  mparsed <- runStage opts "Parsing" $ runParser (parseProg builtins) src
-  checked <- runChecks opts mainModule =<< maybe exitFailure pure mparsed
+  let mainModule = ModuleName "Main"
+  let driverSettings =
+        Driver.defaultSettings
+          & Driver.addSearchPathFront "."
+          & Driver.enableDebugMessages True
+          & Driver.addModuleSource mainModule srcName src
 
-  let evalSettings =
-        defaultSettings
-          { evalDebugMessages =
-              if optsDebugEval runOpts
-                then Just (stdoutMode opts)
-                else Nothing,
-            evalBufferSize =
-              optsBufferSize runOpts
-          }
-  let mainVar =
-        Name mainModule (Unqualified "main")
-      mainDecl =
-        Map.lookup mainVar (moduleValues checked)
-  case mainDecl of
-    Just (Right (D.ValueDecl {D.valueBody})) -> do
-      v <- runStage @[] opts "Evaluating ›main‹" do
-        Right . unsafePerformIO $ do
-          runEvalWith evalSettings (programEnvironment checked) (eval valueBody)
-      traverse_ print v
-    _ -> pure ()
+  res <- Driver.runDriver (stdoutMode opts) driverSettings do
+    parsed <- Driver.parseAllModules mainModule
+    uncurry Driver.checkAll parsed
+  when (isNothing res) do
+    exitFailure
 
-runChecks :: Options -> ModuleName -> PModule -> IO TcModule
-runChecks opts modName pModule =
-  maybe exitFailure pure =<< runMaybeT do
-    (checked, actions) <- MaybeT . runStage opts "Checking" . runFresh modName $
-      withRenamedModule pModule \rnModule -> do
-        rnEnv <- ask
-        lift $ checkWithModule rnModule \runTy runKi tcProgram -> do
-          let rnActions = itraverse (evalAction opts runTy runKi) (optsActions (runOpts opts))
-          actions <- runReaderT rnActions rnEnv
-          pure $ Right (tcProgram, actions)
-    oks <- lift $ sequence actions
-    guard $ and oks
-    pure checked
-
-evalAction :: Options -> RunTyM -> RunKiM -> Int -> Action -> RnM (IO Bool)
-evalAction opts runTy runKi i = \case
-  ActionNF src -> do
-    let ptype = runParser parseType src
-    rnty <- traverse renameSyntax ptype
-    nfty <- lift $ join <$> traverse (runKi . (normalize . fst <=< kisynth)) rnty
-    buildIO i "normal form" ((,) <$> ptype <*> nfty) \(ty, tynf) -> do
-      print ty
-      putStrLn $ "  => " ++ show tynf
-  ActionKiSynth src -> do
-    let ptype = runParser parseType src
-    rnty <- traverse renameSyntax ptype
-    kind <- lift $ join <$> traverse (runKi . fmap snd . kisynth) rnty
-    buildIO i "kind synthesis" ((,) <$> ptype <*> kind) \(ty, k) -> do
-      print ty
-      putStrLn $ "  => " ++ show k
-  ActionTySynth src -> do
-    let pexp = runParser parseExpr src
-    rnexp <- traverse renameSyntax pexp
-    expty <- lift $ join <$> traverse (runKi . runTy . fmap snd . tysynth) rnexp
-    buildIO i "type synthesis" ((,) <$> pexp <*> expty) \(e, ty) -> do
-      print e
-      putStrLn $ "  => " ++ show ty
-  where
-    -- Reset the source file. Otherwise the main source gets blamed for errors
-    -- in the action sources.
-    modifyOpts o =
-      o {runOpts = (runOpts o) {optsSource = SourceStdin}}
-    buildIO i desc errsOrA f = pure do
-      ma <- runStage (modifyOpts opts) ("\n[" ++ show (i + 1) ++ "] " ++ desc) errsOrA
-      case ma of
-        Just a -> True <$ f a
-        Nothing -> pure False
-
-runStage :: Foldable f => Options -> String -> Either (f Diagnostic) a -> IO (Maybe a)
-runStage opts stage res = do
-  let info = style [SetColor Foreground Vivid Cyan]
-  let success = style [SetColor Foreground Dull Green]
-  let failure = style [SetColor Foreground Dull Red] . styleBold
-
-  let styled selector f s = applyStyle (selector opts) f (showString s) ""
-  let putStatus style msg = do
-        putStr $ styled stdoutMode style msg
-        hFlush stdout
-  putStatus info $ stage ++ " ... "
-
-  case res of
-    Left errs -> do
-      putStatus failure "failed\n"
-      hPutStrLn stderr $
-        renderErrors
-          (stderrMode opts)
-          (fold $ sourcePrettyName $ optsSource $ runOpts opts)
-          (toList errs)
-      pure Nothing
-    Right a -> do
-      putStatus success "ok\n"
-      pure $ Just a
+  -- TODO: Run Main.main if defined.
+  pure ()

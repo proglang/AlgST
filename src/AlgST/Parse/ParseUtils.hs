@@ -214,7 +214,7 @@ moduleTypeDecl v tydecl =
     pure p {moduleTypes = parsedTypes', moduleValues = parsedValues'}
 
 addImport :: Located Import -> ModuleBuilder
-addImport i = Kleisli \m -> pure $ m {moduleImports = i : moduleImports m}
+addImport i = Kleisli \m -> pure m {moduleImports = i : moduleImports m}
 
 data ImportItem = ImportItem
   { importScope :: !Scope,
