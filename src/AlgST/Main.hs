@@ -2,15 +2,21 @@ module AlgST.Main (main) where
 
 import AlgST.CommandLine
 import AlgST.Driver qualified as Driver
+import AlgST.Interpret qualified as I
+import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Name
+import AlgST.Syntax.Program
 import AlgST.Util.Error
 import AlgST.Util.Output
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.Trans.Maybe
+import Data.Foldable
 import Data.Function
-import Data.Maybe
+import Data.List qualified as List
+import Data.Map.Strict qualified as Map
+import Syntax.Base
 import System.Exit
 import System.IO
 
@@ -52,11 +58,17 @@ main = do
           & Driver.enableDebugMessages True
           & Driver.addModuleSource mainModule srcName src
 
-  res <- Driver.runDriver (stdoutMode opts) driverSettings do
-    parsed <- Driver.parseAllModules mainModule
-    uncurry Driver.checkAll parsed
-  when (isNothing res) do
-    exitFailure
+  checked <-
+    maybe exitFailure pure
+      =<< Driver.runDriver (stdoutMode opts) driverSettings do
+        parsed <- Driver.parseAllModules mainModule
+        uncurry Driver.checkAll parsed
 
-  -- TODO: Run Main.main if defined.
-  pure ()
+  let isMain n =
+        nameResolvedModule n == mainModule
+          && nameUnqualified n == Unqualified "main"
+  let mmainName = List.find isMain $ Map.keys $ moduleValues checked
+
+  for_ mmainName \mainName -> do
+    r <- I.runEval (I.programEnvironment checked) $ I.eval $ E.Var defaultPos mainName
+    putStrLn $ "Result: " ++ show r
