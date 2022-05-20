@@ -1,0 +1,8 @@
+data List a = Cons a (List a) | Nil
+
+range : Int -> Int -> List Int
+range lo hi =
+  if lo <= hi then
+    Cons [Int] lo (range (lo + 1) hi)
+  else
+    Nil [Int]

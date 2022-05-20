@@ -1,0 +1,11 @@
+import List
+
+sum : List Int -> Int
+sum = rec go : List Int -> Int = \(xs : List Int) ->
+  case xs of {
+    Nil -> 0,
+    Cons x xs2 -> x + go xs2,
+  }
+
+main : Int
+main = sum (range 0 10)
