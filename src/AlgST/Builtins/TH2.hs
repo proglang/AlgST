@@ -5,7 +5,7 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskellQuotes #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module AlgST.Builtins.TH2
@@ -16,8 +16,6 @@ module AlgST.Builtins.TH2
     defineValue,
     defineTypeU,
     defineValueU,
-
-    -- * Parsing whole modules.
   )
 where
 
@@ -53,6 +51,8 @@ newtype Defines a
   deriving newtype (Functor, Applicative, Monad)
 
 #if !MIN_VERSION_base(4, 16, 0)
+-- These instances are provided starting with base 4.16.0.0. Just derive them
+-- if were using an earlier version.
 deriving newtype instance Semigroup (f (g a)) => Semigroup (Compose f g a)
 deriving newtype instance Monoid (f (g a)) => Monoid (Compose f g a)
 #endif
