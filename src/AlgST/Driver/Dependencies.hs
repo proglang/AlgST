@@ -145,7 +145,7 @@ insertDependency ::
 insertDependency loc (x `DependsOn` y) dg =
   DepsGraph
     { dgEdges = HM.insertWith (<>) (x `DependsOn` y) loc (dgEdges dg),
-      dgVerticesToDeps = G.edge x y <> dgVerticesToUsedBy dg,
+      dgVerticesToDeps = G.edge x y <> dgVerticesToDeps dg,
       dgVerticesToUsedBy = G.edge y x <> dgVerticesToUsedBy dg
     }
 
