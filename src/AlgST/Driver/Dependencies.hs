@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -104,7 +105,7 @@ data DepsGraph cycles = DepsGraph
   }
 
 -- | The empty 'DepsGraph'.
-emptyDepsGraph :: DepsGraph acyclic
+emptyDepsGraph :: DepsGraph cycles
 emptyDepsGraph = DepsGraph HM.empty G.empty G.empty
 
 -- | Check if the given node is recorded in the dependency graph.
@@ -116,6 +117,7 @@ depsMember v dg = G.hasVertex v (dgVerticesToDeps dg)
 --
 -- > x `DependsOn` y
 data Dependency = DependsOn DepVertex DepVertex
+  deriving stock (Eq, Show)
 
 -- | Records a dependency in the graph.
 insertDependency ::
