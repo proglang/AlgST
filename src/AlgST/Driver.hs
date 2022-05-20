@@ -77,7 +77,6 @@ data Settings = Settings
 
 data DriverState = DriverState
   { driverSettings :: !Settings,
-    driverDeps :: !(IORef (DepsGraph MaybeCyclic)),
     driverErrors :: !(IORef Bool),
     driverOutputLock :: !(RecursiveLock OutputMode)
   }
@@ -85,6 +84,8 @@ data DriverState = DriverState
 type Source = (FilePath, String)
 
 type Scheduler = S.Scheduler RealWorld
+
+type DepsTracker = IORef (DepsGraph MaybeCyclic)
 
 newtype Driver a = Driver {unDriver :: ReaderT DriverState IO a}
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadUnliftIO)
@@ -96,7 +97,6 @@ instance Exception ErrorAbortException
 
 runDriver :: OutputMode -> Settings -> Driver a -> IO (Maybe a)
 runDriver mode driverSettings m = do
-  driverDeps <- newIORef emptyDepsGraph
   driverErrors <- newIORef False
   driverOutputLock <- newRecursiveLockIO mode
   res <- try @ErrorAbortException $ runDriverSt DriverState {..} m
@@ -169,10 +169,11 @@ data ParsedModule = ParsedModule
 -- any modules where errors occured.
 parseAllModules :: ModuleName -> Driver (DepsGraph Acyclic, [ParsedModule])
 parseAllModules firstName = do
+  depsRef <- liftIO $ newIORef emptyDepsGraph
   mods <- parScheduled $ \scheduler -> do
-    parseModule scheduler mempty firstName
-  deps <- liftIO . readIORef =<< asksState driverDeps
-  let (acyclicDeps, cycles) = removeCycles deps
+    parseModule scheduler depsRef mempty firstName
+  finalDeps <- liftIO $ readIORef depsRef
+  let (acyclicDeps, cycles) = removeCycles finalDeps
   for_ cycles $
     cycleError >>> \case
       Left (fp, diag) -> reportErrors fp [diag]
@@ -188,24 +189,28 @@ parseAllModules firstName = do
 parseModule ::
   -- | Where to schedule parsing of the module.
   Scheduler (Maybe ParsedModule) ->
+  -- | Where to note down the inter-module dependencies.
+  DepsTracker ->
   -- | Where this module was imported from. Used only for error messages.
   ImportLocation ->
   -- | Name of the module.
   ModuleName ->
   Driver ()
-parseModule scheduler iloc name = do
+parseModule scheduler depsRef iloc name = do
   mmodInfo <- findModule name
   case mmodInfo of
     Nothing -> do
       reportErrors (importLocPath iloc) [missingModuleError (pos iloc) name]
     Just (fp, src) -> do
-      addTask scheduler $ parseModuleNow scheduler name fp src
+      addTask scheduler $ parseModuleNow scheduler depsRef name fp src
 
 -- | Immediately begin parsing of the provided module. Any unparsed
 -- dependencies are scheduled for parsing using the provided scheduler.
 parseModuleNow ::
   -- | Where to schedule the dependent unparsed modules.
   Scheduler (Maybe ParsedModule) ->
+  -- | Where to note down the inter-module dependencies.
+  DepsTracker ->
   -- | Name of the module.
   ModuleName ->
   -- | Path to the code of the module. Used only for error messages.
@@ -213,7 +218,7 @@ parseModuleNow ::
   -- | Source code of the module.
   String ->
   Driver (Maybe ParsedModule)
-parseModuleNow scheduler moduleName modulePath moduleSource = do
+parseModuleNow scheduler depsRef moduleName modulePath moduleSource = do
   outputString $ "Parsing " ++ unModuleName moduleName
   let parseResult = P.runParser P.parseModule moduleSource
   case parseResult of
@@ -221,8 +226,8 @@ parseModuleNow scheduler moduleName modulePath moduleSource = do
       reportErrors modulePath errs
       pure Nothing
     Right parsed -> do
-      newDeps <- noteDependencies moduleName modulePath parsed
-      traverse_ (uncurry $ parseModule scheduler) newDeps
+      newDeps <- noteDependencies depsRef moduleName modulePath parsed
+      traverse_ (uncurry $ parseModule scheduler depsRef) newDeps
       pure . Just $
         ParsedModule
           { pmName = moduleName,
@@ -343,9 +348,13 @@ findModule name = uninterleavedDebugOutput $ flip runContT final do
 
 -- | Register the import dependencies for the given module and returns the set
 -- of modules yet to be parsed.
-noteDependencies :: ModuleName -> FilePath -> Module x -> Driver [(ImportLocation, ModuleName)]
-noteDependencies name fp mod = do
-  depsRef <- asksState driverDeps
+noteDependencies ::
+  DepsTracker ->
+  ModuleName ->
+  FilePath ->
+  Module x ->
+  Driver [(ImportLocation, ModuleName)]
+noteDependencies depsRef name fp mod = do
   let depList = moduleDependencies fp mod
   debug . unwords $
     [ "‘" ++ unModuleName name ++ "’",
