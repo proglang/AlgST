@@ -1,31 +1,26 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 
-module AlgST.Builtins where
+module AlgST.Builtins
+  ( module AlgST.Builtins.Names,
+    builtins,
+    builtinsModuleMap,
+  )
+where
 
+import AlgST.Builtins.Names hiding (builtinsPartialModuleMap)
+import AlgST.Builtins.Names qualified as B
 import AlgST.Builtins.TH
-import AlgST.Parse.Phase
+import AlgST.Rename (ModuleMap, Rn, RnModule)
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Program
+import Data.HashMap.Strict qualified as HM
 import Prelude hiding (all)
 
-builtins :: PModule
-builtins =
-  $$( let sigs =
-            [ -- Session operations.
-              (,) "send" "∀(a : ML). ∀(s : SL). a -> !a.s -o s",
-              (,) "receive" "∀(a : ML). ∀(s : SL). ?a.s -> (a, s)",
-              -- Arithmetic operations.
-              (,) "(+)" "Int -> Int -> Int",
-              (,) "(-)" "Int -> Int -> Int",
-              (,) "(*)" "Int -> Int -> Int",
-              (,) "(/)" "Int -> Int -> Int",
-              (,) "(%)" "Int -> Int -> Int",
-              -- Base comparison function. All other comparison functions are
-              -- defined through this function.
-              (,) "(<=)" "Int -> Int -> Bool"
-            ]
-          defs =
+builtins :: RnModule
+builtinsModuleMap :: ModuleMap
+(builtinsModuleMap, builtins) =
+  $$( let defs =
             [ "data String : MU",
               "data Char : MU",
               "data Int : MU",
@@ -48,6 +43,9 @@ builtins =
               --
               "(||) : Bool -> Bool -> Bool",
               "(||) a b = if a then True else b",
+              -- Base comparison function. All other comparison functions are
+              -- defined through this function.
+              "(<=) : Int -> Int -> Bool",
               --
               "(==) : Int -> Int -> Bool",
               "(==) a b = a <= b && b <= a",
@@ -68,14 +66,23 @@ builtins =
               "fst ab = let (a, _) = ab in a",
               --
               "snd : ∀(a:TU). ∀(b:TL). (a, b) -> b",
-              "snd ab = let (_, b) = ab in b"
+              "snd ab = let (_, b) = ab in b",
+              -- Session operations.
+              "send : ∀(a : ML). ∀(s : SL). a -> !a.s -o s",
+              "receive : ∀(a : ML). ∀(s : SL). ?a.s -> (a, s)",
+              -- Arithmetic operations.
+              "(+) : Int -> Int -> Int",
+              "(-) : Int -> Int -> Int",
+              "(*) : Int -> Int -> Int",
+              "(/) : Int -> Int -> Int",
+              "(%) : Int -> Int -> Int"
             ]
        in [||
-          let p = $$(parseStatic sigs defs)
-              markBuiltin :: TypeDecl Parse -> TypeDecl Parse
+          let (map, mod) = $$(parseTH HM.empty BuiltinsModule B.builtinsPartialModuleMap defs)
+              markBuiltin :: TypeDecl Rn -> TypeDecl Rn
               markBuiltin = \case
                 DataDecl _ decl -> DataDecl OriginBuiltin decl
                 decl -> decl
-           in p {moduleTypes = markBuiltin <$> moduleTypes p}
+           in (map, mod {moduleTypes = markBuiltin <$> moduleTypes mod})
           ||]
     )

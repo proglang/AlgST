@@ -9,7 +9,7 @@ import AlgST.Builtins.TH2
 import AlgST.Syntax.Name
 import Data.Char qualified as C
 
-$( runDefines (ModuleName "Builtin") "builtinsModuleMap" do
+$( runDefines (ModuleName "Builtin") "builtinsPartialModuleMap" do
      let prefix p s = p ++ C.toUpper (head s) : tail s
      let typ x = defineType (prefix "type" x) (Unqualified x)
      let con x = defineValue (prefix "con" x) (Unqualified x)

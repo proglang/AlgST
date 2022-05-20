@@ -30,6 +30,7 @@ module AlgST.Driver
   )
 where
 
+import AlgST.Builtins
 import AlgST.Driver.Dependencies
 import AlgST.Parse.Parser qualified as P
 import AlgST.Parse.Phase
@@ -233,7 +234,7 @@ renameAll ::
   DepsGraph Acyclic ->
   [ParsedModule] ->
   Driver [(DepVertex, Rn.RnModule)]
-renameAll dg mods = wrapDebug "BEGIN RENAME" "FINISHED RENAME" do
+renameAll dg mods = do
   filterResults <$> traverseGraphPar dg \deps name -> do
     case HM.lookup name modsByName of
       Nothing -> pure (name, Rn.emptyModuleMap, Nothing)
@@ -244,9 +245,23 @@ renameAll dg mods = wrapDebug "BEGIN RENAME" "FINISHED RENAME" do
 
     rename pm deps = do
       let (rnMap, rnAction) =
-            Rn.renameModule (pmName pm) (pmModule pm)
+            -- Insert a 'ImportAll Builtins' here.
+            Rn.renameModule
+              (pmName pm)
+              (pmModule pm)
+                { moduleImports =
+                    defaultPos
+                      @- Import
+                        { importTarget = BuiltinsModule,
+                          importQualifier = emptyModuleName,
+                          importSelection = ImportAll defaultPos HM.empty HM.empty
+                        } :
+                    moduleImports (pmModule pm)
+                }
       let availableImports =
-            HM.fromList [(depName, depGlobals) | (depName, depGlobals, _) <- deps]
+            HM.fromList $
+              (BuiltinsModule, builtinsModuleMap) :
+                [(depName, depGlobals) | (depName, depGlobals, _) <- deps]
       case runValidate (rnAction availableImports) of
         Left errs -> do
           reportErrors (pmPath pm) errs
@@ -279,7 +294,8 @@ checkAll dg parsed = do
             -- No need to keep track of all the imports.
             moduleImports = []
           }
-  let bigModule = foldl' merge emptyModule . fmap snd $ renamed
+  -- Begin merging from the builtins module.
+  let bigModule = foldl' merge builtins . fmap snd $ renamed
   case runFresh (ModuleName "$TC") $ Tc.checkModule bigModule of
     Left errs -> do
       reportErrors "" errs
@@ -419,9 +435,6 @@ debug :: String -> Driver ()
 debug str = do
   debug <- asksState $ driverDebugOutput . driverSettings
   when debug $ outputString str
-
-wrapDebug :: String -> String -> Driver a -> Driver a
-wrapDebug a b m = debug a *> m <* debug b
 
 -- | When debug messages are enabled (see 'driverDebugOutput') this function
 -- executes the given action with the output loock held (see 'output' and

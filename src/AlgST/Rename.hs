@@ -6,12 +6,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module AlgST.Rename
@@ -24,6 +24,7 @@ module AlgST.Rename
     ModuleMap,
     renameModule,
     renameModuleExtra,
+    continueRenameExtra,
     RenameExtra (..),
     renameSyntax,
 
@@ -32,9 +33,11 @@ module AlgST.Rename
     resolveImport,
     resolveImports,
     moduleImportsEnv,
+    renameSimple,
   )
 where
 
+import AlgST.Builtins.Names qualified as Builtin
 import AlgST.Parse.Phase
 import AlgST.Rename.Error (MonadErrors, addError, fatalError)
 import AlgST.Rename.Error qualified as Error
@@ -57,6 +60,7 @@ import Control.Monad.State.Strict
 import Control.Monad.Validate
 import Data.Bitraversable
 import Data.Coerce
+import Data.DList qualified as DL
 import Data.Foldable
 import Data.Functor.Compose
 import Data.Generics.Lens.Lite
@@ -191,9 +195,11 @@ selectedRenameEnv stmt mm =
     ImportOnly renames ->
       getAp $ HM.foldMapWithKey (coerce addItem) renames
   where
+    nameHereQ :: Unqualified -> NameW scope
     nameHereQ = Name (foldL importQualifier stmt)
 
-    singleBinding loc unq nameR =
+    singleBinding :: forall scope. Pos -> Unqualified -> NameR scope -> Bindings scope
+    singleBinding loc unq nameR = do
       Bindings . Map.singleton (nameHereQ unq) $
         resolvedUnique
           (nameR & nameWrittenL .~ nameHereQ unq)
@@ -229,8 +235,13 @@ type RnM = ValidateT DErrors (ReaderT (ModuleMap, RenameEnv) Fresh)
 instance SynTraversal RnM Parse Rn where
   typeVariable _ x = fmap (T.Var x) . lookupName Error.Var x
   valueVariable _ x = fmap (E.Var x) . lookupName Error.Var x
-  useConstructor _ = lookupName Error.Con
   bind _ vs = withBindings \f -> traverse f vs
+
+  useConstructor _ loc w = case singByProxy w of
+    -- Special check for value constructors: We have to resolve `(,)` to
+    -- `conPair`.
+    SValues | w == nameWritten Builtin.conPair -> pure Builtin.conPair
+    _ -> lookupName Error.Con loc w
 
 lookupName :: SingI scope => Error.NameKind -> Pos -> NameW scope -> RnM (NameR scope)
 lookupName kind loc w = do
@@ -273,7 +284,14 @@ withBindings f k = do
 
 newtype RenameExtra = RenameExtra (forall a. (RnModule -> RnM a) -> Either DErrors a)
 
-renameModule :: ModuleName -> PModule -> (ModuleMap, Globals -> Validate DErrors RnModule)
+type RenameResult a = (ModuleMap, Globals -> Validate DErrors a)
+
+renameSimple ::
+  Globals -> (Globals -> Validate DErrors RenameExtra) -> Either DErrors RnModule
+renameSimple globals resolve =
+  runValidate (resolve globals) >>= \(RenameExtra f) -> f pure
+
+renameModule :: ModuleName -> PModule -> RenameResult RnModule
 renameModule name m =
   ( moduleMap,
     \g -> do
@@ -284,21 +302,35 @@ renameModule name m =
   where
     (moduleMap, rename) = renameModuleExtra name m
 
-renameModuleExtra ::
-  ModuleName -> PModule -> (ModuleMap, Globals -> Validate DErrors RenameExtra)
-renameModuleExtra moduleName m =
+renameModuleExtra :: ModuleName -> PModule -> RenameResult RenameExtra
+renameModuleExtra = continueRenameExtra emptyModuleMap
+
+-- | Given a partial module map (base map) this function “continues” the rename
+-- of the given model in the sense that any top-level identifiers are first
+-- looked for in the base map before a fresh name is generated.
+--
+-- This allows to refer to top-level identifiers before the whole module is
+-- renamed. Also, it gives you stable identifiers you can generate which are
+-- valid after renaming.
+continueRenameExtra :: ModuleMap -> ModuleName -> PModule -> RenameResult RenameExtra
+continueRenameExtra baseMap moduleName m =
   -- Renaming traverses the module top-levels twice. Overall this is acceptable
   -- but it might be possible using laziness and recrursive definitions to
   -- reduce it to one traversal.
   -- The difficult part, however, is to ensure that it is not possible to
-  -- "deadlock" yourself in an infinite recursion.
+  -- get stuck in an infinite recursion when some part is to strict.
   (toplevels, renameBodies)
   where
+    firstId = do
+      let idsOf = views (_TopLevels . traverse . nameResolvedIdL) DL.singleton
+      case DL.toList $ idsOf (modMapTypes baseMap) <> idsOf (modMapValues baseMap) of
+        [] -> firstResolvedId
+        ids -> nextResolvedId $ maximum ids
     ((toplevels, localsEnv), nextRid) =
-      moduleTopLevels m
+      moduleTopLevels baseMap m
         & unFresh
         & flip runReaderT moduleName
-        & flip runState firstResolvedId
+        & flip runState firstId
     renameBodies globals = do
       importsEnv <- moduleImportsEnv globals m
       let baseEnv = localsEnv <> importsEnv
@@ -310,10 +342,19 @@ renameModuleExtra moduleName m =
           & flip runReaderT moduleName
           & flip evalState nextRid
 
-moduleTopLevels :: PModule -> Fresh (ModuleMap, RenameEnv)
-moduleTopLevels m = do
-  let entry nameW decl = do
-        nameR <- freshResolved nameW
+moduleTopLevels :: ModuleMap -> PModule -> Fresh (ModuleMap, RenameEnv)
+moduleTopLevels baseMap m = do
+  let entry ::
+        (SingI scope, Position a) =>
+        NameW scope ->
+        a ->
+        Fresh ((Unqualified, NameR scope), PartialResolve scope)
+      entry nameW decl = do
+        -- Only generate a fresh name if there isn't already a resolved version
+        -- in `baseMap`.
+        nameR <- case baseMap ^. scopeL . _TopLevels . hashAt (nameUnqualified nameW) of
+          Nothing -> freshResolved nameW
+          Just n -> pure n
         pure
           ( (nameUnqualified nameW, nameR),
             resolvedUnique nameR $ Error.AmbiguousDefine $ pos decl

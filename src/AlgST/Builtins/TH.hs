@@ -5,54 +5,27 @@
 module AlgST.Builtins.TH where
 
 import AlgST.Parse.Parser
-import AlgST.Parse.Phase
-import AlgST.Syntax.Decl
+import AlgST.Rename
 import AlgST.Syntax.Name
 import AlgST.Syntax.Program
-import AlgST.Util
-import Control.Monad
-import Data.List.NonEmpty (nonEmpty)
-import Data.Map.Strict qualified as Map
-import Data.Maybe
-import Data.Set qualified as Set
+import AlgST.Util.Error
+import Data.Foldable
 import Language.Haskell.TH hiding (Name)
 import Language.Haskell.TH.CodeDo qualified as Code
 
-parseStatic :: [(String, String)] -> [String] -> CodeQ PModule
-parseStatic = parseStatic' emptyModule
-
-parseStatic' :: PModule -> [(String, String)] -> [String] -> CodeQ PModule
-parseStatic' baseProg sigs lines = Code.do
-  let showVar :: Name stage scope -> String
-      showVar a = "‘" ++ pprName a ++ "’"
-  let parseSig (name, sig) = do
-        case runParserSimple parseType sig of
-          Left err -> do
-            reportError $ "Can't parse signature of ‘" ++ name ++ "’:" ++ err
-            pure Nothing
-          Right ty -> do
-            pure $ Just (Name (ModuleName "") (Unqualified name), ty)
-  let addSig sigsMap (name, sig)
-        | name `Map.member` sigsMap = do
-          reportError $ "Multiple definitions of " ++ showVar name
-          pure sigsMap
-        | otherwise = do
-          let sigDecl = SignatureDecl OriginBuiltin sig
-          pure $! Map.insert name sigDecl sigsMap
-  parsedSigs <- catMaybes <$> traverse parseSig sigs
-  sigsMap <- foldM addSig mempty parsedSigs
-
-  prog <- case runParserSimple (parseProg baseProg) (unlines lines) of
+parseTH :: Globals -> ModuleName -> ModuleMap -> [String] -> CodeQ (ModuleMap, RnModule)
+parseTH globals modName baseMap srcLines = Code.do
+  parsed <- case runParserSimple parseModule (unlines srcLines) of
     Left err -> do
-      reportError $ "Module failed to parse:" ++ err
+      reportError $ "parse error:" ++ err
       pure emptyModule
     Right p -> do
       pure p
-
-  let (merged, conflict1, conflict2) =
-        mergeModules prog emptyModule {moduleSigs = sigsMap}
-      conflicts =
-        nonEmpty $ fmap showVar (Set.toList conflict1) ++ fmap showVar (Set.toList conflict2)
-  whenJust conflicts \conflicts ->
-    reportError $ "Multiple definitions of " ++ joinAnd conflicts
-  [||merged||]
+  let (modmap, resolve) = continueRenameExtra baseMap modName parsed
+  renamed <- case renameSimple globals resolve of
+    Left errs -> do
+      traverse_ (reportError . tail . formatErrorMessages Plain "") errs
+      pure emptyModule
+    Right m ->
+      pure m
+  [||(modmap, renamed)||]

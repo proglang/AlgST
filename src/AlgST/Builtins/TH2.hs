@@ -9,12 +9,15 @@
 {-# LANGUAGE ViewPatterns #-}
 
 module AlgST.Builtins.TH2
-  ( Defines,
+  ( -- * Generating resolved top-level names.
+    Defines,
     runDefines,
     defineType,
     defineValue,
     defineTypeU,
     defineValueU,
+
+    -- * Parsing whole modules.
   )
 where
 
