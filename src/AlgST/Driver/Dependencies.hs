@@ -1,6 +1,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
@@ -10,7 +12,7 @@ module AlgST.Driver.Dependencies
     Cycles (..),
     DepsGraph,
     emptyDepsGraph,
-    Dependency (..),
+    Dependency (DependsOn),
     insertDependency,
     depsMember,
     removeCycles,
@@ -31,6 +33,7 @@ import Data.Foldable
 import Data.Function
 import Data.HashMap.Strict (HashMap)
 import Data.HashMap.Strict qualified as HM
+import Data.Hashable
 import Data.IORef
 import Data.Kind
 import Data.List.NonEmpty (NonEmpty (..), nonEmpty)
@@ -79,7 +82,7 @@ type DepVertex = ModuleName
 type DepsGraph :: Cycles -> Type
 data DepsGraph cycles = DepsGraph
   { -- | A map from @(x,y)@ to the location where @x@ imported @y@.
-    dgEdges :: !(HashMap (DepVertex, DepVertex) ImportLocation),
+    dgEdges :: !(HashMap Dependency ImportLocation),
     -- | Vertices are conntected to the vertices they depend on.
     --
     -- E.g. @X@ depends on @Y@ and @Z@, and @Y@ depends on @Z@ gives
@@ -116,8 +119,22 @@ depsMember v dg = G.hasVertex v (dgVerticesToDeps dg)
 -- Consider using the constructor in its infix form:
 --
 -- > x `DependsOn` y
-data Dependency = DependsOn DepVertex DepVertex
-  deriving stock (Eq, Show)
+newtype Dependency = Dependency (DepVertex, DepVertex)
+  deriving newtype (Eq, Ord, Hashable)
+
+pattern DependsOn :: DepVertex -> DepVertex -> Dependency
+pattern x `DependsOn` y = Dependency (x, y)
+
+{-# COMPLETE DependsOn #-}
+
+infix 6 `DependsOn`
+
+instance Show Dependency where
+  showsPrec p (x `DependsOn` y) =
+    showParen (p > prec) $
+      showsPrec (prec + 1) x . showString " `DependsOn` " . showsPrec (prec + 1) y
+    where
+      prec = 6
 
 -- | Records a dependency in the graph.
 insertDependency ::
@@ -127,7 +144,7 @@ insertDependency ::
   DepsGraph MaybeCyclic
 insertDependency loc (x `DependsOn` y) dg =
   DepsGraph
-    { dgEdges = HM.insertWith (<>) (x, y) loc (dgEdges dg),
+    { dgEdges = HM.insertWith (<>) (x `DependsOn` y) loc (dgEdges dg),
       dgVerticesToDeps = G.edge x y <> dgVerticesToUsedBy dg,
       dgVerticesToUsedBy = G.edge y x <> dgVerticesToUsedBy dg
     }
@@ -149,12 +166,12 @@ removeCycles dg0@DepsGraph {dgEdges = labels} = go [] dg0
             v :| [] -> (v, v)
             v :| w : _ -> (v, w)
       DepsGraph
-        { dgEdges = HM.delete (x, y) (dgEdges dg),
+        { dgEdges = HM.delete (x `DependsOn` y) (dgEdges dg),
           dgVerticesToDeps = G.removeEdge x y (dgVerticesToDeps dg),
           dgVerticesToUsedBy = G.removeEdge y x (dgVerticesToUsedBy dg)
         }
     labelCycle (v0 :| vs) = do
-      let lookupLabel x y = case HM.lookup (x, y) labels of
+      let lookupLabel x y = case HM.lookup (x `DependsOn` y) labels of
             Nothing -> error "missing edge label"
             Just lbl -> lbl
       let f x (dep, annots) =
