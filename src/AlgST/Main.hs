@@ -1,6 +1,7 @@
 module AlgST.Main (main) where
 
 import AlgST.CommandLine
+import AlgST.Driver (Settings (..))
 import AlgST.Driver qualified as Driver
 import AlgST.Interpret qualified as I
 import AlgST.Syntax.Expression qualified as E
@@ -54,8 +55,11 @@ main = do
   let mainModule = ModuleName "Main"
   let driverSettings =
         Driver.defaultSettings
-          & Driver.addSearchPathFront "."
-          & Driver.enableDebugMessages True
+          { driverSequential = optsDriverSeq runOpts,
+            driverShowDepsGraph = optsDriverDeps runOpts,
+            driverDebugOutput = True,
+            driverSearchPaths = pure "."
+          }
           & Driver.addModuleSource mainModule srcName src
 
   checked <-

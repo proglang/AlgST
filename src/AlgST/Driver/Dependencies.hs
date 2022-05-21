@@ -19,6 +19,9 @@ module AlgST.Driver.Dependencies
     traverseGraphPar,
     ImportLocation (..),
     importLocPath,
+
+    -- * Visualizing the Dependency Graph
+    exportTextual,
   )
 where
 
@@ -45,8 +48,10 @@ import Syntax.Base
 
 newtype ImportLocation = ImportLocation (Located FilePath)
 
-importLocPath :: ImportLocation -> FilePath
-importLocPath (ImportLocation iloc) = unL iloc
+instance Show ImportLocation where
+  show (ImportLocation (p :@ fp))
+    | null fp = "???:" ++ show p
+    | otherwise = fp ++ ':' : show p
 
 instance Position ImportLocation where
   pos (ImportLocation iloc) = pos iloc
@@ -72,6 +77,9 @@ instance Semigroup ImportLocation where
 instance Monoid ImportLocation where
   mempty = ImportLocation $ defaultPos @- ""
   mconcat = filter (/= mempty) >>> nonEmpty >>> foldMap minimum
+
+importLocPath :: ImportLocation -> FilePath
+importLocPath (ImportLocation iloc) = unL iloc
 
 data Cycles
   = Acyclic
@@ -171,9 +179,8 @@ removeCycles dg0@DepsGraph {dgEdges = labels} = go [] dg0
           dgVerticesToUsedBy = G.removeEdge y x (dgVerticesToUsedBy dg)
         }
     labelCycle (v0 :| vs) = do
-      let lookupLabel x y = case HM.lookup (x `DependsOn` y) labels of
-            Nothing -> error "missing edge label"
-            Just lbl -> lbl
+      let lookupLabel x y = fold $
+            HM.lookup (x `DependsOn` y) labels
       let f x (dep, annots) =
             (x, (x, lookupLabel x dep) : annots)
       let (v1, annots) = foldr f (v0, []) vs
@@ -187,13 +194,17 @@ data TraverseState a = TraverseState !Int [a]
 -- Each action gets the results from its dependencies as inputs. The result
 -- corresponds to the list of all action outputs. The ordering of the list is
 -- unpsecified.
+--
+-- Note that the computation strategy 'Seq' will degrade to @'ParN' 1@ based on
+-- implementation requirements.
 traverseGraphPar ::
   forall a m.
   MonadUnliftIO m =>
+  Comp ->
   DepsGraph Acyclic ->
   ([a] -> DepVertex -> m a) ->
   m [a]
-traverseGraphPar dg op = withScheduler Par \s ->
+traverseGraphPar strat dg op = withScheduler strat' \s -> do
   askRunInIO >>= \runIO -> liftIO mdo
     -- For each vertex we create an action which waits for N inputs. When the
     -- N-th input arrives it runs `op`.
@@ -233,3 +244,40 @@ traverseGraphPar dg op = withScheduler Par \s ->
         & Map.traverseWithKey vertexAction
         & liftIO
     pure ()
+  where
+    strat' = case strat of
+      Seq -> ParN 1
+      _ -> strat
+
+exportTextual :: DepsGraph cycles -> String
+exportTextual dg =
+  dgVerticesToDeps dg
+    & G.adjacencyMap
+    & Map.foldMapWithKey go
+    & flip appEndo ""
+  where
+    -- Count the maximum vertex width to create aligned ouput.
+    maxlen =
+      dgVerticesToDeps dg
+        & G.vertexList
+        & fmap (length . unModuleName)
+        -- `maximum` diverges if there are no vertices but `maxlen` will only
+        -- be forced iff there is at least one vertex.
+        & maximum
+        -- Increase by one for space after.
+        & (+ 1)
+    padded (ModuleName v) =
+      showString (padString maxlen v)
+    go v deps
+      | Set.null deps =
+        Endo $ showString (unModuleName v) . showChar '\n'
+      | otherwise = fold do
+        let edge d =
+              padded v . showString "--> " . padded d
+        let renderIloc d =
+              showString $ maybe "???" show $ HM.lookup (v `DependsOn` d) (dgEdges dg)
+        [ Endo $ edge d . showString " [" . renderIloc d . showString "]\n" 
+          | d <- Set.toList deps ]
+
+padString :: Int -> String -> String
+padString n s = take n $ s ++ repeat ' '

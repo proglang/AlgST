@@ -17,11 +17,11 @@ module AlgST.Driver
     Settings (..),
     Source,
     defaultSettings,
+    setSearchPaths,
     addSearchPathFront,
     addSearchPathBack,
     addModuleSource,
     addModuleSourceIO,
-    enableDebugMessages,
 
     -- * Actions
     parseAllModules,
@@ -44,9 +44,11 @@ import AlgST.Typing qualified as Tc
 import AlgST.Util (plural)
 import AlgST.Util.Error
 import AlgST.Util.ErrorMessage
+import AlgST.Util.Output
 import AlgST.Util.RecursiveLock
 import Algebra.Graph.AdjacencyMap.Algorithm qualified as G (Cycle)
 import Control.Category ((>>>))
+import Control.DeepSeq (force)
 import Control.Exception
 import Control.Monad.Cont
 import Control.Monad.IO.Unlift
@@ -63,6 +65,7 @@ import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe
 import Data.Sequence (Seq (..))
+import Data.Sequence qualified as Seq
 import Syntax.Base
 import System.FilePath
 import System.IO
@@ -71,7 +74,9 @@ import System.IO.Error
 data Settings = Settings
   { driverSources :: !(HashMap ModuleName Source),
     driverSearchPaths :: !(Seq FilePath),
-    driverDebugOutput :: Bool
+    driverDebugOutput :: !Bool,
+    driverSequential :: !Bool,
+    driverShowDepsGraph :: !Bool
   }
   deriving stock (Show)
 
@@ -119,11 +124,10 @@ defaultSettings =
   Settings
     { driverSources = mempty,
       driverSearchPaths = mempty,
-      driverDebugOutput = False
+      driverDebugOutput = False,
+      driverSequential = False,
+      driverShowDepsGraph = False
     }
-
-enableDebugMessages :: Bool -> Settings -> Settings
-enableDebugMessages !b s = s {driverDebugOutput = b}
 
 -- | Insert a module search path at the front.
 --
@@ -136,6 +140,13 @@ addSearchPathFront fp s = s {driverSearchPaths = fp :<| driverSearchPaths s}
 -- Search paths a traversed front to back to locate a module source.
 addSearchPathBack :: FilePath -> Settings -> Settings
 addSearchPathBack fp s = s {driverSearchPaths = driverSearchPaths s :|> fp}
+
+-- | Replace the moudle search paths with the given list.
+--
+-- See 'addSearchPathFront' and 'addSearchPathBack' for adding entries to the
+-- existing list.
+setSearchPaths :: [FilePath] -> Settings -> Settings
+setSearchPaths paths s = s {driverSearchPaths = Seq.fromList paths}
 
 -- | Register the source code for the given module. A directly registered
 -- module has preference over a module found at a search path. The given file
@@ -151,8 +162,18 @@ addModuleSourceIO name fp settings = do
   src <- readFile fp
   pure $ addModuleSource name fp src settings
 
+-- | Checks if the driver is in sequential mode ('driverSequential'). If so the
+-- returned computation strategy will be 'Seq', otherwise it will be the given
+-- strategy.
+askStrategy :: Driver S.Comp
+askStrategy = do
+  isSeq <- asksState $ driverSettings >>> driverSequential
+  pure $! if isSeq then Seq else Par
+
 parScheduled :: (Scheduler a -> Driver b) -> Driver [a]
-parScheduled m = Driver . withScheduler Par $ unDriver . m
+parScheduled m = do
+  strat <- askStrategy
+  Driver . withScheduler strat $ unDriver . m
 
 addTask :: Scheduler a -> Driver a -> Driver ()
 addTask scheduler m = do
@@ -173,7 +194,17 @@ parseAllModules firstName = do
   mods <- parScheduled $ \scheduler -> do
     parseModule scheduler depsRef mempty firstName
   finalDeps <- liftIO $ readIORef depsRef
+
+  outputDeps <- asksState $ driverSettings >>> driverShowDepsGraph
+  when outputDeps $ output \mode -> do
+    let header = applyStyle mode styleBold $ showString "== Dependencies =="
+    hPutStrLn stderr $ header $ '\n' : exportTextual finalDeps
+
   let (acyclicDeps, cycles) = removeCycles finalDeps
+  when (not (null cycles) && outputDeps) $ output \mode -> do
+    let header = applyStyle mode styleBold $ showString "== Acyclic Dependencies =="
+    hPutStrLn stderr $ header $ '\n' : exportTextual acyclicDeps
+
   for_ cycles $
     cycleError >>> \case
       Left (fp, diag) -> reportErrors fp [diag]
@@ -240,7 +271,8 @@ renameAll ::
   [ParsedModule] ->
   Driver [(DepVertex, Rn.RnModule)]
 renameAll dg mods = do
-  filterResults <$> traverseGraphPar dg \deps name -> do
+  strat <- askStrategy
+  filterResults <$> traverseGraphPar strat dg \deps name -> do
     case HM.lookup name modsByName of
       Nothing -> pure (name, Rn.emptyModuleMap, Nothing)
       Just pm -> rename pm deps
@@ -436,7 +468,10 @@ output f = do
 
 -- | Writes the given string to 'stdout' using 'output'.
 outputString :: String -> Driver ()
-outputString = output . const . putStrLn
+outputString s = do
+  -- Force the string outside the lock.
+  _ <- liftIO . evaluate $ force s
+  output . const $ putStrLn s
 
 -- | Writes the given string to 'stderr' using 'output' if debug messages are
 -- enabled (see 'driverDebugOutput').

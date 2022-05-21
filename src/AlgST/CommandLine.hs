@@ -110,7 +110,9 @@ data RunOpts = RunOpts
     optsOutputMode :: !(Maybe OutputMode),
     optsActions :: ![Action],
     optsDebugEval :: !Bool,
-    optsBufferSize :: !Natural
+    optsBufferSize :: !Natural,
+    optsDriverSeq :: !Bool,
+    optsDriverDeps :: !Bool
   }
   deriving (Show)
 
@@ -121,6 +123,8 @@ optsParser = do
   optsActions <- many actionParser
   optsBufferSize <- bufSizeParser
   optsDebugEval <- debugParser
+  optsDriverSeq <- driverSeqParser
+  optsDriverDeps <- driverDepsParser
   pure RunOpts {..}
 
 modeParser :: O.Parser OutputMode
@@ -158,9 +162,28 @@ bufSizeParser =
       O.short 'B',
       O.value (I.evalBufferSize I.defaultSettings),
       O.help
-        "The buffer size of channels when interpreted. ‘0’ specifies \
-        \fully synchronous communication.",
-      O.showDefault
+        "The buffer size of channels when interpreted. ‘0’ specifies fully \
+        \synchronous communication.",
+      O.showDefault,
+      O.hidden
+    ]
+
+driverSeqParser :: O.Parser Bool
+driverSeqParser =
+  O.flag False True . mconcat $
+    [ O.long "driver-sequential",
+      O.help "Disable concurrency in the driver.",
+      O.hidden
+    ]
+
+driverDepsParser :: O.Parser Bool
+driverDepsParser =
+  O.flag False True . mconcat $
+    [ O.long "driver-dependencies",
+      O.help
+        "Output the module dependency graphs after parsing and after removing \
+        \cycles.",
+      O.hidden
     ]
 
 getOptions :: IO RunOpts
