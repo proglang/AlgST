@@ -57,7 +57,7 @@ main = do
         Driver.defaultSettings
           { driverSequential = optsDriverSeq runOpts,
             driverShowDepsGraph = optsDriverDeps runOpts,
-            driverDebugOutput = True,
+            driverVerboseSearches = optsDriverModSearch runOpts,
             driverSearchPaths = pure "."
           }
           & Driver.addModuleSource mainModule srcName src

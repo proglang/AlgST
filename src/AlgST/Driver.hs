@@ -74,6 +74,7 @@ import System.IO.Error
 data Settings = Settings
   { driverSources :: !(HashMap ModuleName Source),
     driverSearchPaths :: !(Seq FilePath),
+    driverVerboseSearches :: !Bool,
     driverDebugOutput :: !Bool,
     driverSequential :: !Bool,
     driverShowDepsGraph :: !Bool
@@ -124,6 +125,7 @@ defaultSettings =
   Settings
     { driverSources = mempty,
       driverSearchPaths = mempty,
+      driverVerboseSearches = False,
       driverDebugOutput = False,
       driverSequential = False,
       driverShowDepsGraph = False

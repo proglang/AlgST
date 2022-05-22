@@ -112,7 +112,8 @@ data RunOpts = RunOpts
     optsDebugEval :: !Bool,
     optsBufferSize :: !Natural,
     optsDriverSeq :: !Bool,
-    optsDriverDeps :: !Bool
+    optsDriverDeps :: !Bool,
+    optsDriverModSearch :: !Bool
   }
   deriving (Show)
 
@@ -125,6 +126,7 @@ optsParser = do
   optsDebugEval <- debugParser
   optsDriverSeq <- driverSeqParser
   optsDriverDeps <- driverDepsParser
+  optsDriverModSearch <- driverModSearchParser
   pure RunOpts {..}
 
 modeParser :: O.Parser OutputMode
@@ -170,21 +172,27 @@ bufSizeParser =
 
 driverSeqParser :: O.Parser Bool
 driverSeqParser =
-  O.flag False True . mconcat $
-    [ O.long "driver-sequential",
-      O.help "Disable concurrency in the driver.",
-      O.hidden
-    ]
+  driverDebugFlag
+    "driver-sequential"
+    "Disable concurrency in the driver."
 
 driverDepsParser :: O.Parser Bool
 driverDepsParser =
-  O.flag False True . mconcat $
-    [ O.long "driver-dependencies",
-      O.help
-        "Output the module dependency graphs after parsing and after removing \
-        \cycles.",
-      O.hidden
-    ]
+  driverDebugFlag
+    "driver-dependencies"
+    "Output the module dependency graph."
+
+driverModSearchParser :: O.Parser Bool
+driverModSearchParser =
+  driverDebugFlag
+    "driver-verbose-modules"
+    "Enable verbose output regarding which modules are searched for, where \
+    \they are found or why they are not found."
+
+driverDebugFlag :: String -> String -> O.Parser Bool
+driverDebugFlag name help =
+  O.flag False True $
+    O.long name <> O.help help <> O.hidden
 
 getOptions :: IO RunOpts
 getOptions = O.execParser $ O.info (optsParser <**> O.helper) mempty
