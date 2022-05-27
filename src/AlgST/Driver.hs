@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -32,6 +33,7 @@ where
 
 import AlgST.Builtins
 import AlgST.Driver.Dependencies
+import AlgST.Driver.Output
 import AlgST.Parse.Parser qualified as P
 import AlgST.Parse.Phase
 import AlgST.Rename qualified as Rn
@@ -45,10 +47,9 @@ import AlgST.Util (plural)
 import AlgST.Util.Error
 import AlgST.Util.ErrorMessage
 import AlgST.Util.Output
-import AlgST.Util.RecursiveLock
 import Algebra.Graph.AdjacencyMap.Algorithm qualified as G (Cycle)
 import Control.Category ((>>>))
-import Control.DeepSeq (force)
+import Control.Concurrent (threadDelay)
 import Control.Exception
 import Control.Monad.Cont
 import Control.Monad.IO.Unlift
@@ -58,6 +59,8 @@ import Control.Monad.Validate
 import Control.Scheduler hiding (Scheduler, traverse_)
 import Control.Scheduler qualified as S
 import Data.Foldable
+import Data.Function
+import Data.Functor
 import Data.HashMap.Strict (HashMap)
 import Data.HashMap.Strict qualified as HM
 import Data.IORef
@@ -66,6 +69,7 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe
 import Data.Sequence (Seq (..))
 import Data.Sequence qualified as Seq
+import Lens.Family2 ((+~), (.~))
 import Syntax.Base
 import System.FilePath
 import System.IO
@@ -75,18 +79,20 @@ data Settings = Settings
   { driverSources :: !(HashMap ModuleName Source),
     driverSearchPaths :: !(Seq FilePath),
     driverVerboseSearches :: !Bool,
+    driverVerboseDeps :: !Bool,
     driverDebugOutput :: !Bool,
     driverSequential :: !Bool,
-    driverShowDepsGraph :: !Bool
+    driverOutputMode :: !OutputMode
   }
   deriving stock (Show)
 
 data DriverState = DriverState
   { driverSettings :: !Settings,
     driverErrors :: !(IORef Bool),
-    driverOutputLock :: !(RecursiveLock OutputMode)
+    driverOutput :: !OutputHandle
   }
 
+-- | Source code annotated with the 'FilePath' it originated from.
 type Source = (FilePath, String)
 
 type Scheduler = S.Scheduler RealWorld
@@ -101,11 +107,12 @@ data ErrorAbortException = ErrorAbortException
 
 instance Exception ErrorAbortException
 
-runDriver :: OutputMode -> Settings -> Driver a -> IO (Maybe a)
-runDriver mode driverSettings m = do
+runDriver :: Settings -> Driver a -> IO (Maybe a)
+runDriver driverSettings m = do
   driverErrors <- newIORef False
-  driverOutputLock <- newRecursiveLockIO mode
-  res <- try @ErrorAbortException $ runDriverSt DriverState {..} m
+  res <- try @ErrorAbortException do
+    withOutput stderr \driverOutput ->
+      runDriverSt DriverState {..} m `finally` clearSticky driverOutput
   hasError <- readIORef driverErrors
   case res of
     Right a | not hasError -> pure (Just a)
@@ -126,9 +133,10 @@ defaultSettings =
     { driverSources = mempty,
       driverSearchPaths = mempty,
       driverVerboseSearches = False,
+      driverVerboseDeps = False,
       driverDebugOutput = False,
       driverSequential = False,
-      driverShowDepsGraph = False
+      driverOutputMode = Plain
     }
 
 -- | Insert a module search path at the front.
@@ -193,19 +201,25 @@ data ParsedModule = ParsedModule
 parseAllModules :: ModuleName -> Driver (DepsGraph Acyclic, [ParsedModule])
 parseAllModules firstName = do
   depsRef <- liftIO $ newIORef emptyDepsGraph
+  output <- asksState driverOutput
+  counter <- newZeroCounter output
   mods <- parScheduled $ \scheduler -> do
-    parseModule scheduler depsRef mempty firstName
+    parseModule scheduler depsRef counter mempty firstName
   finalDeps <- liftIO $ readIORef depsRef
 
-  outputDeps <- asksState $ driverSettings >>> driverShowDepsGraph
-  when outputDeps $ output \mode -> do
-    let header = applyStyle mode styleBold $ showString "== Dependencies =="
-    hPutStrLn stderr $ header $ '\n' : exportTextual finalDeps
-
+  outputDeps <- asksState $ driverSettings >>> driverVerboseDeps
   let (acyclicDeps, cycles) = removeCycles finalDeps
-  when (not (null cycles) && outputDeps) $ output \mode -> do
-    let header = applyStyle mode styleBold $ showString "== Acyclic Dependencies =="
-    hPutStrLn stderr $ header $ '\n' : exportTextual acyclicDeps
+
+  when outputDeps do
+    (handle, mode) <- askOutput
+    let header s =
+          applyStyle mode styleBold $
+            showString "== " . showString s . showString " ==\n"
+    let showDeps title dg =
+          header title . showString (exportTextual dg) . showChar '\n'
+    let d1 = showDeps "Dependencies" finalDeps
+    let d2 = showDeps "Acyclic Dependencies" acyclicDeps
+    outputS handle $! if null cycles then d1 else d1 . d2
 
   for_ cycles $
     cycleError >>> \case
@@ -224,18 +238,22 @@ parseModule ::
   Scheduler (Maybe ParsedModule) ->
   -- | Where to note down the inter-module dependencies.
   DepsTracker ->
+  -- | Keeps track of the progress for user-friendly output.
+  Counter ->
   -- | Where this module was imported from. Used only for error messages.
   ImportLocation ->
   -- | Name of the module.
   ModuleName ->
   Driver ()
-parseModule scheduler depsRef iloc name = do
+parseModule scheduler depsRef progress iloc name = do
+  counterUpdate progress $ counterOverallL +~ 1
   mmodInfo <- findModule name
   case mmodInfo of
     Nothing -> do
+      counterUpdate progress $ counterFinishedL +~ 1
       reportErrors (importLocPath iloc) [missingModuleError (pos iloc) name]
     Just (fp, src) -> do
-      addTask scheduler $ parseModuleNow scheduler depsRef name fp src
+      addTask scheduler $ parseModuleNow scheduler depsRef progress name fp src
 
 -- | Immediately begin parsing of the provided module. Any unparsed
 -- dependencies are scheduled for parsing using the provided scheduler.
@@ -244,6 +262,8 @@ parseModuleNow ::
   Scheduler (Maybe ParsedModule) ->
   -- | Where to note down the inter-module dependencies.
   DepsTracker ->
+  -- | Keeps track of the progress for user-friendly output.
+  Counter ->
   -- | Name of the module.
   ModuleName ->
   -- | Path to the code of the module. Used only for error messages.
@@ -251,33 +271,40 @@ parseModuleNow ::
   -- | Source code of the module.
   String ->
   Driver (Maybe ParsedModule)
-parseModuleNow scheduler depsRef moduleName modulePath moduleSource = do
-  outputString $ "Parsing " ++ unModuleName moduleName
-  let parseResult = P.runParser P.parseModule moduleSource
-  case parseResult of
-    Left errs -> do
-      reportErrors modulePath errs
-      pure Nothing
-    Right parsed -> do
-      newDeps <- noteDependencies depsRef moduleName modulePath parsed
-      traverse_ (uncurry $ parseModule scheduler depsRef) newDeps
-      pure . Just $
-        ParsedModule
-          { pmName = moduleName,
-            pmPath = modulePath,
-            pmModule = parsed
-          }
+parseModuleNow scheduler depsRef progress moduleName modulePath moduleSource = do
+  let title = "Parsing " ++ unModuleName moduleName
+  wrapCounter progress title do
+    let parseResult = P.runParser P.parseModule moduleSource
+    case parseResult of
+      Left errs -> do
+        reportErrors modulePath errs
+        pure Nothing
+      Right parsed -> do
+        newDeps <- noteDependencies depsRef moduleName modulePath parsed
+        traverse_ (uncurry $ parseModule scheduler depsRef progress) newDeps
+        pure . Just $
+          ParsedModule
+            { pmName = moduleName,
+              pmPath = modulePath,
+              pmModule = parsed
+            }
 
 renameAll ::
   DepsGraph Acyclic ->
   [ParsedModule] ->
   Driver [(DepVertex, Rn.RnModule)]
 renameAll dg mods = do
+  (output, _) <- askOutput
+  counter <- newCounter output do
+    zeroCounter & counterOverallL .~ depsGraphSize dg
   strat <- askStrategy
   filterResults <$> traverseGraphPar strat dg \deps name -> do
-    case HM.lookup name modsByName of
+    let title = "Resolving " ++ unModuleName name
+    wrapCounter counter title case HM.lookup name modsByName of
       Nothing -> pure (name, Rn.emptyModuleMap, Nothing)
-      Just pm -> rename pm deps
+      Just pm -> do
+        liftIO $ threadDelay 300_000
+        rename pm deps
   where
     modsByName = HM.fromList [(pmName pm, pm) | pm <- mods]
     filterResults xs = [(n, m) | (n, _, Just m) <- xs]
@@ -335,6 +362,9 @@ checkAll dg parsed = do
           }
   -- Begin merging from the builtins module.
   let bigModule = foldl' merge builtins . fmap snd $ renamed
+
+  (output, _) <- askOutput
+  outputSticky output "Typechecking..."
   case runFresh (ModuleName "$TC") $ Tc.checkModule bigModule of
     Left errs -> do
       reportErrors "" errs
@@ -347,38 +377,49 @@ missingModuleError loc name = PosError loc [Error "Cannot locate module", Error 
 {-# NOINLINE missingModuleError #-}
 
 findModule :: ModuleName -> Driver (Maybe (FilePath, String))
-findModule name = uninterleavedDebugOutput $ flip runContT final do
-  lift $ debug $ "Locating module ‘" ++ unModuleName name ++ "’"
+findModule name = flip runContT pure do
+  verbose <- lift $ asksState $ driverSettings >>> driverVerboseSearches
+  (output, _) <- lift askOutput
+  let searchMsg = if verbose then outputStrLn output else const (pure ())
+  liftIO $ searchMsg $ "Locating module ‘" ++ unModuleName name ++ "’"
 
   -- Check if it is a known virtual module.
   virtual <- lift $ asksState $ driverSettings >>> driverSources >>> HM.lookup name
   for_ virtual \res -> do
     -- It is. Early exit.
-    lift $ debug ".. found as a virtual module"
+    liftIO $ searchMsg "++ found as a virtual module"
     ContT $ const $ pure $ Just res
 
   -- Not a virtual module. Look through the search paths instead.
   env <- lift askState
   let paths = driverSearchPaths $ driverSettings env
-  let npaths = plural paths "one search path" $ show (length paths) ++ " search paths"
-  lift $ debug $ ".. not a virtual module, looking through " ++ npaths ++ " instead"
-  res <- liftIO . tryIOError . asum $ runDriverSt env . tryRead <$> paths
-  lift $ debug $ ".. " ++ npaths ++ " enumerated"
-  pure $ either (const Nothing) Just res
-  where
-    tryRead :: FilePath -> Driver (FilePath, String)
-    tryRead dir = do
-      let fp = dir </> modulePath name
-      debug $ ".. ? " ++ fp
-      (fp,) <$> readFile' fp `debugTry` \case
-        Left (e :: IOError) -> debug $ ".. ⮑  ✗ " ++ displayException e
-        Right _ -> debug ".. ⮑  ✔"
-    final :: Maybe (FilePath, String) -> Driver (Maybe (FilePath, String))
-    final res = do
-      debug $ case res of
-        Nothing -> "++ Module " ++ unModuleName name ++ " not found"
-        Just (fp, _) -> "++ Module " ++ unModuleName name ++ " found at " ++ fp
-      pure res
+  let npaths = show (length paths) ++ plural paths "search path" "search paths"
+  liftIO $ searchMsg $ ".. not a virtual module, looking through " ++ npaths
+
+  -- Check all search paths.
+  let annotResult m
+        | verbose =
+          try m >>= \case
+            Left (e :: IOError) ->
+              searchMsg (".. ⮑  ✗ " ++ displayException e) *> throwIO e
+            Right r ->
+              searchMsg ".. ⮑  ✔" $> r
+        | otherwise = m
+  let tryRead dir = do
+        let fp = dir </> modulePath name
+        searchMsg $ ".. ? " ++ fp
+        (fp,) <$> annotResult (readFile' fp)
+  res <- liftIO . tryIOError . asum . fmap tryRead $ paths
+
+  -- Summarize the result.
+  liftIO $ searchMsg $ ".. " ++ npaths ++ " enumerated"
+  liftIO case res of
+    Left _ -> do
+      searchMsg $ "++ Module ‘" ++ unModuleName name ++ "’ not found"
+      pure Nothing
+    Right found@(fp, _) -> do
+      searchMsg $ "++ Module ‘" ++ unModuleName name ++ "’ found at " ++ fp
+      pure $ Just found
 
 -- | Register the import dependencies for the given module and returns the set
 -- of modules yet to be parsed.
@@ -390,12 +431,6 @@ noteDependencies ::
   Driver [(ImportLocation, ModuleName)]
 noteDependencies depsRef name fp mod = do
   let depList = moduleDependencies fp mod
-  debug . unwords $
-    [ "‘" ++ unModuleName name ++ "’",
-      "has",
-      plural depList "one dependency" $
-        show (length depList) ++ " dependencies"
-    ]
   -- Update the dependency graph. This step also signals to any other workers
   -- that this worker will be responsible for delegating parsing of any
   -- unparsed dependencies.
@@ -405,7 +440,28 @@ noteDependencies depsRef name fp mod = do
   -- Return the list of unparsed dependencies. Those are the ones not appearing
   -- as vertices in `oldDeps`.
   let isUnparsed (_, m) = m /= name && not (depsMember m oldDeps)
-  pure $ filter isUnparsed depList
+  let newDeps = filter isUnparsed depList
+
+  (output, _) <- askOutput
+  verbose <- asksState $ driverSettings >>> driverVerboseDeps
+  when verbose $ outputStrLn output do
+    let !nOverall = length depList
+        !nNew = length newDeps
+    let ln1 =
+          [ "Module ‘" ++ unModuleName name ++ "’ has",
+            show nOverall,
+            plural depList "dependency" "dependencies."
+          ]
+    let ln2 =
+          [ "\n..",
+            show nNew,
+            "new,",
+            show (nOverall - nNew),
+            "already parsed"
+          ]
+    unwords ln1 ++ unwords ln2
+
+  pure newDeps
 
 moduleDependencies :: FilePath -> Module x -> [(ImportLocation, ModuleName)]
 moduleDependencies thisPath m =
@@ -458,54 +514,8 @@ reportErrors fp diags
     pure ()
   | otherwise = do
     setError
-    output \mode -> putStrLn $ renderErrors mode fp $ toList diags
+    (handle, mode) <- askOutput
+    outputS handle $ renderErrors' (Just 10) mode fp (toList diags) . showChar '\n'
 
--- | Executes the given function with the 'driverOutputLock' held.
---
--- This function is re-entrant.
-output :: (OutputMode -> IO a) -> Driver a
-output f = do
-  env <- askState
-  liftIO $ withRecursiveLock (driverOutputLock env) f
-
--- | Writes the given string to 'stdout' using 'output'.
-outputString :: String -> Driver ()
-outputString s = do
-  -- Force the string outside the lock.
-  _ <- liftIO . evaluate $ force s
-  output . const $ putStrLn s
-
--- | Writes the given string to 'stderr' using 'output' if debug messages are
--- enabled (see 'driverDebugOutput').
-debug :: String -> Driver ()
-debug str = do
-  debug <- asksState $ driverDebugOutput . driverSettings
-  when debug $ outputString str
-
--- | When debug messages are enabled (see 'driverDebugOutput') this function
--- executes the given action with the output loock held (see 'output' and
--- 'driverOutputLock'). When debug message are not enabled it behaves like the
--- identity function.
---
--- The use case is to group related debug messages together. Note that this
--- negatively impacts the amount of effective concurrency in the driver.
-uninterleavedDebugOutput :: Driver a -> Driver a
-uninterleavedDebugOutput m = do
-  env <- askState
-  let debug = driverDebugOutput . driverSettings $ env
-  if debug then output $ const $ runDriverSt env m else m
-
--- | When debug output is enabled the action @debugTry m handler@ installs an
--- exception handler during the execution of @m@. Afterwards @handler@ is
--- executed with either the obtained result or the caught exeption. If an
--- exception was thrown it will be rethrown after @handler@ returns.
---
--- When debug output is not enabled this function ignores its second argument
--- and returns @m@ unchanged.
-debugTry :: Exception e => IO a -> (Either e a -> Driver b) -> Driver a
-debugTry !m handler = do
-  env <- askState
-  liftIO
-    if driverDebugOutput $ driverSettings env
-      then try m >>= \r -> runDriverSt env (handler r) >> either throwIO pure r
-      else m
+askOutput :: Driver (OutputHandle, OutputMode)
+askOutput = asksState $ (,) <$> driverOutput <*> driverOutputMode . driverSettings

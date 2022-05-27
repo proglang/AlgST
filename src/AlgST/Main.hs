@@ -7,7 +7,6 @@ import AlgST.Interpret qualified as I
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Name
 import AlgST.Syntax.Program
-import AlgST.Util.Error
 import AlgST.Util.Output
 import Control.Applicative
 import Control.Monad
@@ -21,19 +20,10 @@ import Syntax.Base
 import System.Exit
 import System.IO
 
-data Options = Options
-  { runOpts :: !RunOpts,
-    stdoutMode :: !OutputMode,
-    stderrMode :: !OutputMode
-  }
-
 main :: IO ()
 main = do
   runOpts <- getOptions
-  opts <-
-    Options runOpts
-      <$> maybe (discoverMode stdout) pure (optsOutputMode runOpts)
-      <*> maybe (discoverMode stderr) pure (optsOutputMode runOpts)
+  stderrMode <- maybe (discoverMode stderr) pure (optsOutputMode runOpts)
 
   inputIsTerm <- (sourceIsTerm (optsSource runOpts) &&) <$> hIsTerminalDevice stdin
 
@@ -56,17 +46,17 @@ main = do
   let driverSettings =
         Driver.defaultSettings
           { driverSequential = optsDriverSeq runOpts,
-            driverShowDepsGraph = optsDriverDeps runOpts,
+            driverVerboseDeps = optsDriverDeps runOpts,
             driverVerboseSearches = optsDriverModSearch runOpts,
-            driverSearchPaths = pure "."
+            driverSearchPaths = pure ".",
+            driverOutputMode = stderrMode
           }
           & Driver.addModuleSource mainModule srcName src
 
   checked <-
-    maybe exitFailure pure
-      =<< Driver.runDriver (stdoutMode opts) driverSettings do
-        parsed <- Driver.parseAllModules mainModule
-        uncurry Driver.checkAll parsed
+    maybe exitFailure pure =<< Driver.runDriver driverSettings do
+      parsed <- Driver.parseAllModules mainModule
+      uncurry Driver.checkAll parsed
 
   let isMain n =
         nameResolvedModule n == mainModule

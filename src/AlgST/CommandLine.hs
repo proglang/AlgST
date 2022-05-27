@@ -179,8 +179,9 @@ driverSeqParser =
 driverDepsParser :: O.Parser Bool
 driverDepsParser =
   driverDebugFlag
-    "driver-dependencies"
-    "Output the module dependency graph."
+    "driver-verbose-deps"
+    "Enable verbose output during dependency discover, and print the \
+    \resulting dependency graph."
 
 driverModSearchParser :: O.Parser Bool
 driverModSearchParser =

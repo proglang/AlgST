@@ -12,6 +12,7 @@ module AlgST.Driver.Dependencies
     Cycles (..),
     DepsGraph,
     emptyDepsGraph,
+    depsGraphSize,
     Dependency (DependsOn),
     insertDependency,
     depsMember,
@@ -118,6 +119,10 @@ data DepsGraph cycles = DepsGraph
 -- | The empty 'DepsGraph'.
 emptyDepsGraph :: DepsGraph cycles
 emptyDepsGraph = DepsGraph HM.empty G.empty G.empty
+
+-- | The number of vertices, i.e. distinct modules, in the graph.
+depsGraphSize :: DepsGraph cycles -> Int
+depsGraphSize = dgVerticesToDeps >>> G.vertexCount
 
 -- | Check if the given node is recorded in the dependency graph.
 depsMember :: DepVertex -> DepsGraph acyclic -> Bool
