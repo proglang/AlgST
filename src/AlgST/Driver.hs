@@ -280,7 +280,7 @@ parseModuleNow scheduler depsRef progress moduleName modulePath moduleSource = d
         reportErrors modulePath errs
         pure Nothing
       Right parsed -> do
-        newDeps <- noteDependencies depsRef moduleName modulePath parsed
+        newDeps <- noteDependencies depsRef moduleName modulePath $ moduleImports parsed
         traverse_ (uncurry $ parseModule scheduler depsRef progress) newDeps
         pure . Just $
           ParsedModule
@@ -425,18 +425,28 @@ findModule name = flip runContT pure do
 -- of modules yet to be parsed.
 noteDependencies ::
   DepsTracker ->
+  -- | Name of the module containing the imports.
   ModuleName ->
+  -- | Filepath of the containing module. Used at a later stage for reporting
+  -- cyclic dependency errors.
   FilePath ->
-  Module x ->
+  -- | The imports from which to read and update the dependency graph.
+  [Located Import] ->
   Driver [(ImportLocation, ModuleName)]
-noteDependencies depsRef name fp mod = do
-  let depList = moduleDependencies fp mod
+noteDependencies depsRef name fp imports = do
+  let depList =
+        [ (ImportLocation (p @- fp), target)
+          | p :@ Import {importTarget = target} <- imports
+        ]
   -- Update the dependency graph. This step also signals to any other workers
   -- that this worker will be responsible for delegating parsing of any
   -- unparsed dependencies.
   oldDeps <- liftIO $ atomicModifyIORef' depsRef \deps -> do
+    -- Inserting the module itself is especially important in the single-module
+    -- case as there are no edges to insert the vertex automatically.
+    let deps' = insertModule name deps
     let add (iloc, target) = insertDependency iloc (name `DependsOn` target)
-    (foldl' (flip add) deps depList, deps)
+    (foldl' (flip add) deps' depList, deps)
   -- Return the list of unparsed dependencies. Those are the ones not appearing
   -- as vertices in `oldDeps`.
   let isUnparsed (_, m) = m /= name && not (depsMember m oldDeps)
@@ -462,12 +472,6 @@ noteDependencies depsRef name fp mod = do
     unwords ln1 ++ unwords ln2
 
   pure newDeps
-
-moduleDependencies :: FilePath -> Module x -> [(ImportLocation, ModuleName)]
-moduleDependencies thisPath m =
-  [ (ImportLocation (p @- thisPath), target)
-    | p :@ Import {importTarget = target} <- moduleImports m
-  ]
 
 cycleError :: G.Cycle (ModuleName, ImportLocation) -> Either (FilePath, Diagnostic) Diagnostic
 cycleError ((m, iloc) :| []) = Left (importLocPath iloc, err)

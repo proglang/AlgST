@@ -14,6 +14,7 @@ module AlgST.Driver.Dependencies
     emptyDepsGraph,
     depsGraphSize,
     Dependency (DependsOn),
+    insertModule,
     insertDependency,
     depsMember,
     removeCycles,
@@ -149,6 +150,17 @@ instance Show Dependency where
     where
       prec = 6
 
+-- | Record a vertex in the dependency graph.
+insertModule :: DepVertex -> DepsGraph cycles -> DepsGraph cycles
+insertModule v dg =
+  DepsGraph
+    { -- No new edges.
+      dgEdges = dgEdges dg,
+      -- But make sure the vertex exists.
+      dgVerticesToDeps = G.vertex v <> dgVerticesToDeps dg,
+      dgVerticesToUsedBy = G.vertex v <> dgVerticesToUsedBy dg
+    }
+
 -- | Records a dependency in the graph.
 insertDependency ::
   ImportLocation ->
@@ -184,8 +196,8 @@ removeCycles dg0@DepsGraph {dgEdges = labels} = go [] dg0
           dgVerticesToUsedBy = G.removeEdge y x (dgVerticesToUsedBy dg)
         }
     labelCycle (v0 :| vs) = do
-      let lookupLabel x y = fold $
-            HM.lookup (x `DependsOn` y) labels
+      let lookupLabel x y =
+            fold $ HM.lookup (x `DependsOn` y) labels
       let f x (dep, annots) =
             (x, (x, lookupLabel x dep) : annots)
       let (v1, annots) = foldr f (v0, []) vs
@@ -247,7 +259,6 @@ traverseGraphPar strat dg op = withScheduler strat' \s -> do
       dgVerticesToDeps dg
         & G.adjacencyMap
         & Map.traverseWithKey vertexAction
-        & liftIO
     pure ()
   where
     strat' = case strat of
@@ -281,7 +292,7 @@ exportTextual dg =
               padded v . showString "--> " . padded d
         let renderIloc d =
               showString $ maybe "???" show $ HM.lookup (v `DependsOn` d) (dgEdges dg)
-        [ Endo $ edge d . showString " [" . renderIloc d . showString "]\n" 
+        [ Endo $ edge d . showString " [" . renderIloc d . showString "]\n"
           | d <- Set.toList deps ]
 
 padString :: Int -> String -> String

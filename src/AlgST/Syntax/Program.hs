@@ -41,6 +41,7 @@ import AlgST.Syntax.Name
 import AlgST.Syntax.Phases
 import AlgST.Syntax.Type qualified as T
 import Data.HashMap.Strict (HashMap)
+import Data.Map ((\\))
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import GHC.Conc
@@ -48,7 +49,6 @@ import Instances.TH.Lift ()
 import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2
 import Syntax.Base
-import Data.Map ((\\))
 
 -- | A program is a collection of modules.
 newtype Program x = Program {programModules :: HashMap ModuleName (Module x)}
