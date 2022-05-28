@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -8,6 +9,7 @@
 
 module AlgST.Driver.Output
   ( OutputHandle,
+    nullHandle,
     withOutput,
     outputStr,
     outputStrLn,
@@ -53,6 +55,7 @@ import Data.Monoid
 import Lens.Family2
 import System.Console.ANSI qualified as ANSI
 import System.IO
+import System.IO.Unsafe (unsafeDupablePerformIO)
 
 newtype Sticky = Sticky String
 
@@ -61,11 +64,20 @@ emptySticky = Sticky ""
 
 newtype OutputHandle = OutputHandle ActionBuffer
 
-withOutput :: MonadUnliftIO m => Handle -> (OutputHandle -> m a) -> m a
-withOutput h f =
+instance Show OutputHandle where
+  show = \case
+    OutputHandle NullBuffer -> "nullHandle"
+    OutputHandle _ -> "OutputHandle{}"
+
+nullHandle :: OutputHandle
+nullHandle = OutputHandle $ unsafeDupablePerformIO $ newActionBufferIO 0
+{-# NOINLINE nullHandle #-}
+
+withOutput :: MonadUnliftIO m => Bool -> Handle -> (OutputHandle -> m a) -> m a
+withOutput allowAnsi h f =
   askRunInIO >>= \runIO -> liftIO do
     buf <- newActionBufferIO 32
-    Async.withAsync (runOutput h buf) \outputThread -> do
+    Async.withAsync (runOutput allowAnsi h buf) \outputThread -> do
       -- Link the output thread to this thread: In the case that an exception
       -- is thrown in the output thread it will be rethrown here.
       Async.link outputThread
@@ -95,11 +107,11 @@ outputShow b = outputS b . shows
 
 outputS :: MonadIO m => OutputHandle -> ShowS -> m ()
 outputS (OutputHandle buf) =
-  liftIO . atomically . writeActionBuffer buf . WriteMessage
+  liftIO . writeActionBuffer buf . WriteMessage
 
 outputSticky :: MonadIO m => OutputHandle -> String -> m ()
 outputSticky (OutputHandle buf) =
-  liftIO . atomically . writeActionBuffer buf . SetSticky . Sticky
+  liftIO . writeActionBuffer buf . SetSticky . Sticky
 
 clearSticky :: MonadIO m => OutputHandle -> m ()
 clearSticky h = outputSticky h ""
@@ -127,24 +139,25 @@ clearSticky h = outputSticky h ""
 -- | A bounded buffer of output actions.
 data ActionBuffer = ActionBuffer !Word !(TVar Word) !(TVar [Action])
 
-newActionBufferIO :: Word -> IO ActionBuffer
-newActionBufferIO cap
-  | cap == 0 = pure $ error "ActionBuffer must have capacity of at least 1"
-  | otherwise = ActionBuffer cap <$> newTVarIO cap <*> newTVarIO []
+pattern NullBuffer :: ActionBuffer
+pattern NullBuffer <- ActionBuffer 0 _ _
 
-writeActionBuffer :: ActionBuffer -> Action -> STM ()
-writeActionBuffer (ActionBuffer _ capVar actVar) a = do
+newActionBufferIO :: Word -> IO ActionBuffer
+newActionBufferIO !cap =
+  ActionBuffer cap <$> newTVarIO cap <*> newTVarIO []
+
+writeActionBuffer :: ActionBuffer -> Action -> IO ()
+writeActionBuffer NullBuffer _ = pure ()
+writeActionBuffer (ActionBuffer _ capVar actVar) a = atomically do
   cap <- readTVar capVar
   guard $ cap > 0
   writeTVar capVar $! cap - 1
-  acts <- readTVar actVar
-  writeTVar actVar $ a : acts
+  modifyTVar actVar (a :)
 
 terminateActionBuffer :: ActionBuffer -> STM ()
 terminateActionBuffer (ActionBuffer _ _ actVar) = do
   -- This should be the last write, do it unconditionally.
-  acts <- readTVar actVar
-  writeTVar actVar (Done : acts)
+  modifyTVar actVar (Done :)
 
 readActionBufferRev :: ActionBuffer -> STM (NonEmpty Action)
 readActionBufferRev (ActionBuffer cap capVar actVar) = do
@@ -183,8 +196,8 @@ data Action
   | WriteMessage ShowS
   | Done
 
-runOutput :: Handle -> ActionBuffer -> IO ()
-runOutput h actBuffer = bracket prepare id (const run)
+runOutput :: Bool -> Handle -> ActionBuffer -> IO ()
+runOutput allowAnsi h actBuffer = bracket prepare id (const run)
   where
     prepare :: IO (IO ())
     prepare = do
@@ -206,8 +219,10 @@ runOutput h actBuffer = bracket prepare id (const run)
       -- not to do it here.
       hFlush h
       -- Run the main loop.
-      ansi <- fromMaybe False <$> ANSI.hSupportsANSIWithoutEmulation h
-      go ansi emptySticky
+      useAnsi <-
+        (allowAnsi &&) . fromMaybe False
+          <$> ANSI.hSupportsANSIWithoutEmulation h
+      go useAnsi emptySticky
 
     clearCode :: Bool -> ShowS
     clearCode True =

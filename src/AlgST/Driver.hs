@@ -82,14 +82,14 @@ data Settings = Settings
     driverVerboseDeps :: !Bool,
     driverDebugOutput :: !Bool,
     driverSequential :: !Bool,
-    driverOutputMode :: !OutputMode
+    driverOutputMode :: !OutputMode,
+    driverOutputHandle :: !OutputHandle
   }
   deriving stock (Show)
 
 data DriverState = DriverState
   { driverSettings :: !Settings,
-    driverErrors :: !(IORef Bool),
-    driverOutput :: !OutputHandle
+    driverErrors :: !(IORef Bool)
   }
 
 -- | Source code annotated with the 'FilePath' it originated from.
@@ -111,8 +111,8 @@ runDriver :: Settings -> Driver a -> IO (Maybe a)
 runDriver driverSettings m = do
   driverErrors <- newIORef False
   res <- try @ErrorAbortException do
-    withOutput stderr \driverOutput ->
-      runDriverSt DriverState {..} m `finally` clearSticky driverOutput
+    runDriverSt DriverState {..} m `finally` do
+      clearSticky $ driverOutputHandle driverSettings
   hasError <- readIORef driverErrors
   case res of
     Right a | not hasError -> pure (Just a)
@@ -136,7 +136,8 @@ defaultSettings =
       driverVerboseDeps = False,
       driverDebugOutput = False,
       driverSequential = False,
-      driverOutputMode = Plain
+      driverOutputMode = Plain,
+      driverOutputHandle = nullHandle
     }
 
 -- | Insert a module search path at the front.
@@ -201,8 +202,9 @@ data ParsedModule = ParsedModule
 parseAllModules :: ModuleName -> Driver (DepsGraph Acyclic, [ParsedModule])
 parseAllModules firstName = do
   depsRef <- liftIO $ newIORef emptyDepsGraph
-  output <- asksState driverOutput
-  counter <- newZeroCounter output
+  (output, _) <- askOutput
+  counter <- newCounter output do
+    zeroCounter & counterTitleL .~ "Parsing..."
   mods <- parScheduled $ \scheduler -> do
     parseModule scheduler depsRef counter mempty firstName
   finalDeps <- liftIO $ readIORef depsRef
@@ -522,4 +524,7 @@ reportErrors fp diags
     outputS handle $ renderErrors' (Just 10) mode fp (toList diags) . showChar '\n'
 
 askOutput :: Driver (OutputHandle, OutputMode)
-askOutput = asksState $ (,) <$> driverOutput <*> driverOutputMode . driverSettings
+askOutput = asksState do
+  (,)
+    <$> driverOutputHandle . driverSettings
+    <*> driverOutputMode . driverSettings

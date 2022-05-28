@@ -3,6 +3,7 @@ module AlgST.Main (main) where
 import AlgST.CommandLine
 import AlgST.Driver (Settings (..))
 import AlgST.Driver qualified as Driver
+import AlgST.Driver.Output
 import AlgST.Interpret qualified as I
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Name
@@ -25,44 +26,47 @@ main = do
   runOpts <- getOptions
   stderrMode <- maybe (discoverMode stderr) pure (optsOutputMode runOpts)
 
-  inputIsTerm <- (sourceIsTerm (optsSource runOpts) &&) <$> hIsTerminalDevice stdin
+  let allowAnsi = stderrMode /= Plain
+  withOutput allowAnsi stderr \outputHandle -> do
+    inputIsTerm <- (sourceIsTerm (optsSource runOpts) &&) <$> hIsTerminalDevice stdin
 
-  let srcName = case optsSource runOpts of
-        SourceFile fp -> fp
-        SourceStdin -> "«stdin»"
-  src <- readSource (optsSource runOpts)
+    let srcName = case optsSource runOpts of
+          SourceFile fp -> fp
+          SourceStdin -> "«stdin»"
+    src <- readSource (optsSource runOpts)
 
-  -- When we read the source code from STDIN and STDIN + one of the output
-  -- streams are terminal devices we output a seperating newline.
-  void $ runMaybeT do
-    guard inputIsTerm
-    let checkOut h = do
-          isTerm <- lift $ hIsTerminalDevice h
-          guard isTerm
-          lift $ hPutChar h '\n'
-    checkOut stdout <|> checkOut stderr
+    -- When we read the source code from STDIN and STDIN + one of the output
+    -- streams are terminal devices we output a seperating newline.
+    void $ runMaybeT do
+      guard inputIsTerm
+      let checkOut h = do
+            isTerm <- lift $ hIsTerminalDevice h
+            guard isTerm
+            lift $ hPutChar h '\n'
+      checkOut stdout <|> checkOut stderr
 
-  let mainModule = ModuleName "Main"
-  let driverSettings =
-        Driver.defaultSettings
-          { driverSequential = optsDriverSeq runOpts,
-            driverVerboseDeps = optsDriverDeps runOpts,
-            driverVerboseSearches = optsDriverModSearch runOpts,
-            driverSearchPaths = pure ".",
-            driverOutputMode = stderrMode
-          }
-          & Driver.addModuleSource mainModule srcName src
+    let mainModule = ModuleName "Main"
+    let driverSettings =
+          Driver.defaultSettings
+            { driverSequential = optsDriverSeq runOpts,
+              driverVerboseDeps = optsDriverDeps runOpts,
+              driverVerboseSearches = optsDriverModSearch runOpts,
+              driverSearchPaths = pure ".",
+              driverOutputMode = stderrMode,
+              driverOutputHandle = outputHandle
+            }
+            & Driver.addModuleSource mainModule srcName src
 
-  checked <-
-    maybe exitFailure pure =<< Driver.runDriver driverSettings do
-      parsed <- Driver.parseAllModules mainModule
-      uncurry Driver.checkAll parsed
+    checked <-
+      maybe exitFailure pure =<< Driver.runDriver driverSettings do
+        parsed <- Driver.parseAllModules mainModule
+        uncurry Driver.checkAll parsed
 
-  let isMain n =
-        nameResolvedModule n == mainModule
-          && nameUnqualified n == Unqualified "main"
-  let mmainName = List.find isMain $ Map.keys $ moduleValues checked
-
-  for_ mmainName \mainName -> do
-    r <- I.runEval (I.programEnvironment checked) $ I.eval $ E.Var defaultPos mainName
-    putStrLn $ "Result: " ++ show r
+    let isMain n =
+          nameResolvedModule n == mainModule
+            && nameUnqualified n == Unqualified "main"
+    let mmainName = List.find isMain $ Map.keys $ moduleValues checked
+    for_ mmainName \mainName -> do
+      outputStrLn outputHandle "Running ‘main’"
+      r <- I.runEval (I.programEnvironment checked) $ I.eval $ E.Var defaultPos mainName
+      outputStrLn outputHandle $ "Result: " ++ show r
