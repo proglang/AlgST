@@ -1,0 +1,9 @@
+# Ignore any of .git, .stack-work, etc.
+.*
+
+# No need to transfer cabal directories.
+dist
+dist-newstyle
+
+# Allow touching of Dockerfiles without having to do a full rebuild.
+**/Dockerfile
