@@ -9,11 +9,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module AlgST.Syntax.Program
-  ( -- * Full Programs
-    Program (..),
-
-    -- * Modules
+module AlgST.Syntax.Module
+  ( -- * Modules
     Module (..),
     moduleOrigins,
     emptyModule,
@@ -49,9 +46,6 @@ import Instances.TH.Lift ()
 import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2
 import Syntax.Base
-
--- | A program is a collection of modules.
-newtype Program x = Program {programModules :: HashMap ModuleName (Module x)}
 
 -- | Groups the @ForallX@ constraint synonym from "AlgST.Syntax.Decl",
 -- "AlgST.Syntax.Type", and "AlgST.Syntax.Expression".

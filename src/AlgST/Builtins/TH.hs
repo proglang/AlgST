@@ -8,8 +8,8 @@ module AlgST.Builtins.TH where
 import AlgST.Parse.Parser
 import AlgST.Rename
 import AlgST.Syntax.Decl
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Typing
 import AlgST.Util.Error
 import Control.Monad.Eta

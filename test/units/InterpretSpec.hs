@@ -11,8 +11,8 @@ import AlgST.Parse.Parser
 import AlgST.Rename
 import AlgST.Rename.Fresh
 import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Typing
 import AlgST.Util.Error
 import Control.Category ((>>>))

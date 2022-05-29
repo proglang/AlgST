@@ -16,8 +16,8 @@ import AlgST.Parse.Phase
 import AlgST.Rename
 import AlgST.Rename.Fresh
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
 import AlgST.Typing

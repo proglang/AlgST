@@ -6,9 +6,9 @@ module AlgST.Rename.Phase where
 import AlgST.Parse.Phase (ParsedBuiltin)
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Module (Module)
 import AlgST.Syntax.Name
 import AlgST.Syntax.Phases
-import AlgST.Syntax.Program (Module)
 import AlgST.Syntax.Type qualified as T
 import Data.Void
 import Syntax.Base

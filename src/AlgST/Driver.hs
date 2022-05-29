@@ -37,8 +37,8 @@ import AlgST.Parse.Phase
 import AlgST.Rename qualified as Rn
 import AlgST.Rename.Fresh (runFresh)
 import AlgST.Rename.Modules qualified as Rn
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Typing qualified as Tc
 import AlgST.Typing.Phase
 import AlgST.Util (plural)

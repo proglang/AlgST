@@ -46,8 +46,8 @@ import AlgST.Builtins.Names
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Typing.Phase (Tc, TcBind, TcExp, TcExpX (..), TcModule, TcStage)
 import AlgST.Util.Lenses
 import AlgST.Util.Output

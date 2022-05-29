@@ -8,8 +8,8 @@ import AlgST.Driver.Dependencies (depsVertices)
 import AlgST.Driver.Output
 import AlgST.Interpret qualified as I
 import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Syntax.Program
 import AlgST.Util.Output
 import Control.Applicative
 import Control.Monad

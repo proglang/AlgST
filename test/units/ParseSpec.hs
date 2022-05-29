@@ -5,7 +5,7 @@ module ParseSpec (spec) where
 
 import AlgST.Builtins
 import AlgST.Parse.Parser
-import AlgST.Syntax.Program
+import AlgST.Syntax.Module
 import AlgST.Syntax.Tree
 import System.FilePath
 import Test.Golden
