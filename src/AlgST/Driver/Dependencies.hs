@@ -14,6 +14,7 @@ module AlgST.Driver.Dependencies
     DepsGraph,
     emptyDepsGraph,
     depsGraphSize,
+    depsVertices,
     Dependency (DependsOn),
     insertModule,
     insertDependency,
@@ -132,6 +133,9 @@ depsGraphSize = dgVerticesToDeps >>> G.vertexCount
 -- | Check if the given node is recorded in the dependency graph.
 depsMember :: DepVertex -> DepsGraph acyclic a -> Bool
 depsMember v dg = G.hasVertex v (dgVerticesToDeps dg)
+
+depsVertices :: DepsGraph acyclic a -> HashMap DepVertex a
+depsVertices = dgVertices
 
 -- | Data type to help with understanding the direction of the depedency.
 -- Consider using the constructor in its infix form:
