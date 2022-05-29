@@ -1,5 +1,7 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -20,6 +22,7 @@ import AlgST.Typing.Equality
 import Data.Functor.Const
 import Data.Functor.Identity
 import Data.Void
+import Language.Haskell.TH.Syntax (Lift)
 import Syntax.Base
 
 -- | Typing phase token.
@@ -61,6 +64,7 @@ data TcExpX
     ValueCase !Pos !TcExp !(TcCaseMap [] Maybe)
   | -- | > RecvCase _ e cases         ~ case e of { cases... }
     RecvCase !Pos !TcExp !(TcCaseMap Identity (Const ()))
+  deriving stock (Lift)
 
 instance Unparse TcExpX where
   unparse = \case
@@ -75,6 +79,7 @@ data TypeRef = TypeRef
     typeRefArgs :: [TcType],
     typeRefKind :: !K.Kind
   }
+  deriving stock (Lift)
 
 instance Position TypeRef where
   pos = typeRefPos

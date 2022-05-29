@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -89,10 +90,12 @@ data Cycles
 
 type DepVertex = ModuleName
 
-type DepsGraph :: Cycles -> Type
-data DepsGraph cycles = DepsGraph
+type DepsGraph :: Cycles -> Type -> Type
+data DepsGraph cycles a = DepsGraph
   { -- | A map from @(x,y)@ to the location where @x@ imported @y@.
     dgEdges :: !(HashMap Dependency ImportLocation),
+    -- | Each vertex can be associated with additional data.
+    dgVertices :: !(HashMap DepVertex a),
     -- | Vertices are conntected to the vertices they depend on.
     --
     -- E.g. @X@ depends on @Y@ and @Z@, and @Y@ depends on @Z@ gives
@@ -116,17 +119,18 @@ data DepsGraph cycles = DepsGraph
     -- This is the transposition of 'dgVerticesToDeps'.
     dgVerticesToUsedBy :: !(G.AdjacencyMap DepVertex)
   }
+  deriving stock (Functor)
 
 -- | The empty 'DepsGraph'.
-emptyDepsGraph :: DepsGraph cycles
-emptyDepsGraph = DepsGraph HM.empty G.empty G.empty
+emptyDepsGraph :: DepsGraph cycles a
+emptyDepsGraph = DepsGraph HM.empty HM.empty G.empty G.empty
 
 -- | The number of vertices, i.e. distinct modules, in the graph.
-depsGraphSize :: DepsGraph cycles -> Int
+depsGraphSize :: DepsGraph cycles a -> Int
 depsGraphSize = dgVerticesToDeps >>> G.vertexCount
 
 -- | Check if the given node is recorded in the dependency graph.
-depsMember :: DepVertex -> DepsGraph acyclic -> Bool
+depsMember :: DepVertex -> DepsGraph acyclic a -> Bool
 depsMember v dg = G.hasVertex v (dgVerticesToDeps dg)
 
 -- | Data type to help with understanding the direction of the depedency.
@@ -151,12 +155,13 @@ instance Show Dependency where
       prec = 6
 
 -- | Record a vertex in the dependency graph.
-insertModule :: DepVertex -> DepsGraph cycles -> DepsGraph cycles
-insertModule v dg =
+insertModule :: DepVertex -> a -> DepsGraph cycles a -> DepsGraph cycles a
+insertModule v a dg =
   DepsGraph
     { -- No new edges.
       dgEdges = dgEdges dg,
       -- But make sure the vertex exists.
+      dgVertices = HM.insert v a (dgVertices dg),
       dgVerticesToDeps = G.vertex v <> dgVerticesToDeps dg,
       dgVerticesToUsedBy = G.vertex v <> dgVerticesToUsedBy dg
     }
@@ -165,11 +170,12 @@ insertModule v dg =
 insertDependency ::
   ImportLocation ->
   Dependency ->
-  DepsGraph cycles ->
-  DepsGraph MaybeCyclic
+  DepsGraph cycles a ->
+  DepsGraph MaybeCyclic a
 insertDependency loc (x `DependsOn` y) dg =
   DepsGraph
-    { dgEdges = HM.insertWith (<>) (x `DependsOn` y) loc (dgEdges dg),
+    { dgVertices = dgVertices dg,
+      dgEdges = HM.insertWith (<>) (x `DependsOn` y) loc (dgEdges dg),
       dgVerticesToDeps = G.edge x y <> dgVerticesToDeps dg,
       dgVerticesToUsedBy = G.edge y x <> dgVerticesToUsedBy dg
     }
@@ -179,8 +185,8 @@ insertDependency loc (x `DependsOn` y) dg =
 -- The order of returned cycles is unspecified. The first edge of each cycle
 -- corresponds to edge missing from the resulting graph.
 removeCycles ::
-  DepsGraph cycles ->
-  (DepsGraph Acyclic, [G.Cycle (DepVertex, ImportLocation)])
+  DepsGraph cycles a ->
+  (DepsGraph Acyclic a, [G.Cycle (DepVertex, ImportLocation)])
 removeCycles dg0@DepsGraph {dgEdges = labels} = go [] dg0
   where
     go cs dg = case G.topSort (dgVerticesToDeps dg) of
@@ -191,7 +197,8 @@ removeCycles dg0@DepsGraph {dgEdges = labels} = go [] dg0
             v :| [] -> (v, v)
             v :| w : _ -> (v, w)
       DepsGraph
-        { dgEdges = HM.delete (x `DependsOn` y) (dgEdges dg),
+        { dgVertices = dgVertices dg,
+          dgEdges = HM.delete (x `DependsOn` y) (dgEdges dg),
           dgVerticesToDeps = G.removeEdge x y (dgVerticesToDeps dg),
           dgVerticesToUsedBy = G.removeEdge y x (dgVerticesToUsedBy dg)
         }
@@ -215,57 +222,61 @@ data TraverseState a = TraverseState !Int [a]
 -- Note that the computation strategy 'Seq' will degrade to @'ParN' 1@ based on
 -- implementation requirements.
 traverseGraphPar ::
-  forall a m.
+  forall a b m.
   MonadUnliftIO m =>
   Comp ->
-  DepsGraph Acyclic ->
-  ([a] -> DepVertex -> m a) ->
-  m [a]
-traverseGraphPar strat dg op = withScheduler strat' \s -> do
-  askRunInIO >>= \runIO -> liftIO mdo
-    -- For each vertex we create an action which waits for N inputs. When the
-    -- N-th input arrives it runs `op`.
-    --
-    -- When `op` completes the action is tasked with sending the result to each
-    -- depending vertex-action.
-    let runOp :: [a] -> DepVertex -> IO a
-        runOp bs a = do
-          b <- runIO $ op bs a
-          for_ (G.postSet a (dgVerticesToUsedBy dg)) \a' ->
-            for_ (Map.lookup a' actions) \f ->
-              f b
-          pure b
-    let superflousInput =
-          fail "received input for already scheduled vertex"
-    let vertexAction :: DepVertex -> Set.Set dep -> IO (a -> IO ())
-        vertexAction a deps
-          | Set.null deps = do
-            scheduleWork s $ runOp [] a
-            pure $ const superflousInput
-          | otherwise = do
-            r <- newIORef $ Just $ TraverseState (Set.size deps) []
-            pure \b -> do
-              bs <- atomicModifyIORef' r \case
-                Nothing -> (Nothing, Nothing)
-                Just (TraverseState 1 bs) -> do
-                  (Nothing, Just (b : bs))
-                Just (TraverseState n bs) -> do
-                  (Just $! TraverseState (n - 1) (b : bs), Just [])
-              case bs of
-                Just [] -> pure ()
-                Just bs -> scheduleWork s $ runOp bs a
-                Nothing -> superflousInput
-    actions <-
-      dgVerticesToDeps dg
-        & G.adjacencyMap
-        & Map.traverseWithKey vertexAction
-    pure ()
+  DepsGraph Acyclic a ->
+  ([(DepVertex, b)] -> DepVertex -> Maybe a -> m b) ->
+  m (DepsGraph Acyclic b)
+traverseGraphPar strat dg op =
+  buildGraph <$> withScheduler strat' \s -> do
+    askRunInIO >>= \runIO -> liftIO mdo
+      -- For each vertex we create an action which waits for N inputs. When the
+      -- N-th input arrives it runs `op`.
+      --
+      -- When `op` completes the action is tasked with sending the result to each
+      -- depending vertex-action.
+      let runOp :: [(DepVertex, b)] -> DepVertex -> IO (DepVertex, b)
+          runOp bs v = do
+            b <- runIO $ op bs v (HM.lookup v (dgVertices dg))
+            for_ (G.postSet v (dgVerticesToUsedBy dg)) \v' ->
+              for_ (Map.lookup v' actions) \f ->
+                f v b
+            pure (v, b)
+      let superflousInput =
+            fail "received input for already scheduled vertex"
+      let vertexAction :: DepVertex -> Set.Set dep -> IO (DepVertex -> b -> IO ())
+          vertexAction a deps
+            | Set.null deps = do
+              scheduleWork s $ runOp [] a
+              pure \_ _ -> superflousInput
+            | otherwise = do
+              r <- newIORef $ Just $ TraverseState (Set.size deps) []
+              pure \v b -> do
+                bs <- atomicModifyIORef' r \case
+                  Nothing ->
+                    (Nothing, Nothing)
+                  Just (TraverseState 1 bs) ->
+                    (Nothing, Just ((v, b) : bs))
+                  Just (TraverseState n bs) ->
+                    (Just $! TraverseState (n - 1) ((v, b) : bs), Just [])
+                case bs of
+                  Just [] -> pure ()
+                  Just bs -> scheduleWork s $ runOp bs a
+                  Nothing -> superflousInput
+      actions <-
+        dgVerticesToDeps dg
+          & G.adjacencyMap
+          & Map.traverseWithKey vertexAction
+      pure ()
   where
+    buildGraph results =
+      dg {dgVertices = HM.fromList results}
     strat' = case strat of
       Seq -> ParN 1
       _ -> strat
 
-exportTextual :: DepsGraph cycles -> String
+exportTextual :: DepsGraph cycles a -> String
 exportTextual dg =
   dgVerticesToDeps dg
     & G.adjacencyMap

@@ -1,5 +1,7 @@
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -18,13 +20,14 @@ module AlgST.Typing
   ( -- * Monad Stack
     TcM,
     runTcM,
+    runErrors,
 
     -- * Kinds
-    HasKiSt (..),
-    HasKiEnv (..),
+    HasKiEnv,
+    HasKiSt,
     KindEnv,
-    KiSt (..),
-    KiTypingEnv (..),
+    KiSt,
+    KiTypingEnv,
     kisynth,
     kicheck,
 
@@ -32,20 +35,22 @@ module AlgST.Typing
     TypeM,
     runTypeM,
     TypeEnv,
-    TySt (..),
-    TyTypingEnv (..),
-    Var (..),
-    Usage (..),
+    TySt,
+    TyTypingEnv,
+    TcValue,
+    Var,
+    Usage,
     tysynth,
     tycheck,
     normalize,
 
     -- * Programs
     RunTyM,
-    RunKiM,
     checkModule,
     checkWithModule,
     checkSignature,
+    CheckContext,
+    extractCheckContext,
 
     -- * Phase
     Tc,
@@ -60,8 +65,8 @@ where
 
 import AlgST.Builtins.Names
 import AlgST.Parse.Phase
-import AlgST.Rename.Fresh
 import AlgST.Rename
+import AlgST.Rename.Fresh
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind ((<=?))
@@ -93,55 +98,80 @@ import Data.List.NonEmpty qualified as NE
 import Data.Map.Merge.Strict qualified as Merge
 import Data.Map.Strict qualified as Map
 import Data.Maybe
-import Data.Monoid (Endo (..))
+import Data.Semigroup
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
 import Data.These
 import Data.Tuple qualified as Tuple
 import Data.Void
+import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2
 import Lens.Family2.State.Strict
+import Lens.Family2.Stock (at')
 import Syntax.Base
 
 -- | Translates the typechecker specific error set representation into a simple
 -- list.
-runErrors :: Errors -> NonEmpty Diagnostic
-runErrors = DNE.toNonEmpty . mergeTheseWith id recursiveErrs (<>)
+runErrors :: Errors -> DErrors
+runErrors = mergeTheseWith id recursiveErrs (<>)
   where
     recursiveErrs (RecursiveSets oneKeys oneRec recs) =
       DNE.fromNonEmpty $
         Error.cyclicAliases oneRec
           :| fmap Error.cyclicAliases (Map.elems (Map.delete oneKeys recs))
 
-runTypeM :: TyTypingEnv -> TySt -> TypeM a -> Fresh (TySt, Either Errors a)
+runTypeM ::
+  TyTypingEnv -> TySt -> TypeM a -> Fresh (TySt, Either Errors a)
 runTypeM = runTcM
 
-runTcM :: env -> s -> TcM env s a -> Fresh (s, Either Errors a)
+runTcM ::
+  env -> st -> TcM env st a -> Fresh (st, Either Errors a)
 runTcM typesEnv s m =
   Tuple.swap <$> runReaderT (runStateT (runValidateT m) s) typesEnv
 
-type RunTyM = forall env st a. (HasKiEnv env, HasKiSt st) => TypeM a -> TcM env st a
+type RunTyM env st = forall a. TypeM a -> TcM env st a
 
-type RunKiM = forall a. TcM KiTypingEnv KiSt a -> Fresh (Either (NonEmpty Diagnostic) a)
+data CheckContext = CheckContext
+  { contextTypes :: !(TypesMap Tc),
+    contextTyCons :: !(TcNameMap Types TypeCon),
+    contextValues :: !(TcNameMap Values TcValue)
+  }
+  deriving stock (Lift)
+
+instance Semigroup CheckContext where
+  CheckContext a1 b1 c1 <> CheckContext a2 b2 c2 =
+    CheckContext (a1 <> a2) (b1 <> b2) (c1 <> c2)
+  stimes = stimesIdempotentMonoid
+
+instance Monoid CheckContext where
+  mempty = CheckContext mempty mempty mempty
+
+extractCheckContext :: TypeM CheckContext
+extractCheckContext = do
+  tycons <- gets $ view $ kiStL . tcTypeConsL
+  tyEnv <- ask
+  pure
+    CheckContext
+      { contextTypes = tcCheckedTypes tyEnv,
+        contextValues = tcCheckedValues tyEnv,
+        contextTyCons = tycons
+      }
 
 checkWithModule ::
+  CheckContext ->
   RnModule ->
-  (RunTyM -> RunKiM -> TcModule -> Fresh (Either (NonEmpty Diagnostic) r)) ->
-  Fresh (Either (NonEmpty Diagnostic) r)
-checkWithModule prog k = runExceptT $ do
-  let runWrapExcept ::
-        s -> TcM KiTypingEnv s a -> ExceptT (NonEmpty Diagnostic) Fresh (s, a)
-      runWrapExcept st m =
-        ExceptT . fmap (first runErrors . sequence) $ runTcM kiEnv st m
-  (st, (tcTypes, tcValues, tcImports)) <- runWrapExcept st0 checkGlobals
+  (forall env st. (HasKiEnv env, HasKiSt st) => RunTyM env st -> TcModule -> TcM env st r) ->
+  ValidateT Errors Fresh r
+checkWithModule ctxt prog k = do
+  (st, (tcTypes, tcValues, tcImports)) <- run kiSt0 checkGlobals
   let importedValues = Map.map (ValueGlobal Nothing . signatureType) tcImports
   let tyEnv =
         TyTypingEnv
-          { tcCheckedTypes = tcTypes,
-            tcCheckedValues = tcValues <> importedValues,
+          { tcCheckedTypes = contextTypes ctxt <> tcTypes,
+            tcCheckedValues = contextValues ctxt <> tcValues <> importedValues,
             tcKiTypingEnv = kiEnv
           }
-  let embed :: HasKiSt st => TypeM a -> TcM env st a
+  let embed :: TypeM a -> TcM env KiSt a
       embed = embedTypeM tyEnv
   let mkProg :: ValuesMap Tc -> TcModule
       mkProg values =
@@ -151,32 +181,36 @@ checkWithModule prog k = runExceptT $ do
             moduleSigs = tcImports,
             moduleImports = moduleImports prog
           }
-  (st', prog) <- runWrapExcept st $ mkProg <$> checkValueBodies embed tcValues
-  ExceptT $ k embed (fmap (first runErrors . snd) . runTcM kiEnv st') prog
+  (st', prog) <- run st $ mkProg <$> checkValueBodies embed tcValues
+  fmap snd $ run st' $ k (embedTypeM tyEnv) prog
   where
+    kiSt0 =
+      KiSt
+        { tcTypeCons =
+            contextTyCons ctxt
+              <> typeConstructorsFromDecls (moduleTypes prog)
+        }
     kiEnv =
       KiTypingEnv
         { tcKindEnv = mempty,
-          tcExpansionStack = mempty,
-          tcContext = prog
+          tcExpansionStack = mempty
         }
-    st0 =
-      KiSt
-        { tcAliases =
-            let getAlias _ decl = Identity do
-                  AliasDecl origin alias <- pure decl
-                  pure $ UncheckedAlias (pos origin) alias
-             in runIdentity $ Map.traverseMaybeWithKey getAlias $ moduleTypes prog
-        }
+    run st m = do
+      (res, st) <-
+        runValidateT m
+          & flip runStateT st
+          & flip runReaderT kiEnv
+          & lift
+      (st,) <$> either refute pure res
     checkGlobals = do
-      checkAliases (Map.keys (moduleTypes prog))
+      checkAliases
       tcTypes <- checkTypeDecls (moduleTypes prog)
       checkedDefs <- checkValueSignatures (moduleValues prog)
       tcImports <- traverse checkSignature (moduleSigs prog)
       pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcImports)
 
-checkModule :: Module Rn -> Fresh (Either (NonEmpty Diagnostic) TcModule)
-checkModule p = checkWithModule p \_ _ -> pure . Right
+checkModule :: CheckContext -> Module Rn -> ValidateT Errors Fresh TcModule
+checkModule ctxt p = checkWithModule ctxt p \_ -> pure
 
 addError :: MonadValidate Errors m => Diagnostic -> m ()
 addError !e = dispute $ This $ DNE.singleton e
@@ -241,17 +275,120 @@ checkTypeDecl name = \case
       (ty', k) <- kisynth ty
       ty' <$ expectSubkind ty k [K.TL, K.P]
 
+typeConstructorsFromDecls :: TypesMap Rn -> TcNameMap Types TypeCon
+typeConstructorsFromDecls = fmap \case
+  AliasDecl x ta -> LazyAlias (pos x) ta
+  DataDecl _ tn -> NominalTypeCon (nominalParams tn) (nominalKind tn)
+  ProtoDecl _ tn -> NominalTypeCon (nominalParams tn) (nominalKind tn)
+
+applyTypeCon ::
+  (HasKiEnv env, HasKiSt st) =>
+  Pos ->
+  NameR Types ->
+  TypeCon ->
+  [RnType] ->
+  TcM env st (TcType, K.Kind)
+applyTypeCon loc name con args = case con of
+  NominalTypeCon params kind -> do
+    subs <- zipTypeParams loc name params args
+    let typeRef =
+          TypeRef
+            { typeRefPos = loc,
+              typeRefKind = kind,
+              typeRefName = name,
+              typeRefArgs = snd <$> subs
+            }
+    pure (T.Type typeRef, kind)
+
+  -- The alias is already resolved.
+  ResolvedAlias alias kind -> do
+    useExpanded alias kind
+
+  -- The alias is not yet expanded.
+  LazyAlias defLoc alias -> do
+    (checked, k) <- expandTypeAlias name defLoc alias
+    useExpanded checked k
+
+  -- We already discovered a cycle in this alias.
+  CyclicAlias recs -> do
+    refute (That recs)
+
+  -- The alias is already being expanded. We discovered a cyclic definition.
+  ExpandingAlias depth -> do
+    recs <- markCyclicTypeAliases depth
+    refute (That recs)
+  where
+    useExpanded ta k = do
+      subs <- zipTypeParams loc name (aliasParams ta) args
+      let ty = substituteType (Map.fromList subs) (aliasType ta)
+      pure (ty, k)
+
+expandTypeAlias :: (HasKiEnv env, HasKiSt st) => NameR Types -> Pos -> TypeAlias Rn -> TcM env st (TypeAlias Tc, K.Kind)
+expandTypeAlias name defLoc alias = do
+  depth <- asks $ view kiEnvL >>> tcExpansionStack >>> length
+  -- Mark the alias as being expanded.
+  kiStL . tcTypeConsL %= Map.insert name (ExpandingAlias depth)
+  (expanded, k) <- local (noteExpansion defLoc alias) do
+    case aliasKind alias of
+      Nothing -> kisynth (aliasType alias)
+      Just k -> (,k) <$> kicheck (aliasType alias) k
+  let checked =
+        alias
+          { aliasType = expanded,
+            -- Although no change occurs here the record can only change
+            -- its type when all the dependent bits change; 'aliasParams'
+            -- is at least nominally dependent on the phase token.
+            aliasParams = aliasParams alias
+          }
+  -- Mark the alias as successfully checked.
+  kiStL . tcTypeConsL %= Map.insert name (ResolvedAlias checked k)
+  pure (checked, k)
+  where
+    noteExpansion aliasLoc alias env = do
+      let expansion =
+            ExpansionEntry
+              { expansionLoc = aliasLoc,
+                expansionName = name,
+                expansionAlias = alias
+              }
+      env
+        & kiEnvL . tcExpansionStackL %~ (Seq.|> expansion)
+        & bindParams (aliasParams alias)
+
+markCyclicTypeAliases :: (HasKiEnv env, HasKiSt st) => Int -> TcM env st RecursiveSets
+markCyclicTypeAliases depth = do
+  entries <- asks do
+    view kiEnvL
+      >>> tcExpansionStack
+      >>> toList
+      >>> drop depth
+  let names = Set.fromList $ expansionName <$> entries
+  let recs = RecursiveSets names entries $ Map.singleton names entries
+  -- Mark all affected aliases as cyclic.
+  let cyclicAliases = Map.fromSet (const (CyclicAlias recs)) names
+  kiStL . tcTypeConsL %= Map.union cyclicAliases
+  pure recs
+
 -- | Makes sure all aliases are expanded. This step is to make sure all invalid
 -- type aliases are diagnosed even when they are not used.
-checkAliases :: (Foldable f, HasKiEnv env, HasKiSt st) => f (TypeVar TcStage) -> TcM env st ()
-checkAliases =
-  -- Type aliases are expanded by looking them up.
-  traverse_ $ runMaybeT . lookupTypeAlias
+checkAliases :: (HasKiSt st, HasKiEnv env) => TcM env st ()
+checkAliases = do
+  typeNames <- gets $ view $ kiStL . tcTypeConsL . to Map.keys
+  for_ typeNames \name -> do
+    typeCon <- gets $ view $ kiStL . tcTypeConsL . at' name
+    case typeCon of
+      Just (LazyAlias defLoc alias) ->
+        void $ expandTypeAlias name defLoc alias
+      _ ->
+        pure ()
 
 -- | Typechecks the signatures of the contained 'ValueDecl's. The resulting map
 -- does not contain any 'ValueCon's. Checked constructors are returned by
 -- 'checkTypeDecl'/'checkTypeDecls'.
-checkValueSignatures :: (HasKiEnv env, HasKiSt st) => ValuesMap Rn -> TcM env st TcValuesMap
+checkValueSignatures ::
+  (HasKiEnv env, HasKiSt st) =>
+  ValuesMap Rn ->
+  TcM env st TcValuesMap
 checkValueSignatures = Map.traverseMaybeWithKey $ const \case
   Left _ -> do
     -- The reason for dropping the construcutors here is twofold:
@@ -267,8 +404,7 @@ checkedConstructors = Map.foldMapWithKey \name ->
   Map.map ValueCon . declConstructors originAt originAt name
 
 checkSignature ::
-  (HasKiEnv env, HasKiSt st) =>
-  (SignatureDecl Rn -> TcM env st (SignatureDecl Tc))
+  (HasKiEnv env, HasKiSt st) => SignatureDecl Rn -> TcM env st (SignatureDecl Tc)
 checkSignature (SignatureDecl x ty) =
   SignatureDecl x <$> kicheck ty K.TU
 
@@ -286,16 +422,12 @@ checkValueBodies embed = Map.traverseMaybeWithKey \_name -> \case
     -- Non-global values are not possible on this level.
     pure Nothing
 
-embedTypeM :: HasKiSt s => TyTypingEnv -> TypeM a -> TcM env s a
+embedTypeM :: TyTypingEnv -> TypeM a -> TcM env KiSt a
 embedTypeM env m = do
-  kist <- use kiStL
-  let tyst =
-        TySt
-          { tcKindSt = kist,
-            tcTypeEnv = mempty
-          }
-  (st, res) <- liftFresh $ runTypeM env tyst m
-  kiStL .= view kiStL st
+  kist <- get
+  let tyst = TySt {tcKindSt = kist, tcTypeEnv = mempty}
+  (tyst', res) <- liftFresh $ runTypeM env tyst m
+  put (tcKindSt tyst')
   case res of
     Left errs -> refute errs
     Right a -> pure a
@@ -339,59 +471,6 @@ expectNominalKind loc nomKind name actual allowed = do
     then pure actual
     else NE.last allowed <$ addError (Error.invalidNominalKind loc nomKind name actual allowed)
 
--- | Checks if a type alias with the given name exists and if so returns the
--- fully expanded alias.
---
--- The alias parameters have to be checked against 'aliasParams' and substitued
--- into 'aliasType' by the caller.
-lookupTypeAlias ::
-  (HasKiEnv env, HasKiSt s) => TypeVar TcStage -> MaybeT (TcM env s) (TypeAlias Tc, K.Kind)
-lookupTypeAlias name = do
-  alias <- MaybeT $ use $ kiStL . tcAliasesL . to (Map.lookup name)
-  lift case alias of
-    CheckedAlias ta k ->
-      pure (ta, k)
-    RecursiveAlias recs ->
-      refute (That recs)
-    UncheckedAlias pos ta -> do
-      depth <- asks $ view kiEnvL >>> tcExpansionStack >>> length
-      setAlias (ExpandingAlias depth)
-      (expanded, k) <- local (noteExpansion pos ta) do
-        case aliasKind ta of
-          Nothing -> kisynth (aliasType ta)
-          Just k -> (,k) <$> kicheck (aliasType ta) k
-      let checked =
-            ta
-              { aliasType = expanded,
-                -- Although no change occurs here the record can only change
-                -- its type when all the dependent bits change; 'aliasParams'
-                -- is at least nominally dependent on the phase token.
-                aliasParams = aliasParams ta
-              }
-      setAlias (CheckedAlias checked k)
-      pure (checked, k)
-    ExpandingAlias depth -> do
-      recs@(RecursiveSets names _ _) <-
-        asks $
-          view kiEnvL
-            >>> tcExpansionStack
-            >>> toList
-            >>> drop depth
-            >>> buildRecsError
-      let diagnosed = Map.fromSet (const (RecursiveAlias recs)) names
-      kiStL . tcAliasesL %= Map.union diagnosed
-      refute $ That recs
-  where
-    setAlias a =
-      kiStL . tcAliasesL %= Map.insert name a
-    noteExpansion pos alias env =
-      env
-        & kiEnvL . tcExpansionStackL %~ (Seq.|> (pos, name, alias))
-        & bindParams (aliasParams alias)
-    buildRecsError recSet =
-      let names = Set.fromList [name | (_, name, _) <- recSet]
-       in RecursiveSets names recSet (Map.singleton names recSet)
-
 -- | @typeAppBase t us@ destructures @t@ multiple levels to the type
 -- application head. @us@ is a non-empty list of already established
 -- parameters.
@@ -422,34 +501,16 @@ kisynthTypeCon ::
   TypeVar TcStage ->
   [RnType] ->
   TcM env st (TcType, K.Kind)
-kisynthTypeCon loc name args =
-  runMaybeT (alias <|> decl) >>= maybeError (Error.undeclaredCon loc name)
-  where
-    alias = do
-      (alias, k) <- lookupTypeAlias name
-      subs <- lift $ zipTypeParams loc name (aliasParams alias) args
-      pure (substituteType (Map.fromList subs) (aliasType alias), k)
-
-    decl = do
-      decl <-
-        MaybeT . asks $
-          view kiEnvL
-            >>> tcContext
-            >>> moduleTypes
-            >>> Map.lookup name
-      subs <- lift $ zipTypeParams loc name (declParams decl) args
-      let kind = case decl of
-            AliasDecl {} -> error "unexpected AliasDecl"
-            DataDecl _ tn -> nominalKind tn
-            ProtoDecl _ tn -> nominalKind tn
-      let refTy =
-            TypeRef
-              { typeRefPos = loc,
-                typeRefKind = kind,
-                typeRefName = name,
-                typeRefArgs = snd <$> subs
-              }
-      pure (T.Type refTy, kind)
+kisynthTypeCon loc name args = do
+  mcon <- gets $ view $ kiStL . tcTypeConsL . at' name
+  case mcon of
+    Nothing ->
+      error $
+        show loc
+          ++ ": internal error: unknown type constructor "
+          ++ pprName name
+    Just con ->
+      applyTypeCon loc name con args
 
 -- | Kind-checks the types against the parameter list. In case they differ in
 -- length an error is emitted.
@@ -495,7 +556,10 @@ substituteTypeConstructors subs = nomDecl >>> substituteConstructors
     substituteConstructors nom =
       mapConstructors (const $ applySubstitutions subs) (nominalConstructors nom)
 
-kisynth :: (HasKiEnv env, HasKiSt st) => RnType -> TcM env st (TcType, K.Kind)
+kisynth ::
+  (HasKiEnv env, HasKiSt st) =>
+  RnType ->
+  TcM env st (TcType, K.Kind)
 kisynth =
   etaTcM . \case
     T.Unit p -> do
@@ -824,7 +888,8 @@ data MatchableType
 -- indicates a receiving match on a session type.
 --
 -- In case the type is not suitable an error is emitted.
-extractMatchableType :: String -> Pos -> TcType -> TcM env s MatchableType
+extractMatchableType ::
+  String -> Pos -> TcType -> TcM env st MatchableType
 extractMatchableType s p t = etaTcM do
   tNF <- normalize t
   let patTy = \case
@@ -841,7 +906,8 @@ extractMatchableType s p t = etaTcM do
 
 -- | Looks up the type for the given 'ProgVar'. This function works correctly
 -- for local variables, globals and constructors.
-synthVariable :: Pos -> ProgVar TcStage -> TypeM (Maybe (TcExp, TcType))
+synthVariable ::
+  Pos -> ProgVar TcStage -> TypeM (Maybe (TcExp, TcType))
 synthVariable p name = runMaybeT (useLocal <|> useGlobal)
   where
     useLocal = do
@@ -863,7 +929,7 @@ synthVariable p name = runMaybeT (useLocal <|> useGlobal)
           addFatalError $ Error.protocolConAsValue p name parent
 
 instantiateDeclRef ::
-  Pos -> TypeVar TcStage -> TypeDecl Tc -> TcM env s (Params TcStage, TypeRef)
+  Pos -> TypeVar TcStage -> TypeDecl Tc -> TcM env st (Params TcStage, TypeRef)
 instantiateDeclRef p name decl = do
   params <- liftFresh $ freshResolvedParams (declParams decl)
   pure
@@ -937,7 +1003,12 @@ buildForallType = foldMap (Endo . mkForall) >>> appEndo
     mkForall (p :@ tv, k) = T.Forall defaultPos . K.Bind p tv k
 
 buildDataConType ::
-  Pos -> TypeVar TcStage -> TypeDecl Tc -> Multiplicity -> [TcType] -> TcM env s TcType
+  Pos ->
+  TypeVar TcStage ->
+  TypeDecl Tc ->
+  Multiplicity ->
+  [TcType] ->
+  TcM env st TcType
 buildDataConType p name decl mul items = do
   (params, ref) <- instantiateDeclRef p name decl
   let subs = typeRefSubstitutions decl ref
@@ -948,7 +1019,11 @@ buildSessionType :: Pos -> T.Polarity -> [TcType] -> TcType -> TcType
 buildSessionType loc pol fields s = foldr (T.Session loc pol) s fields
 
 checkSessionCase ::
-  Pos -> RnCaseMap -> PatternType -> TcType -> TypeM (TcCaseMap Identity (Const ()), TcType)
+  Pos ->
+  RnCaseMap ->
+  PatternType ->
+  TcType ->
+  TypeM (TcCaseMap Identity (Const ()), TcType)
 checkSessionCase loc cases patTy s = do
   (cmap, ty) <- checkCaseExpr loc False cases patTy \_con fields b -> etaTcM do
     -- Get the variable to bind and its type.
@@ -984,7 +1059,10 @@ checkCaseExpr loc allowWild cmap patTy typedBinds = etaTcM do
     Error.missingCaseBranches loc missingBranches
 
   -- Handles a single (written by the user) branch.
-  let go :: ProgVar TcStage -> E.CaseBranch [] Rn -> BranchT TcType TypeM (E.CaseBranch f Tc)
+  let go ::
+        ProgVar TcStage ->
+        E.CaseBranch [] Rn ->
+        BranchT TcType TypeM (E.CaseBranch f Tc)
       go con branch = liftBranchT (Error.PatternBranch (pos branch) con) \mty -> do
         let branchError =
               Error.mismatchedCaseConstructor
@@ -1001,7 +1079,9 @@ checkCaseExpr loc allowWild cmap patTy typedBinds = etaTcM do
           checkOrSynth (E.branchExp branch) mty
         pure (branch {E.branchExp = e, E.branchBinds = fst <$> binds}, eTy)
 
-  let goWild :: E.CaseBranch Identity Rn -> BranchT TcType TypeM (E.CaseBranch Identity Tc)
+  let goWild ::
+        E.CaseBranch Identity Rn ->
+        BranchT TcType TypeM (E.CaseBranch Identity Tc)
       goWild branch = liftBranchT (Error.WildcardBranch $ pos branch) \mty -> do
         errorIf (not hasMissingBranches) $ Error.unnecessaryWildcard (pos branch)
         errorIf (not allowWild) $ Error.wildcardNotAllowed (pos branch) loc
@@ -1244,7 +1324,8 @@ withProgVarBinds !mUnArrLoc vtys action = etaTcM do
   pure a
 
 -- | Like 'withProgVarBinds' but for a single binding.
-withProgVarBind :: Maybe Pos -> Pos -> ProgVar TcStage -> TcType -> TypeM a -> TypeM a
+withProgVarBind ::
+  Maybe Pos -> Pos -> ProgVar TcStage -> TcType -> TypeM a -> TypeM a
 withProgVarBind mp varLoc pv ty = withProgVarBinds mp [(varLoc :@ pv, ty)]
 
 tycheck :: RnExp -> TcType -> TypeM TcExp

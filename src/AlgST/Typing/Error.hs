@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -195,26 +196,26 @@ typeConstructorNParams loc ts !given !expected =
     ]
 {-# NOINLINE typeConstructorNParams #-}
 
-cyclicAliases :: [(Pos, TypeVar TcStage, TypeAlias Rn)] -> Diagnostic
+cyclicAliases :: [ExpansionEntry] -> Diagnostic
 cyclicAliases aliases =
   PosError errLoc $
     Error "Cycle in type synonym declarations." :
     concat
       [ concat
           [ [ ErrLine,
-              Error $ "  " ++ showLoc loc
+              Error $ "  " ++ showLoc expansionLoc
             ],
-            aliasHead name (aliasParams a),
+            aliasHead expansionName (aliasParams expansionAlias),
             [ Error "=",
-              Error (aliasType a)
+              Error (aliasType expansionAlias)
             ]
           ]
-        | (loc, name, a) <- aliases
+        | ExpansionEntry {..} <- aliases
       ]
   where
     errLoc = minimum positions
     locSize = maximum (length . show <$> positions)
-    positions = fmap (\(p, _, _) -> p) aliases
+    positions = fmap expansionLoc aliases
     showLoc (show -> l) = l ++ ":" ++ replicate (locSize - length l) ' '
     aliasHead name params = Error "type" : Error name : [Error p | (p, _) <- params]
 {-# NOINLINE cyclicAliases #-}

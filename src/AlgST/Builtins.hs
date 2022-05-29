@@ -1,25 +1,24 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeApplications #-}
 
 module AlgST.Builtins
   ( module AlgST.Builtins.Names,
-    builtins,
+    builtinsModule,
     builtinsModuleMap,
+    builtinsModuleCtxt,
   )
 where
 
 import AlgST.Builtins.Names hiding (builtinsPartialModuleMap)
 import AlgST.Builtins.Names qualified as B
 import AlgST.Builtins.TH
-import AlgST.Rename (ModuleMap, Rn, RnModule)
-import AlgST.Syntax.Decl
-import AlgST.Syntax.Program
-import Data.HashMap.Strict qualified as HM
-import Prelude hiding (all)
+import AlgST.Rename (ModuleMap)
+import AlgST.Typing qualified as Tc
+import AlgST.Typing.Phase (TcModule)
 
-builtins :: RnModule
+builtinsModule :: TcModule
 builtinsModuleMap :: ModuleMap
-(builtinsModuleMap, builtins) =
+builtinsModuleCtxt :: Tc.CheckContext
+(builtinsModuleMap, builtinsModuleCtxt, builtinsModule) =
   $$( let defs =
             [ "data String : MU",
               "data Char : MU",
@@ -77,12 +76,5 @@ builtinsModuleMap :: ModuleMap
               "(/) : Int -> Int -> Int",
               "(%) : Int -> Int -> Int"
             ]
-       in [||
-          let (map, mod) = $$(parseTH HM.empty BuiltinsModule B.builtinsPartialModuleMap defs)
-              markBuiltin :: TypeDecl Rn -> TypeDecl Rn
-              markBuiltin = \case
-                DataDecl _ decl -> DataDecl OriginBuiltin decl
-                decl -> decl
-           in (map, mod {moduleTypes = markBuiltin <$> moduleTypes mod})
-          ||]
+       in parseTH mempty BuiltinsModule B.builtinsPartialModuleMap defs
     )

@@ -57,16 +57,21 @@ main = do
             }
             & Driver.addModuleSource mainModule srcName src
 
-    checked <-
+    _checked <-
       maybe exitFailure pure =<< Driver.runDriver driverSettings do
-        parsed <- Driver.parseAllModules mainModule
-        uncurry Driver.checkAll parsed
+        (pathsMap, parsed) <- Driver.parseAllModules mainModule
+        renamed <- Driver.renameAll pathsMap parsed
+        Driver.checkAll pathsMap renamed
 
-    let isMain n =
-          nameResolvedModule n == mainModule
-            && nameUnqualified n == Unqualified "main"
-    let mmainName = List.find isMain $ Map.keys $ moduleValues checked
-    for_ mmainName \mainName -> do
-      outputStrLn outputHandle "Running ‘main’"
-      r <- I.runEval (I.programEnvironment checked) $ I.eval $ E.Var defaultPos mainName
-      outputStrLn outputHandle $ "Result: " ++ show r
+    pure ()
+
+-- TODO: re-enable evaluation
+--
+--    let isMain n =
+--          nameResolvedModule n == mainModule
+--            && nameUnqualified n == Unqualified "main"
+--    let mmainName = List.find isMain $ Map.keys $ moduleValues checked
+--    for_ mmainName \mainName -> do
+--      outputStrLn outputHandle "Running ‘main’"
+--      r <- I.runEval (I.programEnvironment checked) $ I.eval $ E.Var defaultPos mainName
+--      outputStrLn outputHandle $ "Result: " ++ show r

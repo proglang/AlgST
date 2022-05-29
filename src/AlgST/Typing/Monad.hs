@@ -1,4 +1,6 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 
@@ -21,6 +23,7 @@ import Data.DList.DNonEmpty (DNonEmpty)
 import Data.Map qualified as Map
 import Data.Sequence (Seq)
 import Data.These
+import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2
 import Syntax.Base
 
@@ -40,6 +43,14 @@ data Usage
   | -- | A used 'Lin' variable, associated with the usage location.
     LinUsed Pos
 
+data TypeCon
+  = NominalTypeCon !(Params Resolved) !K.Kind
+  | ResolvedAlias !(TypeAlias Tc) !K.Kind
+  | LazyAlias !Pos !(TypeAlias Rn)
+  | ExpandingAlias !Int
+  | CyclicAlias RecursiveSets
+  deriving stock (Lift)
+
 type TypeEnv = TcNameMap Values Var
 
 type KindEnv = TcNameMap Types K.Kind
@@ -48,15 +59,15 @@ type KindEnv = TcNameMap Types K.Kind
 data KiTypingEnv = KiTypingEnv
   { -- | Maps type variables to their kind.
     tcKindEnv :: KindEnv,
-    tcContext :: RnModule,
-    -- | The stack of type aliases we are expanding. The first two tuple
-    -- elements are declaration location and name.
-    tcExpansionStack :: Seq (Pos, TypeVar TcStage, TypeAlias Rn)
+    -- | The stack of type aliases we are expanding. We keep track of this so
+    -- that we can diagnose the actual cycles in type synonyms.
+    tcExpansionStack :: Seq ExpansionEntry
   }
 
 data TcValue
   = ValueGlobal (Maybe (ValueDecl Rn)) TcType
   | ValueCon (ConstructorDecl Tc)
+  deriving stock (Lift)
 
 -- | Like 'ValuesMap' but the values in the map are of type 'TcValue'.
 type TcValuesMap = TcNameMap Values TcValue
@@ -72,46 +83,50 @@ data TyTypingEnv = TyTypingEnv
     tcCheckedValues :: TcNameMap Values TcValue
   }
 
-newtype KiSt = KiSt {tcAliases :: TcNameMap Types Alias}
-
--- | State during type checking of expressions. The main part is the 'TypeEnv'
--- which maps the variables in scope to their 'Usage' status.
---
--- When new fields are introduced 'parallelTypeM' might have to be adjusted.
-data TySt = TySt
-  { tcTypeEnv :: TypeEnv,
-    tcKindSt :: KiSt
+newtype KiSt = KiSt
+  { tcTypeCons :: TcNameMap Types TypeCon
   }
 
-data Alias
-  = CheckedAlias !(TypeAlias Tc) !K.Kind
-  | -- TODO: Should this carry an Origin instead? I think we can assume that
-    -- an imported/builtin alias won't fail to expand. In that case a simple
-    -- Pos is enough information for the error messages.
-    UncheckedAlias !Pos !(TypeAlias Rn)
-  | ExpandingAlias !Int
-  | RecursiveAlias RecursiveSets
+data TySt = TySt
+  { tcKindSt :: !KiSt,
+    -- | Maps variables in scope to their 'Usage' status.
+    tcTypeEnv :: !TypeEnv
+  }
 
 data RecursiveSets
   = RecursiveSets
       (TcNameSet Types)
-      [(Pos, TypeVar TcStage, TypeAlias Rn)]
-      !(Map.Map (TcNameSet Types) [(Pos, TypeVar TcStage, TypeAlias Rn)])
+      [ExpansionEntry]
+      !(Map.Map (TcNameSet Types) [ExpansionEntry])
+  deriving stock (Lift)
 
 instance Semigroup RecursiveSets where
   RecursiveSets a b recs <> RecursiveSets _ _ recs' =
     RecursiveSets a b (recs <> recs')
 
-{- ORMOLU_DISABLE -}
-makeLenses ['tcKindEnv, 'tcExpansionStack] ''KiTypingEnv
-tcKindEnvL :: Lens' KiTypingEnv KindEnv
-tcExpansionStackL :: Lens' KiTypingEnv (Seq (Pos, TypeVar TcStage, TypeAlias Rn))
+type TypeM = TcM TyTypingEnv TySt
 
-makeLenses ['tcKiTypingEnv] ''TyTypingEnv
-tcKiTypingEnvL :: Lens' TyTypingEnv KiTypingEnv
+type TcM env st = ValidateT Errors (StateT st (ReaderT env Fresh))
+
+type Errors = These (DNonEmpty Diagnostic) RecursiveSets
+
+data ExpansionEntry = ExpansionEntry
+  { expansionLoc :: !Pos,
+    expansionName :: !(NameR Types),
+    expansionAlias :: !(TypeAlias Rn)
+  }
+  deriving stock (Lift)
+
+{- ORMOLU_DISABLE -}
+makeLenses ''KiTypingEnv
+tcKindEnvL :: Lens' KiTypingEnv KindEnv
+tcExpansionStackL :: Lens' KiTypingEnv (Seq ExpansionEntry)
 
 makeLenses ''KiSt
-tcAliasesL :: Lens' KiSt (TcNameMap Types Alias)
+tcTypeConsL :: Lens' KiSt (TcNameMap Types TypeCon)
+
+makeLenses ['tcKiTypingEnv] ''TyTypingEnv
+tcKiTypingEnvL :: Lens' TyTypingEnv KiTypingEnv 
 
 makeLenses ''TySt
 tcTypeEnvL :: Lens' TySt TypeEnv
@@ -139,16 +154,10 @@ instance HasKiEnv KiTypingEnv where
 instance HasKiEnv TyTypingEnv where
   kiEnvL = tcKiTypingEnvL
 
-type TypeM = TcM TyTypingEnv TySt
-
-type TcM env s = ValidateT Errors (StateT s (ReaderT env Fresh))
-
-type Errors = These (DNonEmpty Diagnostic) RecursiveSets
-
 liftFresh :: Fresh a -> TcM env st a
 liftFresh = etaTcM . lift . lift . lift
 {-# INLINE liftFresh #-}
 
-etaTcM :: TcM env s a -> TcM env s a
-etaTcM = etaValidateT . mapValidateT (etaStateT . mapStateT (etaReaderT . mapReaderT etaFresh))
+etaTcM :: TcM env st a -> TcM env st a
+etaTcM = etaValidateT . mapValidateT (etaStateT . mapStateT (etaReaderT . mapReaderT etaFreshT))
 {-# INLINE etaTcM #-}

@@ -2,12 +2,10 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeApplications #-}
 
 module AlgST.Driver
   ( -- * Driver monad
@@ -41,15 +39,14 @@ import AlgST.Rename.Fresh (runFresh)
 import AlgST.Rename.Modules qualified as Rn
 import AlgST.Syntax.Name
 import AlgST.Syntax.Program
-import AlgST.Typing (TcModule)
 import AlgST.Typing qualified as Tc
+import AlgST.Typing.Phase
 import AlgST.Util (plural)
 import AlgST.Util.Error
 import AlgST.Util.ErrorMessage
 import AlgST.Util.Output
 import Algebra.Graph.AdjacencyMap.Algorithm qualified as G (Cycle)
 import Control.Category ((>>>))
-import Control.Concurrent (threadDelay)
 import Control.Exception
 import Control.Monad.Cont
 import Control.Monad.IO.Unlift
@@ -97,26 +94,19 @@ type Source = (FilePath, String)
 
 type Scheduler = S.Scheduler RealWorld
 
-type DepsTracker = IORef (DepsGraph MaybeCyclic)
+type DepsTracker = IORef (DepsGraph MaybeCyclic PModule)
 
 newtype Driver a = Driver {unDriver :: ReaderT DriverState IO a}
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadUnliftIO)
 
-data ErrorAbortException = ErrorAbortException
-  deriving stock (Show)
-
-instance Exception ErrorAbortException
-
 runDriver :: Settings -> Driver a -> IO (Maybe a)
 runDriver driverSettings m = do
   driverErrors <- newIORef False
-  res <- try @ErrorAbortException do
+  a <-
     runDriverSt DriverState {..} m `finally` do
       clearSticky $ driverOutputHandle driverSettings
   hasError <- readIORef driverErrors
-  case res of
-    Right a | not hasError -> pure (Just a)
-    _ -> pure Nothing
+  pure $ a <$ guard (not hasError)
 
 runDriverSt :: DriverState -> Driver a -> IO a
 runDriverSt dst (Driver m) = runReaderT m dst
@@ -191,21 +181,16 @@ addTask scheduler m = do
   env <- askState
   liftIO $ scheduleWork scheduler $ runDriverSt env m
 
-data ParsedModule = ParsedModule
-  { pmName :: ModuleName,
-    pmPath :: FilePath,
-    pmModule :: PModule
-  }
-
 -- | Parse the given module and all dependencies. The result does not contain
 -- any modules where errors occured.
-parseAllModules :: ModuleName -> Driver (DepsGraph Acyclic, [ParsedModule])
+parseAllModules ::
+  ModuleName -> Driver (HashMap ModuleName FilePath, DepsGraph Acyclic PModule)
 parseAllModules firstName = do
   depsRef <- liftIO $ newIORef emptyDepsGraph
   (output, _) <- askOutput
   counter <- newCounter output do
     zeroCounter & counterTitleL .~ "Parsing..."
-  mods <- parScheduled $ \scheduler -> do
+  modulePaths <- fmap HM.fromList . parScheduled $ \scheduler -> do
     parseModule scheduler depsRef counter mempty firstName
   finalDeps <- liftIO $ readIORef depsRef
 
@@ -227,7 +212,7 @@ parseAllModules firstName = do
     cycleError >>> \case
       Left (fp, diag) -> reportErrors fp [diag]
       Right diag -> reportErrors "" [diag]
-  pure (acyclicDeps, catMaybes mods)
+  pure (modulePaths, acyclicDeps)
 
 -- | Tries to locate the source code for the module with the given name using
 -- the drivers settings (see 'Settings', 'driverSources', 'driverSearchPaths').
@@ -237,7 +222,7 @@ parseAllModules firstName = do
 -- code fails an error is emitted.
 parseModule ::
   -- | Where to schedule parsing of the module.
-  Scheduler (Maybe ParsedModule) ->
+  Scheduler (ModuleName, FilePath) ->
   -- | Where to note down the inter-module dependencies.
   DepsTracker ->
   -- | Keeps track of the progress for user-friendly output.
@@ -261,7 +246,7 @@ parseModule scheduler depsRef progress iloc name = do
 -- dependencies are scheduled for parsing using the provided scheduler.
 parseModuleNow ::
   -- | Where to schedule the dependent unparsed modules.
-  Scheduler (Maybe ParsedModule) ->
+  Scheduler (ModuleName, FilePath) ->
   -- | Where to note down the inter-module dependencies.
   DepsTracker ->
   -- | Keeps track of the progress for user-friendly output.
@@ -272,7 +257,7 @@ parseModuleNow ::
   FilePath ->
   -- | Source code of the module.
   String ->
-  Driver (Maybe ParsedModule)
+  Driver (ModuleName, FilePath)
 parseModuleNow scheduler depsRef progress moduleName modulePath moduleSource = do
   let title = "Parsing " ++ unModuleName moduleName
   wrapCounter progress title do
@@ -280,43 +265,30 @@ parseModuleNow scheduler depsRef progress moduleName modulePath moduleSource = d
     case parseResult of
       Left errs -> do
         reportErrors modulePath errs
-        pure Nothing
       Right parsed -> do
-        newDeps <- noteDependencies depsRef moduleName modulePath $ moduleImports parsed
+        newDeps <- noteDependencies depsRef moduleName modulePath parsed
         traverse_ (uncurry $ parseModule scheduler depsRef progress) newDeps
-        pure . Just $
-          ParsedModule
-            { pmName = moduleName,
-              pmPath = modulePath,
-              pmModule = parsed
-            }
+    pure (moduleName, modulePath)
 
 renameAll ::
-  DepsGraph Acyclic ->
-  [ParsedModule] ->
-  Driver [(DepVertex, Rn.RnModule)]
-renameAll dg mods = do
+  HashMap ModuleName FilePath ->
+  DepsGraph Acyclic PModule ->
+  Driver (DepsGraph Acyclic (Maybe Rn.RnModule))
+renameAll paths dg = do
   (output, _) <- askOutput
   counter <- newCounter output do
     zeroCounter & counterOverallL .~ depsGraphSize dg
   strat <- askStrategy
-  filterResults <$> traverseGraphPar strat dg \deps name -> do
-    let title = "Resolving " ++ unModuleName name
-    wrapCounter counter title case HM.lookup name modsByName of
-      Nothing -> pure (name, Rn.emptyModuleMap, Nothing)
-      Just pm -> do
-        liftIO $ threadDelay 300_000
-        rename pm deps
+  fmap snd <$> traverseGraphPar strat dg \deps name mparsed -> do
+    resolved <- maybeCounter counter "Resolving" name mparsed (rename deps name)
+    pure $ fromMaybe (Rn.emptyModuleMap, Nothing) resolved
   where
-    modsByName = HM.fromList [(pmName pm, pm) | pm <- mods]
-    filterResults xs = [(n, m) | (n, _, Just m) <- xs]
-
-    rename pm deps = do
+    rename deps name parsed = do
       let (rnMap, rnAction) =
             -- Insert a 'ImportAll Builtins' here.
             Rn.renameModule
-              (pmName pm)
-              (pmModule pm)
+              name
+              parsed
                 { moduleImports =
                     defaultPos
                       @- Import
@@ -324,55 +296,53 @@ renameAll dg mods = do
                           importQualifier = emptyModuleName,
                           importSelection = ImportAll defaultPos HM.empty HM.empty
                         } :
-                    moduleImports (pmModule pm)
+                    moduleImports parsed
                 }
       let availableImports =
             HM.fromList $
               (BuiltinsModule, builtinsModuleMap) :
-                [(depName, depGlobals) | (depName, depGlobals, _) <- deps]
+                [(depName, depGlobals) | (depName, (depGlobals, _)) <- deps]
       case runValidate (rnAction availableImports) of
         Left errs -> do
-          reportErrors (pmPath pm) errs
-          pure (pmName pm, rnMap, Nothing)
+          reportErrors (fold (HM.lookup name paths)) errs
+          pure (rnMap, Nothing)
         Right rnMod -> do
-          pure (pmName pm, rnMap, Just rnMod)
+          pure (rnMap, Just rnMod)
 
-checkAll :: DepsGraph Acyclic -> [ParsedModule] -> Driver TcModule
-checkAll dg parsed = do
-  renamed <- renameAll dg parsed
-
-  -- TODO: Think about in which cases we can/want to progess with type checking
-  -- after (partially) failed renaming. For now we only continue if there have
-  -- not been any errors up to this point.
-  checkNoError
-
-  -- Type checking is done by merging all the modules together. This is safe to
-  -- do because after renaming all names are qualified by their module.
-  --
-  -- Type checking has to run inside 'Fresh'. We use a name which is not a
-  -- valid module name to ensure uniqueness.
-  --
-  -- FIXME: By doing this we loose the possibility for file specific error
-  -- messages.
-  let merge a b =
-        Module
-          { moduleTypes = moduleTypes a <> moduleTypes b,
-            moduleValues = moduleValues a <> moduleValues b,
-            moduleSigs = moduleSigs a <> moduleSigs b,
-            -- No need to keep track of all the imports.
-            moduleImports = []
-          }
-  -- Begin merging from the builtins module.
-  let bigModule = foldl' merge builtins . fmap snd $ renamed
-
+checkAll ::
+  HashMap ModuleName FilePath ->
+  DepsGraph Acyclic (Maybe Rn.RnModule) ->
+  Driver (DepsGraph Acyclic (Maybe TcModule))
+checkAll paths dg = do
   (output, _) <- askOutput
-  outputSticky output "Typechecking..."
-  case runFresh (ModuleName "$TC") $ Tc.checkModule bigModule of
-    Left errs -> do
-      reportErrors "" errs
-      fatalErrors
-    Right res -> do
-      pure res
+  counter <- newCounterStart output do
+    zeroCounter
+      & counterOverallL .~ depsGraphSize dg
+      & counterTitleL .~ "Checking..."
+
+  strat <- askStrategy
+  fmap (fmap fst) <$> traverseGraphPar strat dg \deps name mRn -> do
+    let depCtxt = mconcat . fmap snd <$> traverse snd deps
+    let mcheck = check name <$> join mRn <*> depCtxt
+    join <$> maybeCounter counter "Checking" name mcheck id
+  where
+    check name rnMod depCtxt = do
+      -- Since we start a new 'Fresh' session for the module (previous one was
+      -- during renaming) we have to use a new unique module name to guarantee
+      -- uniqueness of fresh variables.
+      let freshModule = ModuleName $ "tc:" ++ unModuleName name
+      case runFresh freshModule $ runValidateT $ doCheck depCtxt rnMod of
+        Left errs -> do
+          let fp = fold $ HM.lookup name paths
+          reportErrors fp $ Tc.runErrors errs
+          pure Nothing
+        Right res ->
+          pure $ Just res
+    doCheck depCtxt m =
+      Tc.checkWithModule
+        (builtinsModuleCtxt <> depCtxt)
+        m
+        (\runTypeM checked -> (checked,) <$> runTypeM Tc.extractCheckContext)
 
 missingModuleError :: Pos -> ModuleName -> Diagnostic
 missingModuleError loc name = PosError loc [Error "Cannot locate module", Error name]
@@ -433,12 +403,12 @@ noteDependencies ::
   -- cyclic dependency errors.
   FilePath ->
   -- | The imports from which to read and update the dependency graph.
-  [Located Import] ->
+  PModule ->
   Driver [(ImportLocation, ModuleName)]
-noteDependencies depsRef name fp imports = do
+noteDependencies depsRef name fp parsed = do
   let depList =
         [ (ImportLocation (p @- fp), target)
-          | p :@ Import {importTarget = target} <- imports
+          | p :@ Import {importTarget = target} <- moduleImports parsed
         ]
   -- Update the dependency graph. This step also signals to any other workers
   -- that this worker will be responsible for delegating parsing of any
@@ -446,7 +416,7 @@ noteDependencies depsRef name fp imports = do
   oldDeps <- liftIO $ atomicModifyIORef' depsRef \deps -> do
     -- Inserting the module itself is especially important in the single-module
     -- case as there are no edges to insert the vertex automatically.
-    let deps' = insertModule name deps
+    let deps' = insertModule name parsed deps
     let add (iloc, target) = insertDependency iloc (name `DependsOn` target)
     (foldl' (flip add) deps' depList, deps)
   -- Return the list of unparsed dependencies. Those are the ones not appearing
@@ -504,15 +474,6 @@ setError = do
   ref <- asksState driverErrors
   liftIO $ writeIORef ref True
 
-checkNoError :: Driver ()
-checkNoError = do
-  ref <- asksState driverErrors
-  err <- liftIO $ readIORef ref
-  when err fatalErrors
-
-fatalErrors :: Driver a
-fatalErrors = liftIO $ throwIO ErrorAbortException
-
 -- | Report the errors to the user.
 reportErrors :: Foldable f => FilePath -> f Diagnostic -> Driver ()
 reportErrors fp diags
@@ -528,3 +489,18 @@ askOutput = asksState do
   (,)
     <$> driverOutputHandle . driverSettings
     <*> driverOutputMode . driverSettings
+
+maybeCounter ::
+  MonadIO m =>
+  Counter ->
+  String ->
+  ModuleName ->
+  Maybe a ->
+  (a -> m b) ->
+  m (Maybe b)
+maybeCounter c _ _ Nothing _ = do
+  counterUpdate c $ counterFinishedL +~ 1
+  pure Nothing
+maybeCounter c title name (Just a) f = do
+  let fullTitle = title ++ ' ' : unModuleName name ++ "..."
+  Just <$> wrapCounter c fullTitle (f a)

@@ -9,7 +9,9 @@ module AlgST.Rename.Fresh
     FreshT (..),
     runFresh,
     runFreshT,
-    etaFresh,
+    embedFresh,
+    hoistFreshT,
+    etaFreshT,
     currentModule,
     freshResolved,
     freshResolvedParams,
@@ -38,6 +40,13 @@ runFreshT m (Fresh a) = evalStateT (runReaderT a m) firstResolvedId
 runFresh :: ModuleName -> Fresh a -> a
 runFresh m = runIdentity . runFreshT m
 
+embedFresh :: Applicative m => Fresh a -> FreshT m a
+embedFresh = hoistFreshT $ pure . runIdentity
+
+hoistFreshT :: (forall x. m x -> n x) -> FreshT m a -> FreshT n a
+hoistFreshT f (Fresh a) = Fresh $ ReaderT \name -> StateT \next -> do
+  f $ runStateT (runReaderT a name) next
+
 currentModule :: Monad m => FreshT m ModuleName
 currentModule = Fresh ask
 
@@ -50,6 +59,6 @@ freshResolved n = do
 freshResolvedParams :: Monad m => Params stage -> FreshT m (Params Resolved)
 freshResolvedParams = traverse (bitraverse (traverse freshResolved) pure)
 
-etaFresh :: Fresh a -> Fresh a
-etaFresh = Fresh . etaReaderT . mapReaderT etaStateT . unFresh
-{-# INLINE etaFresh #-}
+etaFreshT :: FreshT m a -> FreshT m a
+etaFreshT = Fresh . etaReaderT . mapReaderT etaStateT . unFresh
+{-# INLINE etaFreshT #-}
