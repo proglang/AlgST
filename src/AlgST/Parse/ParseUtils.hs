@@ -153,8 +153,8 @@ completePrevious = Kleisli \p -> do
     Just (loc :@ name, sig) -> do
       put Nothing
       let decl = SignatureDecl (OriginUser loc) sig
-      imports <- lift $ insertNoDuplicates name decl (moduleSigs p)
-      pure p {moduleSigs = imports}
+      sigs <- lift $ insertNoDuplicates name decl (moduleSigs p)
+      pure p {moduleSigs = sigs}
 
 moduleValueDecl :: Located (ProgVar PStage) -> PType -> ModuleBuilder
 moduleValueDecl valueName ty =

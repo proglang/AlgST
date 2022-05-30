@@ -330,6 +330,9 @@ modifyState f = do
 {-# INLINE modifyState #-}
 
 -- | Constructs the global 'Env' from a type checked 'Module'.
+--
+-- TODO: Check that we have bindings for all values which exist only as
+-- signatures!
 programEnvironment :: TcModule -> Env
 programEnvironment p =
   LMap.mapMaybeWithKey (\k -> either (conValue k) (globValue k)) (moduleValues p)

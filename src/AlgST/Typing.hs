@@ -163,12 +163,12 @@ checkWithModule ::
   (forall env st. (HasKiEnv env, HasKiSt st) => RunTyM env st -> TcModule -> TcM env st r) ->
   ValidateT Errors Fresh r
 checkWithModule ctxt prog k = do
-  (st, (tcTypes, tcValues, tcImports)) <- run kiSt0 checkGlobals
-  let importedValues = Map.map (ValueGlobal Nothing . signatureType) tcImports
+  (st, (tcTypes, tcValues, tcSigs)) <- run kiSt0 checkGlobals
+  let sigValues = Map.map (ValueGlobal Nothing . signatureType) tcSigs
   let tyEnv =
         TyTypingEnv
           { tcCheckedTypes = contextTypes ctxt <> tcTypes,
-            tcCheckedValues = contextValues ctxt <> tcValues <> importedValues,
+            tcCheckedValues = contextValues ctxt <> tcValues <> sigValues,
             tcKiTypingEnv = kiEnv
           }
   let embed :: TypeM a -> TcM env KiSt a
@@ -178,7 +178,7 @@ checkWithModule ctxt prog k = do
         Module
           { moduleTypes = tcTypes,
             moduleValues = values,
-            moduleSigs = tcImports,
+            moduleSigs = tcSigs,
             moduleImports = moduleImports prog
           }
   (st', prog) <- run st $ mkProg <$> checkValueBodies embed tcValues
@@ -206,8 +206,8 @@ checkWithModule ctxt prog k = do
       checkAliases
       tcTypes <- checkTypeDecls (moduleTypes prog)
       checkedDefs <- checkValueSignatures (moduleValues prog)
-      tcImports <- traverse checkSignature (moduleSigs prog)
-      pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcImports)
+      tcSigs <- traverse checkSignature (moduleSigs prog)
+      pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcSigs)
 
 checkModule :: CheckContext -> Module Rn -> ValidateT Errors Fresh TcModule
 checkModule ctxt p = checkWithModule ctxt p \_ -> pure
