@@ -106,14 +106,13 @@ data ImportBehaviour
 data Module x = Module
   { moduleTypes :: !(TypesMap x),
     moduleValues :: !(ValuesMap x),
-    moduleSigs :: !(SignaturesMap x),
-    moduleImports :: [Located Import]
+    moduleSigs :: !(SignaturesMap x)
   }
 
 deriving stock instance (ForallX Lift x) => Lift (Module x)
 
 emptyModule :: Module x
-emptyModule = Module Map.empty Map.empty Map.empty []
+emptyModule = Module Map.empty Map.empty Map.empty
 
 -- | A traversal over the 'Origin's of all declarations and signatures.
 moduleOrigins ::
@@ -127,8 +126,7 @@ moduleOrigins f p = do
     Module
       { moduleTypes = types,
         moduleValues = values,
-        moduleSigs = imports,
-        moduleImports = []
+        moduleSigs = imports
       }
 
 -- | @withoutDefinitions p1 p2@ removes all definitions from @p1@ which
@@ -138,8 +136,7 @@ withoutDefinitions p1 p2 =
   Module
     { moduleTypes = moduleTypes p1 \\ moduleTypes p2,
       moduleValues = moduleValues p1 \\ moduleValues p2,
-      moduleSigs = moduleSigs p1 \\ moduleSigs p2,
-      moduleImports = moduleImports p1
+      moduleSigs = moduleSigs p1 \\ moduleSigs p2
     }
 
 -- | Mapping between type names and the type declarations.

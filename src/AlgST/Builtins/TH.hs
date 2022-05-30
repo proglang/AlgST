@@ -25,7 +25,7 @@ parseTH globals modName baseMap srcLines = Code.do
   parsed <- case runParserSimple parseModule (unlines srcLines) of
     Left err -> do
       reportError $ "parse error:" ++ err
-      pure emptyModule
+      pure $ ParsedModule [] emptyModule
     Right p -> do
       pure p
   let (modmap, resolve) = continueRenameExtra baseMap modName parsed

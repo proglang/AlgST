@@ -33,7 +33,6 @@ import AlgST.Builtins
 import AlgST.Driver.Dependencies
 import AlgST.Driver.Output
 import AlgST.Parse.Parser qualified as P
-import AlgST.Parse.Phase
 import AlgST.Rename qualified as Rn
 import AlgST.Rename.Fresh (runFresh)
 import AlgST.Rename.Modules qualified as Rn
@@ -94,7 +93,7 @@ type Source = (FilePath, String)
 
 type Scheduler = S.Scheduler RealWorld
 
-type DepsTracker = IORef (DepsGraph MaybeCyclic PModule)
+type DepsTracker = IORef (DepsGraph MaybeCyclic P.ParsedModule)
 
 newtype Driver a = Driver {unDriver :: ReaderT DriverState IO a}
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadUnliftIO)
@@ -184,7 +183,7 @@ addTask scheduler m = do
 -- | Parse the given module and all dependencies. The result does not contain
 -- any modules where errors occured.
 parseAllModules ::
-  ModuleName -> Driver (HashMap ModuleName FilePath, DepsGraph Acyclic PModule)
+  ModuleName -> Driver (HashMap ModuleName FilePath, DepsGraph Acyclic P.ParsedModule)
 parseAllModules firstName = do
   depsRef <- liftIO $ newIORef emptyDepsGraph
   (output, _) <- askOutput
@@ -272,7 +271,7 @@ parseModuleNow scheduler depsRef progress moduleName modulePath moduleSource = d
 
 renameAll ::
   HashMap ModuleName FilePath ->
-  DepsGraph Acyclic PModule ->
+  DepsGraph Acyclic P.ParsedModule ->
   Driver (DepsGraph Acyclic (Maybe Rn.RnModule))
 renameAll paths dg = do
   (output, _) <- askOutput
@@ -284,20 +283,10 @@ renameAll paths dg = do
     pure $ fromMaybe (Rn.emptyModuleMap, Nothing) resolved
   where
     rename deps name parsed = do
+      let importingBuiltins pm =
+            pm {P.parsedImports = defaultPos @- builtinsImport : P.parsedImports pm}
       let (rnMap, rnAction) =
-            -- Insert a 'ImportAll Builtins' here.
-            Rn.renameModule
-              name
-              parsed
-                { moduleImports =
-                    defaultPos
-                      @- Import
-                        { importTarget = BuiltinsModule,
-                          importQualifier = emptyModuleName,
-                          importSelection = ImportAll defaultPos HM.empty HM.empty
-                        } :
-                    moduleImports parsed
-                }
+            Rn.renameModule name (importingBuiltins parsed)
       let availableImports =
             HM.fromList $
               (BuiltinsModule, builtinsModuleMap) :
@@ -403,19 +392,17 @@ noteDependencies ::
   -- cyclic dependency errors.
   FilePath ->
   -- | The imports from which to read and update the dependency graph.
-  PModule ->
+  P.ParsedModule ->
   Driver [(ImportLocation, ModuleName)]
 noteDependencies depsRef name fp parsed = do
   let depList =
         [ (ImportLocation (p @- fp), target)
-          | p :@ Import {importTarget = target} <- moduleImports parsed
+          | p :@ Import {importTarget = target} <- P.parsedImports parsed
         ]
   -- Update the dependency graph. This step also signals to any other workers
   -- that this worker will be responsible for delegating parsing of any
   -- unparsed dependencies.
   oldDeps <- liftIO $ atomicModifyIORef' depsRef \deps -> do
-    -- Inserting the module itself is especially important in the single-module
-    -- case as there are no edges to insert the vertex automatically.
     let deps' = insertModule name parsed deps
     let add (iloc, target) = insertDependency iloc (name `DependsOn` target)
     (foldl' (flip add) deps' depList, deps)

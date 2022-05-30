@@ -9,7 +9,6 @@
 module AlgST.Parse.Parser
   ( -- * Parsers
     Parser
-  , parseProg
   , parseModule
   , parseType
   , parseKind
@@ -20,6 +19,10 @@ module AlgST.Parse.Parser
   , runParser
   , runParserIO
   , runParserSimple
+
+    -- * Re-exports
+  , ParsedModule(..)
+  , emptyParsedModule
   ) where
 
 import           Control.Category              ((>>>), (<<<))
@@ -55,10 +58,10 @@ import           Syntax.Base
 
 }
 
-%name parseType_ Type
-%name parseProg_ Prog
-%name parseKind_ Kind
-%name parseExpr_ Exp
+%name parseModule_  Module
+%name parseKind_    Kind
+%name parseType_    Type
+%name parseExpr_    Exp
 
 %tokentype { Token }
 %error { parseError }
@@ -131,11 +134,11 @@ import           Syntax.Base
 -- MODULES --
 -------------
 
-Prog :: { PModule -> ParseM PModule }
-  : {- empty -}       { pure }
-  | Decls             { \base -> runModuleBuilder base $1 }
-  | Imports           { \base -> runModuleBuilder base $1 }
-  | Imports NL Decls  { \base -> runModuleBuilder base ($1 >>> $3) }
+Module :: { ParsedModule }
+  : {- empty -}       { ParsedModule [] emptyModule }
+  | Decls             {% ParsedModule [] `fmap` runModuleBuilder $1 }
+  | Imports           { ParsedModule $1 emptyModule }
+  | Imports NL Decls  {% ParsedModule $1 `fmap` runModuleBuilder $3 }
 
 
 NL :: { () }
@@ -147,9 +150,9 @@ NL :: { () }
 -- Imports
 -------------------------------------------------------------------------------
 
-Imports :: { ModuleBuilder }
-  : Import              { addImport $1 }
-  | Imports NL Import   { $1 <<< addImport $3 }
+Imports :: { [Located Import] }
+  : Import              { [$1] }
+  | Imports NL Import   { $3 : $1 }
 
 Import :: { Located Import }
   : import ModuleName ImportList {% do
@@ -649,13 +652,8 @@ opt(t)
 newtype Parser a = Parser ([Token] -> ParseM a)
   deriving (Functor)
 
-parseProg :: PModule -> Parser PModule
-parseProg base = Parser \toks -> do
-  mkP <- parseProg_ toks
-  mkP base
-
-parseModule :: Parser PModule
-parseModule = parseProg emptyModule
+parseModule :: Parser ParsedModule
+parseModule = Parser parseModule_
 
 parseType :: Parser PType
 parseType = Parser $ parseType_ . dropNewlines

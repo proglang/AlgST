@@ -38,6 +38,7 @@ module AlgST.Rename
 where
 
 import AlgST.Builtins.Names qualified as Builtin
+import AlgST.Parse.ParseUtils (ParsedModule (..))
 import AlgST.Parse.Phase
 import AlgST.Rename.Error (MonadErrors, addError, fatalError)
 import AlgST.Rename.Error qualified as Error
@@ -155,8 +156,8 @@ instance ScopeIndexed RenameEnv Bindings where
   typesScopeL = field @"rnTyVars"
   valuesScopeL = field @"rnProgVars"
 
-moduleImportsEnv :: MonadErrors m => Globals -> Module x -> m RenameEnv
-moduleImportsEnv globals = resolveImports globals . moduleImports
+moduleImportsEnv :: MonadErrors m => Globals -> ParsedModule -> m RenameEnv
+moduleImportsEnv globals = resolveImports globals . parsedImports
 
 resolveImports ::
   MonadErrors m => Globals -> [Located Import] -> m RenameEnv
@@ -291,7 +292,7 @@ renameSimple ::
 renameSimple globals resolve =
   runValidate (resolve globals) >>= \(RenameExtra f) -> f pure
 
-renameModule :: ModuleName -> PModule -> RenameResult RnModule
+renameModule :: ModuleName -> ParsedModule -> RenameResult RnModule
 renameModule name m =
   ( moduleMap,
     \g -> do
@@ -302,7 +303,7 @@ renameModule name m =
   where
     (moduleMap, rename) = renameModuleExtra name m
 
-renameModuleExtra :: ModuleName -> PModule -> RenameResult RenameExtra
+renameModuleExtra :: ModuleName -> ParsedModule -> RenameResult RenameExtra
 renameModuleExtra = continueRenameExtra emptyModuleMap
 
 -- | Given a partial module map (base map) this function “continues” the rename
@@ -312,7 +313,7 @@ renameModuleExtra = continueRenameExtra emptyModuleMap
 -- This allows to refer to top-level identifiers before the whole module is
 -- renamed. Also, it gives you stable identifiers you can generate which are
 -- valid after renaming.
-continueRenameExtra :: ModuleMap -> ModuleName -> PModule -> RenameResult RenameExtra
+continueRenameExtra :: ModuleMap -> ModuleName -> ParsedModule -> RenameResult RenameExtra
 continueRenameExtra baseMap moduleName m =
   -- Renaming traverses the module top-levels twice. Overall this is acceptable
   -- but it might be possible using laziness and recrursive definitions to
@@ -327,7 +328,7 @@ continueRenameExtra baseMap moduleName m =
         [] -> firstResolvedId
         ids -> nextResolvedId $ maximum ids
     ((toplevels, localsEnv), nextRid) =
-      moduleTopLevels baseMap m
+      moduleTopLevels baseMap (parsedModule m)
         & unFresh
         & flip runReaderT moduleName
         & flip runState firstId
@@ -335,7 +336,7 @@ continueRenameExtra baseMap moduleName m =
       importsEnv <- moduleImportsEnv globals m
       let baseEnv = localsEnv <> importsEnv
       pure $ RenameExtra \k ->
-        (doRename m >>= k)
+        (doRename (parsedModule m) >>= k)
           & runValidateT
           & flip runReaderT (toplevels, baseEnv)
           & unFresh
@@ -389,8 +390,7 @@ doRename m = do
     Module
       { moduleTypes = typs,
         moduleValues = vals,
-        moduleSigs = sigs,
-        moduleImports = moduleImports m
+        moduleSigs = sigs
       }
 
 renameSyntax :: SynTraversable (s Parse) Parse (s Rn) Rn => s Parse -> RnM (s Rn)

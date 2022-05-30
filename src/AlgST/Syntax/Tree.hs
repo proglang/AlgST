@@ -279,10 +279,8 @@ instance (D.ForallConX LabeledTree x, T.ForallX LabeledTree x) => LabeledTree (D
           ]
 
 instance ForallX LabeledTree x => LabeledTree (Module x) where
-  labeledTree pp = imports ++ types ++ sigs ++ values
+  labeledTree pp = types ++ sigs ++ values
     where
-      imports =
-        concatMap labeledTree (moduleImports pp)
       types =
         labeledMapTree
           (\tv _ -> describeName tv)

@@ -74,9 +74,7 @@ main = do
           Module
             { moduleTypes = moduleTypes a <> moduleTypes b,
               moduleValues = moduleValues a <> moduleValues b,
-              moduleSigs = moduleSigs a <> moduleSigs b,
-              -- No need to keep track of the imports.
-              moduleImports = []
+              moduleSigs = moduleSigs a <> moduleSigs b
             }
     -- Begin merging from the builtins module.
     let bigModule = foldl' merge builtinsModule checkedModules

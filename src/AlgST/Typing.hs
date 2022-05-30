@@ -178,8 +178,7 @@ checkWithModule ctxt prog k = do
         Module
           { moduleTypes = tcTypes,
             moduleValues = values,
-            moduleSigs = tcSigs,
-            moduleImports = moduleImports prog
+            moduleSigs = tcSigs
           }
   (st', prog) <- run st $ mkProg <$> checkValueBodies embed tcValues
   fmap snd $ run st' $ k (embedTypeM tyEnv) prog

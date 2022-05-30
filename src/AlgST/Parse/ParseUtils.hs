@@ -19,6 +19,8 @@ module AlgST.Parse.ParseUtils
     runParseM,
     UnscopedName (..),
     scopeName,
+    ParsedModule (..),
+    emptyParsedModule,
 
     -- * Errors
     addError,
@@ -46,7 +48,6 @@ module AlgST.Parse.ParseUtils
     moduleTypeDecl,
 
     -- ** Import statements
-    addImport,
     ImportItem (..),
     mkImportItem,
     mergeImportAll,
@@ -86,6 +87,14 @@ import Data.Maybe
 import Data.Singletons
 import Lens.Family2 hiding ((&))
 import Syntax.Base
+
+data ParsedModule = ParsedModule
+  { parsedImports :: [Located Import],
+    parsedModule :: PModule
+  }
+
+emptyParsedModule :: ParsedModule
+emptyParsedModule = ParsedModule [] emptyModule
 
 data ImportMergeState = IMS
   { -- | A subset of the keys of 'imsRenamed'.
@@ -140,9 +149,9 @@ type IncompleteValueDecl = Maybe (Located (PName Values), PType)
 type ModuleBuilder =
   Kleisli (StateT IncompleteValueDecl ParseM) PModule PModule
 
-runModuleBuilder :: PModule -> ModuleBuilder -> ParseM PModule
-runModuleBuilder base builder =
-  evalStateT (runKleisli (builder >>> completePrevious) base) Nothing
+runModuleBuilder :: ModuleBuilder -> ParseM PModule
+runModuleBuilder builder =
+  evalStateT (runKleisli (builder >>> completePrevious) emptyModule) Nothing
 
 completePrevious :: ModuleBuilder
 completePrevious = Kleisli \p -> do
@@ -212,9 +221,6 @@ moduleTypeDecl v tydecl =
     let constructors = Left <$> typeConstructors v tydecl
     parsedValues' <- lift $ mergeNoDuplicates (moduleValues p) constructors
     pure p {moduleTypes = parsedTypes', moduleValues = parsedValues'}
-
-addImport :: Located Import -> ModuleBuilder
-addImport i = Kleisli \m -> pure m {moduleImports = i : moduleImports m}
 
 data ImportItem = ImportItem
   { importScope :: !Scope,

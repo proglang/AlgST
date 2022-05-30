@@ -2,6 +2,7 @@
 
 module AlgST.Builtins
   ( module AlgST.Builtins.Names,
+    builtinsImport,
     builtinsModule,
     builtinsModuleMap,
     builtinsModuleCtxt,
@@ -12,8 +13,19 @@ import AlgST.Builtins.Names hiding (builtinsPartialModuleMap)
 import AlgST.Builtins.Names qualified as B
 import AlgST.Builtins.TH
 import AlgST.Rename (ModuleMap)
+import AlgST.Syntax.Module
+import AlgST.Syntax.Name
 import AlgST.Typing qualified as Tc
 import AlgST.Typing.Phase (TcModule)
+import Syntax.Base
+
+builtinsImport :: Import
+builtinsImport =
+  Import
+    { importTarget = BuiltinsModule,
+      importQualifier = emptyModuleName,
+      importSelection = ImportAll defaultPos mempty mempty
+    }
 
 builtinsModule :: TcModule
 builtinsModuleMap :: ModuleMap
