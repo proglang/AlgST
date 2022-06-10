@@ -1,4 +1,4 @@
-BTree
+BTree#M.0
 |
 `- DataDecl
    |
@@ -10,11 +10,11 @@ BTree
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.4:TU)
    |
    `- constructors
       |
-      +- Branch
+      +- Branch#M.1
       |  |
       |  +- Type.Type
       |  |  |
@@ -22,7 +22,7 @@ BTree
       |  |     |
       |  |     +- BTree
       |  |     |
-      |  |     `- Type.Var 0#a
+      |  |     `- Type.Var a#M.4
       |  |        |
       |  |        `- TU
       |  |
@@ -32,25 +32,25 @@ BTree
       |        |
       |        +- BTree
       |        |
-      |        `- Type.Var 0#a
+      |        `- Type.Var a#M.4
       |           |
       |           `- TU
       |
-      `- Leaf
+      `- Leaf#M.2
          |
-         `- Type.Var 0#a
+         `- Type.Var a#M.4
             |
             `- TU
 
-Branch
+Branch#M.1
 |
-`- Decl.DataCon (BTree)
+`- Decl.DataCon (BTree#M.0)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.4:TU)
    |
    +- multiplicity
    |  |
@@ -64,7 +64,7 @@ Branch
       |     |
       |     +- BTree
       |     |
-      |     `- Type.Var 0#a
+      |     `- Type.Var a#M.4
       |        |
       |        `- TU
       |
@@ -74,19 +74,19 @@ Branch
             |
             +- BTree
             |
-            `- Type.Var 0#a
+            `- Type.Var a#M.4
                |
                `- TU
 
-Leaf
+Leaf#M.2
 |
-`- Decl.DataCon (BTree)
+`- Decl.DataCon (BTree#M.0)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.4:TU)
    |
    +- multiplicity
    |  |
@@ -94,33 +94,33 @@ Leaf
    |
    `- items
       |
-      `- Type.Var 0#a
+      `- Type.Var a#M.4
          |
          `- TU
 
-sendBTree
+sendBTree#M.3
 |
 +- type
 |  |
-|  `- Type.Forall 54#a:TU
+|  `- Type.Forall a#M.12:TU
 |     |
 |     `- Type.Arrow U
 |        |
-|        +- Type.Forall 55#s:SL
+|        +- Type.Forall s#M.13:SL
 |        |  |
 |        |  `- Type.Arrow U
 |        |     |
 |        |     +- Type.Session (!)
 |        |     |  |
-|        |     |  +- Type.Var 54#a
+|        |     |  +- Type.Var a#M.12
 |        |     |  |  |
 |        |     |  |  `- TU
 |        |     |  |
-|        |     |  `- Type.Var 55#s
+|        |     |  `- Type.Var s#M.13
 |        |     |     |
 |        |     |     `- SL
 |        |     |
-|        |     `- Type.Var 55#s
+|        |     `- Type.Var s#M.13
 |        |        |
 |        |        `- SL
 |        |
@@ -132,11 +132,11 @@ sendBTree
 |           |     |
 |           |     +- BTree
 |           |     |
-|           |     `- Type.Var 54#a
+|           |     `- Type.Var a#M.12
 |           |        |
 |           |        `- TU
 |           |
-|           `- Type.Forall 56#s:SL
+|           `- Type.Forall s#M.14:SL
 |              |
 |              `- Type.Arrow U
 |                 |
@@ -148,55 +148,55 @@ sendBTree
 |                 |  |     |
 |                 |  |     +- BTree
 |                 |  |     |
-|                 |  |     `- Type.Var 54#a
+|                 |  |     `- Type.Var a#M.12
 |                 |  |        |
 |                 |  |        `- TU
 |                 |  |
-|                 |  `- Type.Var 56#s
+|                 |  `- Type.Var s#M.14
 |                 |     |
 |                 |     `- SL
 |                 |
-|                 `- Type.Var 56#s
+|                 `- Type.Var s#M.14
 |                    |
 |                    `- SL
 |
 +- params
 |  |
-|  +- [49#a]
+|  +- [a#M.7]
 |  |
-|  +- 50#sendA
+|  +- sendA#M.8
 |  |
-|  +- 51#t
+|  +- t#M.9
 |  |
-|  +- [52#s]
+|  +- [s#M.10]
 |  |
-|  `- 53#c
+|  `- c#M.11
 |
 `- definition
    |
-   `- Exp.TypeAbs 49#a:TU
+   `- Exp.TypeAbs a#M.7:TU
       |
-      `- Exp.Abs U 50#sendA
+      `- Exp.Abs U sendA#M.8
          |
-         +- Type.Forall 55#s:SL
+         +- Type.Forall s#M.13:SL
          |  |
          |  `- Type.Arrow U
          |     |
          |     +- Type.Session (!)
          |     |  |
-         |     |  +- Type.Var 49#a
+         |     |  +- Type.Var a#M.7
          |     |  |  |
          |     |  |  `- TU
          |     |  |
-         |     |  `- Type.Var 55#s
+         |     |  `- Type.Var s#M.13
          |     |     |
          |     |     `- SL
          |     |
-         |     `- Type.Var 55#s
+         |     `- Type.Var s#M.13
          |        |
          |        `- SL
          |
-         `- Exp.Abs U 51#t
+         `- Exp.Abs U t#M.9
             |
             +- Type.Type
             |  |
@@ -204,13 +204,13 @@ sendBTree
             |     |
             |     +- BTree
             |     |
-            |     `- Type.Var 49#a
+            |     `- Type.Var a#M.7
             |        |
             |        `- TU
             |
-            `- Exp.TypeAbs 52#s:SL
+            `- Exp.TypeAbs s#M.10:SL
                |
-               `- Exp.Abs U 53#c
+               `- Exp.Abs U c#M.11
                   |
                   +- Type.Session (!)
                   |  |
@@ -220,11 +220,11 @@ sendBTree
                   |  |     |
                   |  |     +- BTree
                   |  |     |
-                  |  |     `- Type.Var 49#a
+                  |  |     `- Type.Var a#M.7
                   |  |        |
                   |  |        `- TU
                   |  |
-                  |  `- Type.Var 52#s
+                  |  `- Type.Var s#M.10
                   |     |
                   |     `- SL
                   |
@@ -232,9 +232,9 @@ sendBTree
                      |
                      `- TcExpX.ValueCase
                         |
-                        +- Exp.Var 51#t
+                        +- Exp.Var t#M.9
                         |
-                        +- Branch 57#l 58#r
+                        +- Branch#M.1 l#M.15 r#M.16
                         |  |
                         |  `- Exp.Exp
                         |     |
@@ -246,19 +246,19 @@ sendBTree
                         |        |  |  |
                         |        |  |  +- Exp.TypeApp
                         |        |  |  |  |
-                        |        |  |  |  +- Exp.Select Branch
+                        |        |  |  |  +- Exp.Select Branch#M.1
                         |        |  |  |  |
-                        |        |  |  |  `- Type.Var 49#a
+                        |        |  |  |  `- Type.Var a#M.7
                         |        |  |  |     |
                         |        |  |  |     `- TU
                         |        |  |  |
-                        |        |  |  `- Type.Var 52#s
+                        |        |  |  `- Type.Var s#M.10
                         |        |  |     |
                         |        |  |     `- SL
                         |        |  |
-                        |        |  `- Exp.Var 53#c
+                        |        |  `- Exp.Var c#M.11
                         |        |
-                        |        `- 59#c
+                        |        `- c#M.17
                         |           |
                         |           `- Exp.Exp
                         |              |
@@ -274,9 +274,9 @@ sendBTree
                         |                 |  |  |  |  |
                         |                 |  |  |  |  +- Exp.TypeApp
                         |                 |  |  |  |  |  |
-                        |                 |  |  |  |  |  +- Exp.Var sendBTree
+                        |                 |  |  |  |  |  +- Exp.Var sendBTree#M.3
                         |                 |  |  |  |  |  |
-                        |                 |  |  |  |  |  `- Type.Var 49#a
+                        |                 |  |  |  |  |  `- Type.Var a#M.7
                         |                 |  |  |  |  |     |
                         |                 |  |  |  |  |     `- TU
                         |                 |  |  |  |  |
@@ -288,21 +288,21 @@ sendBTree
                         |                 |  |  |  |     |     |
                         |                 |  |  |  |     |     +- BTree
                         |                 |  |  |  |     |     |
-                        |                 |  |  |  |     |     `- Type.Var 49#a
+                        |                 |  |  |  |     |     `- Type.Var a#M.7
                         |                 |  |  |  |     |        |
                         |                 |  |  |  |     |        `- TU
                         |                 |  |  |  |     |
-                        |                 |  |  |  |     `- Type.Var 52#s
+                        |                 |  |  |  |     `- Type.Var s#M.10
                         |                 |  |  |  |        |
                         |                 |  |  |  |        `- SL
                         |                 |  |  |  |
-                        |                 |  |  |  `- Exp.Var 50#sendA
+                        |                 |  |  |  `- Exp.Var sendA#M.8
                         |                 |  |  |
-                        |                 |  |  `- Exp.Var 57#l
+                        |                 |  |  `- Exp.Var l#M.15
                         |                 |  |
-                        |                 |  `- Exp.Var 59#c
+                        |                 |  `- Exp.Var c#M.17
                         |                 |
-                        |                 `- 60#c
+                        |                 `- c#M.18
                         |                    |
                         |                    `- Exp.Exp
                         |                       |
@@ -318,27 +318,27 @@ sendBTree
                         |                          |  |  |  |  |
                         |                          |  |  |  |  +- Exp.TypeApp
                         |                          |  |  |  |  |  |
-                        |                          |  |  |  |  |  +- Exp.Var sendBTree
+                        |                          |  |  |  |  |  +- Exp.Var sendBTree#M.3
                         |                          |  |  |  |  |  |
-                        |                          |  |  |  |  |  `- Type.Var 49#a
+                        |                          |  |  |  |  |  `- Type.Var a#M.7
                         |                          |  |  |  |  |     |
                         |                          |  |  |  |  |     `- TU
                         |                          |  |  |  |  |
-                        |                          |  |  |  |  `- Type.Var 52#s
+                        |                          |  |  |  |  `- Type.Var s#M.10
                         |                          |  |  |  |     |
                         |                          |  |  |  |     `- SL
                         |                          |  |  |  |
-                        |                          |  |  |  `- Exp.Var 50#sendA
+                        |                          |  |  |  `- Exp.Var sendA#M.8
                         |                          |  |  |
-                        |                          |  |  `- Exp.Var 58#r
+                        |                          |  |  `- Exp.Var r#M.16
                         |                          |  |
-                        |                          |  `- Exp.Var 60#c
+                        |                          |  `- Exp.Var c#M.18
                         |                          |
-                        |                          `- 61#c
+                        |                          `- c#M.19
                         |                             |
-                        |                             `- Exp.Var 61#c
+                        |                             `- Exp.Var c#M.19
                         |
-                        `- Leaf 62#a
+                        `- Leaf#M.2 a#M.20
                            |
                            `- Exp.Exp
                               |
@@ -350,29 +350,29 @@ sendBTree
                                  |  |  |
                                  |  |  +- Exp.TypeApp
                                  |  |  |  |
-                                 |  |  |  +- Exp.Select Leaf
+                                 |  |  |  +- Exp.Select Leaf#M.2
                                  |  |  |  |
-                                 |  |  |  `- Type.Var 49#a
+                                 |  |  |  `- Type.Var a#M.7
                                  |  |  |     |
                                  |  |  |     `- TU
                                  |  |  |
-                                 |  |  `- Type.Var 52#s
+                                 |  |  `- Type.Var s#M.10
                                  |  |     |
                                  |  |     `- SL
                                  |  |
-                                 |  `- Exp.Var 53#c
+                                 |  `- Exp.Var c#M.11
                                  |
-                                 `- 63#c
+                                 `- c#M.21
                                     |
                                     `- Exp.App
                                        |
                                        +- Exp.TypeApp
                                        |  |
-                                       |  +- Exp.Var 50#sendA
+                                       |  +- Exp.Var sendA#M.8
                                        |  |
-                                       |  `- Type.Var 52#s
+                                       |  `- Type.Var s#M.10
                                        |     |
                                        |     `- SL
                                        |
-                                       `- Exp.Var 63#c
+                                       `- Exp.Var c#M.21
 

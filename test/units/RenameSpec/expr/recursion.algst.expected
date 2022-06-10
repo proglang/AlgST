@@ -1,56 +1,56 @@
-Exp.UnLet 0#x
+Exp.UnLet x#M.0
 |
 +- Exp.Lit
 |  |
 |  `- Lit.Int 1
 |
-`- Exp.UnLet 3#x
+`- Exp.UnLet x#M.3
    |
-   +- Exp.Rec 1#x
+   +- Exp.Rec x#M.1
    |  |
    |  +- Type.Arrow U
    |  |  |
-   |  |  +- Type.Con Int
+   |  |  +- Type.Con Int#Builtin.1
    |  |  |
-   |  |  `- Type.Con Int
+   |  |  `- Type.Con Int#Builtin.1
    |  |
-   |  `- Exp.Abs U 2#x
+   |  `- Exp.Abs U x#M.2
    |     |
-   |     +- Type.Con Int
+   |     +- Type.Con Int#Builtin.1
    |     |
-   |     `- Exp.Var 2#x
+   |     `- Exp.Var x#M.2
    |
-   `- Exp.UnLet 6#y
+   `- Exp.UnLet y#M.6
       |
-      +- Exp.Rec 4#x
+      +- Exp.Rec x#M.4
       |  |
       |  +- Type.Arrow U
       |  |  |
-      |  |  +- Type.Con Int
+      |  |  +- Type.Con Int#Builtin.1
       |  |  |
-      |  |  `- Type.Con Int
+      |  |  `- Type.Con Int#Builtin.1
       |  |
-      |  `- Exp.Abs U 5#_
+      |  `- Exp.Abs U _#M.5
       |     |
-      |     +- Type.Con Int
+      |     +- Type.Con Int#Builtin.1
       |     |
       |     `- Exp.App
       |        |
-      |        +- Exp.Var 4#x
+      |        +- Exp.Var x#M.4
       |        |
       |        `- Exp.Lit
       |           |
       |           `- Lit.Int 10
       |
-      `- Exp.UnLet 7#x
+      `- Exp.UnLet x#M.7
          |
          +- Exp.App
          |  |
-         |  +- Exp.Var 3#x
+         |  +- Exp.Var x#M.3
          |  |
          |  `- Exp.Lit
          |     |
          |     `- Lit.Int 10
          |
-         `- Exp.Var 7#x
+         `- Exp.Var x#M.7
 

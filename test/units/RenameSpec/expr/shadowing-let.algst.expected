@@ -1,14 +1,14 @@
-Exp.UnLet 0#a
+Exp.UnLet a#M.0
 |
 +- Exp.Lit
 |  |
 |  `- Lit.Int 1
 |
-`- Exp.UnLet 1#a
+`- Exp.UnLet a#M.1
    |
    +- Exp.Lit
    |  |
    |  `- Lit.Int 2
    |
-   `- Exp.Var 1#a
+   `- Exp.Var a#M.1
 

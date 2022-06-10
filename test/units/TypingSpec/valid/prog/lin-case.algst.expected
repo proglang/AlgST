@@ -1,4 +1,4 @@
-Maybe
+Maybe#M.0
 |
 `- DataDecl
    |
@@ -10,27 +10,27 @@ Maybe
    |
    +- parameters
    |  |
-   |  `- (a:TL)
+   |  `- (a#M.4:TL)
    |
    `- constructors
       |
-      +- Just
+      +- Just#M.1
       |  |
-      |  `- Type.Var 6#a
+      |  `- Type.Var a#M.4
       |     |
       |     `- TL
       |
-      `- Nothing
+      `- Nothing#M.2
 
-Just
+Just#M.1
 |
-`- Decl.DataCon (Maybe)
+`- Decl.DataCon (Maybe#M.0)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (a:TL)
+   |  `- (a#M.4:TL)
    |
    +- multiplicity
    |  |
@@ -38,19 +38,19 @@ Just
    |
    `- items
       |
-      `- Type.Var 6#a
+      `- Type.Var a#M.4
          |
          `- TL
 
-Nothing
+Nothing#M.2
 |
-`- Decl.DataCon (Maybe)
+`- Decl.DataCon (Maybe#M.0)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (a:TL)
+   |  `- (a#M.4:TL)
    |
    +- multiplicity
    |  |
@@ -58,11 +58,11 @@ Nothing
    |
    `- items
 
-fromMaybe
+fromMaybe#M.3
 |
 +- type
 |  |
-|  `- Type.Forall 44#a:TL
+|  `- Type.Forall a#M.9:TL
 |     |
 |     `- Type.Arrow U
 |        |
@@ -70,7 +70,7 @@ fromMaybe
 |        |  |
 |        |  +- Type.Unit
 |        |  |
-|        |  `- Type.Var 44#a
+|        |  `- Type.Var a#M.9
 |        |     |
 |        |     `- TL
 |        |
@@ -82,35 +82,35 @@ fromMaybe
 |           |     |
 |           |     +- Maybe
 |           |     |
-|           |     `- Type.Var 44#a
+|           |     `- Type.Var a#M.9
 |           |        |
 |           |        `- TL
 |           |
-|           `- Type.Var 44#a
+|           `- Type.Var a#M.9
 |              |
 |              `- TL
 |
 +- params
 |  |
-|  +- 42#makeA
+|  +- makeA#M.7
 |  |
-|  `- 43#m
+|  `- m#M.8
 |
 `- definition
    |
-   `- Exp.TypeAbs 66#_:TL
+   `- Exp.TypeAbs _#M.11:TL
       |
-      `- Exp.Abs U 42#makeA
+      `- Exp.Abs U makeA#M.7
          |
          +- Type.Arrow U
          |  |
          |  +- Type.Unit
          |  |
-         |  `- Type.Var 66#_
+         |  `- Type.Var _#M.11
          |     |
          |     `- TL
          |
-         `- Exp.Abs U 43#m
+         `- Exp.Abs U m#M.8
             |
             +- Type.Type
             |  |
@@ -118,7 +118,7 @@ fromMaybe
             |     |
             |     +- Maybe
             |     |
-            |     `- Type.Var 66#_
+            |     `- Type.Var _#M.11
             |        |
             |        `- TL
             |
@@ -126,17 +126,17 @@ fromMaybe
                |
                `- TcExpX.ValueCase
                   |
-                  +- Exp.Var 43#m
+                  +- Exp.Var m#M.8
                   |
-                  +- Just 45#a
+                  +- Just#M.1 a#M.10
                   |  |
-                  |  `- Exp.Var 45#a
+                  |  `- Exp.Var a#M.10
                   |
-                  `- Nothing
+                  `- Nothing#M.2
                      |
                      `- Exp.App
                         |
-                        +- Exp.Var 42#makeA
+                        +- Exp.Var makeA#M.7
                         |
                         `- Exp.Lit
                            |

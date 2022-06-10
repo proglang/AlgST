@@ -1,12 +1,12 @@
-constUnit
+constUnit#M.0
 |
 +- type
 |  |
-|  `- Type.Forall 41#a:TU
+|  `- Type.Forall a#M.4:TU
 |     |
 |     `- Type.Arrow U
 |        |
-|        +- Type.Var 41#a
+|        +- Type.Var a#M.4
 |        |  |
 |        |  `- TU
 |        |
@@ -14,23 +14,23 @@ constUnit
 |
 +- params
 |  |
-|  +- [39#_]
+|  +- [_#M.2]
 |  |
-|  `- 40#_
+|  `- _#M.3
 |
 `- definition
    |
-   `- Exp.TypeAbs 39#_:TU
+   `- Exp.TypeAbs _#M.2:TU
       |
-      `- Exp.Abs U 40#_
+      `- Exp.Abs U _#M.3
          |
-         +- Type.Var 39#_
+         +- Type.Var _#M.2
          |  |
          |  `- TU
          |
-         `- Exp.Var unit
+         `- Exp.Var unit#M.1
 
-unit
+unit#M.1
 |
 +- type
 |  |

@@ -1,46 +1,79 @@
-import M1
+imports
 |
-`- ImportAll
+`- |
+   +- Import unqualified
+   |  |
+   |  +- target
+   |  |  |
+   |  |  `- M7
+   |  |
+   |  `- ImportAll
+   |     |
+   |     +- hide value ‘(*)’
+   |     |
+   |     `- hide value ‘hide_this’
+   |
+   +- Import unqualified
+   |  |
+   |  +- target
+   |  |  |
+   |  |  `- M6
+   |  |
+   |  `- ImportOnly
+   |     |
+   |     +- use value ‘Con1’ as ‘Con2’
+   |     |
+   |     +- use value ‘(+)’ as ‘add’
+   |     |
+   |     `- use value ‘foo’ as ‘bar’
+   |
+   +- Import unqualified
+   |  |
+   |  +- target
+   |  |  |
+   |  |  `- M5
+   |  |
+   |  `- ImportAll
+   |     |
+   |     +- hide value ‘x’
+   |     |
+   |     `- use value ‘x’ as ‘y’
+   |
+   +- Import unqualified
+   |  |
+   |  +- target
+   |  |  |
+   |  |  `- M4
+   |  |
+   |  `- ImportOnly
+   |     |
+   |     +- use value ‘(*)’ as ‘(*)’
+   |     |
+   |     `- use value ‘add’ as ‘add’
+   |
+   +- Import unqualified
+   |  |
+   |  +- target
+   |  |  |
+   |  |  `- M3
+   |  |
+   |  `- ImportAll
+   |
+   +- Import unqualified
+   |  |
+   |  +- target
+   |  |  |
+   |  |  `- M2
+   |  |
+   |  `- ImportAll
+   |
+   `- Import unqualified
+      |
+      +- target
+      |  |
+      |  `- M1
+      |
+      `- ImportAll
 
-import M2
-|
-`- ImportAll
-
-import M3
-|
-`- ImportAll
-
-import M4
-|
-`- ImportOnly
-   |
-   +- use value ‘(*)’ as ‘(*)’
-   |
-   `- use value ‘add’ as ‘add’
-
-import M5
-|
-`- ImportAll
-   |
-   +- hide value ‘x’
-   |
-   `- use value ‘x’ as ‘y’
-
-import M6
-|
-`- ImportOnly
-   |
-   +- use value ‘Con1’ as ‘Con2’
-   |
-   +- use value ‘(+)’ as ‘add’
-   |
-   `- use value ‘foo’ as ‘bar’
-
-import M7
-|
-`- ImportAll
-   |
-   +- hide value ‘(*)’
-   |
-   `- hide value ‘hide_this’
+declarations
 

@@ -79,7 +79,7 @@ instance LabeledTree (Name stage scope) where
 describeName :: Name stage scope -> String
 describeName n =
   pprName n ++ case n of
-    ResolvedName {} -> " {" ++ pprResolved n ++ "}"
+    ResolvedName {} -> '#' : pprResolved n
     _ -> ""
 
 instance LabeledTree E.Lit where

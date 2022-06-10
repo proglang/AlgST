@@ -1,18 +1,18 @@
-Exp.Abs U 0#a
+Exp.Abs U a#M.0
 |
-+- Type.Con Int
++- Type.Con Int#Builtin.1
 |
-`- Exp.UnLet 1#a
+`- Exp.UnLet a#M.1
    |
    +- Exp.App
    |  |
    |  +- Exp.App
    |  |  |
-   |  |  +- Exp.Var (+)
+   |  |  +- Exp.Var (+)#Builtin.7
    |  |  |
-   |  |  `- Exp.Var 0#a
+   |  |  `- Exp.Var a#M.0
    |  |
-   |  `- Exp.Var 0#a
+   |  `- Exp.Var a#M.0
    |
-   `- Exp.Var 1#a
+   `- Exp.Var a#M.1
 

@@ -1,4 +1,4 @@
-Literal
+Literal#M.0
 |
 `- DataDecl
    |
@@ -12,27 +12,27 @@ Literal
    |
    `- constructors
       |
-      +- Bool
+      +- Bool#M.1
       |  |
-      |  `- Type.Con Bool
+      |  `- Type.Con Bool#Builtin.4
       |
-      +- Char
+      +- Char#M.2
       |  |
-      |  `- Type.Con Char
+      |  `- Type.Con Char#Builtin.2
       |
-      +- Int
+      +- Int#M.3
       |  |
-      |  `- Type.Con Int
+      |  `- Type.Con Int#Builtin.1
       |
-      +- String
+      +- String#M.4
       |  |
-      |  `- Type.Con String
+      |  `- Type.Con String#Builtin.3
       |
-      `- Unit
+      `- Unit#M.5
 
-Bool
+Bool#M.1
 |
-`- Decl.DataCon (Literal)
+`- Decl.DataCon (Literal#M.0)
    |
    +- OriginUser
    |
@@ -44,11 +44,11 @@ Bool
    |
    `- items
       |
-      `- Type.Con Bool
+      `- Type.Con Bool#Builtin.4
 
-Char
+Char#M.2
 |
-`- Decl.DataCon (Literal)
+`- Decl.DataCon (Literal#M.0)
    |
    +- OriginUser
    |
@@ -60,11 +60,11 @@ Char
    |
    `- items
       |
-      `- Type.Con Char
+      `- Type.Con Char#Builtin.2
 
-Int
+Int#M.3
 |
-`- Decl.DataCon (Literal)
+`- Decl.DataCon (Literal#M.0)
    |
    +- OriginUser
    |
@@ -76,11 +76,11 @@ Int
    |
    `- items
       |
-      `- Type.Con Int
+      `- Type.Con Int#Builtin.1
 
-String
+String#M.4
 |
-`- Decl.DataCon (Literal)
+`- Decl.DataCon (Literal#M.0)
    |
    +- OriginUser
    |
@@ -92,11 +92,11 @@ String
    |
    `- items
       |
-      `- Type.Con String
+      `- Type.Con String#Builtin.3
 
-Unit
+Unit#M.5
 |
-`- Decl.DataCon (Literal)
+`- Decl.DataCon (Literal#M.0)
    |
    +- OriginUser
    |

@@ -1,54 +1,59 @@
-IntList
+imports
 |
-`- DataDecl
-   |
-   +- OriginUser
-   |
-   +- kind
-   |  |
-   |  `- TU
-   |
-   +- parameters
-   |
-   `- constructors
-      |
-      +- Cons
-      |  |
-      |  +- Type.Con Int
-      |  |
-      |  `- Type.Con IntList
-      |
-      `- Nil
 
-Cons
+declarations
 |
-`- Decl.DataCon (IntList)
-   |
-   +- OriginUser
-   |
-   +- parameters
-   |
-   +- multiplicity
-   |  |
-   |  `- U
-   |
-   `- items
-      |
-      +- Type.Con Int
-      |
-      `- Type.Con IntList
-
-Nil
++- IntList
+|  |
+|  `- DataDecl
+|     |
+|     +- OriginUser
+|     |
+|     +- kind
+|     |  |
+|     |  `- TU
+|     |
+|     +- parameters
+|     |
+|     `- constructors
+|        |
+|        +- Cons
+|        |  |
+|        |  +- Type.Con Int
+|        |  |
+|        |  `- Type.Con IntList
+|        |
+|        `- Nil
 |
-`- Decl.DataCon (IntList)
++- Cons
+|  |
+|  `- Decl.DataCon (IntList)
+|     |
+|     +- OriginUser
+|     |
+|     +- parameters
+|     |
+|     +- multiplicity
+|     |  |
+|     |  `- U
+|     |
+|     `- items
+|        |
+|        +- Type.Con Int
+|        |
+|        `- Type.Con IntList
+|
+`- Nil
    |
-   +- OriginUser
-   |
-   +- parameters
-   |
-   +- multiplicity
-   |  |
-   |  `- U
-   |
-   `- items
+   `- Decl.DataCon (IntList)
+      |
+      +- OriginUser
+      |
+      +- parameters
+      |
+      +- multiplicity
+      |  |
+      |  `- U
+      |
+      `- items
 

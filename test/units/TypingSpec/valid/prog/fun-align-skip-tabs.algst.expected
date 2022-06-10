@@ -1,32 +1,32 @@
-foo
+foo#M.0
 |
 +- type
 |  |
-|  `- Type.Forall 40#a:TU
+|  `- Type.Forall a#M.2:TU
 |     |
 |     `- Type.Arrow U
 |        |
-|        +- Type.Var 40#a
+|        +- Type.Var a#M.2
 |        |  |
 |        |  `- TU
 |        |
-|        `- Type.Var 40#a
+|        `- Type.Var a#M.2
 |           |
 |           `- TU
 |
 +- params
 |  |
-|  `- 39#a
+|  `- a#M.1
 |
 `- definition
    |
-   `- Exp.TypeAbs 61#_:TU
+   `- Exp.TypeAbs _#M.3:TU
       |
-      `- Exp.Abs U 39#a
+      `- Exp.Abs U a#M.1
          |
-         +- Type.Var 61#_
+         +- Type.Var _#M.3
          |  |
          |  `- TU
          |
-         `- Exp.Var 39#a
+         `- Exp.Var a#M.1
 

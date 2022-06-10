@@ -1,4 +1,4 @@
-Arith
+Arith#M.0
 |
 `- ProtoDecl
    |
@@ -12,7 +12,7 @@ Arith
    |
    `- constructors
       |
-      +- Add
+      +- Add#M.3
       |  |
       |  +- Type.Type
       |  |  |
@@ -34,7 +34,7 @@ Arith
       |           |
       |           `- Int
       |
-      `- Neg
+      `- Neg#M.6
          |
          +- Type.Type
          |  |
@@ -50,7 +50,7 @@ Arith
                   |
                   `- Int
 
-List
+List#M.1
 |
 `- DataDecl
    |
@@ -62,13 +62,13 @@ List
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.10:TU)
    |
    `- constructors
       |
-      +- Cons
+      +- Cons#M.4
       |  |
-      |  +- Type.Var 6#a
+      |  +- Type.Var a#M.10
       |  |  |
       |  |  `- TU
       |  |
@@ -78,13 +78,13 @@ List
       |        |
       |        +- List
       |        |
-      |        `- Type.Var 6#a
+      |        `- Type.Var a#M.10
       |           |
       |           `- TU
       |
-      `- Nil
+      `- Nil#M.7
 
-Repeat
+Repeat#M.2
 |
 `- ProtoDecl
    |
@@ -96,13 +96,13 @@ Repeat
    |
    +- parameters
    |  |
-   |  `- (p:P)
+   |  `- (p#M.11:P)
    |
    `- constructors
       |
-      +- More
+      +- More#M.5
       |  |
-      |  +- Type.Var 10#p
+      |  +- Type.Var p#M.11
       |  |  |
       |  |  `- P
       |  |
@@ -112,15 +112,15 @@ Repeat
       |        |
       |        +- Repeat
       |        |
-      |        `- Type.Var 10#p
+      |        `- Type.Var p#M.11
       |           |
       |           `- P
       |
-      `- Quit
+      `- Quit#M.8
 
-Add
+Add#M.3
 |
-`- Decl.ProtocolCon (Arith)
+`- Decl.ProtocolCon (Arith#M.0)
    |
    +- OriginUser
    |
@@ -148,15 +148,15 @@ Add
                |
                `- Int
 
-Cons
+Cons#M.4
 |
-`- Decl.DataCon (List)
+`- Decl.DataCon (List#M.1)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.10:TU)
    |
    +- multiplicity
    |  |
@@ -164,7 +164,7 @@ Cons
    |
    `- items
       |
-      +- Type.Var 6#a
+      +- Type.Var a#M.10
       |  |
       |  `- TU
       |
@@ -174,23 +174,23 @@ Cons
             |
             +- List
             |
-            `- Type.Var 6#a
+            `- Type.Var a#M.10
                |
                `- TU
 
-More
+More#M.5
 |
-`- Decl.ProtocolCon (Repeat)
+`- Decl.ProtocolCon (Repeat#M.2)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (p:P)
+   |  `- (p#M.11:P)
    |
    `- items
       |
-      +- Type.Var 10#p
+      +- Type.Var p#M.11
       |  |
       |  `- P
       |
@@ -200,13 +200,13 @@ More
             |
             +- Repeat
             |
-            `- Type.Var 10#p
+            `- Type.Var p#M.11
                |
                `- P
 
-Neg
+Neg#M.6
 |
-`- Decl.ProtocolCon (Arith)
+`- Decl.ProtocolCon (Arith#M.0)
    |
    +- OriginUser
    |
@@ -228,15 +228,15 @@ Neg
                |
                `- Int
 
-Nil
+Nil#M.7
 |
-`- Decl.DataCon (List)
+`- Decl.DataCon (List#M.1)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.10:TU)
    |
    +- multiplicity
    |  |
@@ -244,19 +244,19 @@ Nil
    |
    `- items
 
-Quit
+Quit#M.8
 |
-`- Decl.ProtocolCon (Repeat)
+`- Decl.ProtocolCon (Repeat#M.2)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (p:P)
+   |  `- (p#M.11:P)
    |
    `- items
 
-sum
+sum#M.9
 |
 +- type
 |  |
@@ -306,7 +306,7 @@ sum
       |
       `- TcExpX.ValueCase
          |
-         +- Exp.Rec 57#go
+         +- Exp.Rec go#M.16
          |  |
          |  +- Type.Arrow U
          |  |  |
@@ -354,7 +354,7 @@ sum
          |  |              |
          |  |              `- Int
          |  |
-         |  `- Exp.Abs U 58#acc
+         |  `- Exp.Abs U acc#M.17
          |     |
          |     +- Type.Type
          |     |  |
@@ -362,7 +362,7 @@ sum
          |     |     |
          |     |     `- Int
          |     |
-         |     `- Exp.Abs U 59#xs
+         |     `- Exp.Abs U xs#M.18
          |        |
          |        +- Type.Type
          |        |  |
@@ -376,7 +376,7 @@ sum
          |        |           |
          |        |           `- Int
          |        |
-         |        `- Exp.Abs U 60#c
+         |        `- Exp.Abs U c#M.19
          |           |
          |           +- Type.Session (!)
          |           |  |
@@ -398,9 +398,9 @@ sum
          |              |
          |              `- TcExpX.ValueCase
          |                 |
-         |                 +- Exp.Var 59#xs
+         |                 +- Exp.Var xs#M.18
          |                 |
-         |                 +- Cons 61#x 62#xs
+         |                 +- Cons#M.4 x#M.20 xs#M.21
          |                 |  |
          |                 |  `- Exp.Exp
          |                 |     |
@@ -412,7 +412,7 @@ sum
          |                 |        |  |  |
          |                 |        |  |  +- Exp.TypeApp
          |                 |        |  |  |  |
-         |                 |        |  |  |  +- Exp.Select More
+         |                 |        |  |  |  +- Exp.Select More#M.5
          |                 |        |  |  |  |
          |                 |        |  |  |  `- Type.Type
          |                 |        |  |  |     |
@@ -422,9 +422,9 @@ sum
          |                 |        |  |  |
          |                 |        |  |  `- Type.End
          |                 |        |  |
-         |                 |        |  `- Exp.Var 60#c
+         |                 |        |  `- Exp.Var c#M.19
          |                 |        |
-         |                 |        `- 63#c
+         |                 |        `- c#M.22
          |                 |           |
          |                 |           `- Exp.Exp
          |                 |              |
@@ -434,7 +434,7 @@ sum
          |                 |                 |  |
          |                 |                 |  +- Exp.TypeApp
          |                 |                 |  |  |
-         |                 |                 |  |  +- Exp.Select Add
+         |                 |                 |  |  +- Exp.Select Add#M.3
          |                 |                 |  |  |
          |                 |                 |  |  `- Type.Session (!)
          |                 |                 |  |     |
@@ -452,9 +452,9 @@ sum
          |                 |                 |  |     |
          |                 |                 |  |     `- Type.End
          |                 |                 |  |
-         |                 |                 |  `- Exp.Var 63#c
+         |                 |                 |  `- Exp.Var c#M.22
          |                 |                 |
-         |                 |                 `- 64#c
+         |                 |                 `- c#M.23
          |                 |                    |
          |                 |                    `- Exp.Exp
          |                 |                       |
@@ -468,7 +468,7 @@ sum
          |                 |                          |  |  |  |
          |                 |                          |  |  |  +- Exp.TypeApp
          |                 |                          |  |  |  |  |
-         |                 |                          |  |  |  |  +- Exp.Var send
+         |                 |                          |  |  |  |  +- Exp.Var send#Builtin.13
          |                 |                          |  |  |  |  |
          |                 |                          |  |  |  |  `- Type.Type
          |                 |                          |  |  |  |     |
@@ -508,11 +508,11 @@ sum
          |                 |                          |  |  |           |
          |                 |                          |  |  |           `- Type.End
          |                 |                          |  |  |
-         |                 |                          |  |  `- Exp.Var 61#x
+         |                 |                          |  |  `- Exp.Var x#M.20
          |                 |                          |  |
-         |                 |                          |  `- Exp.Var 64#c
+         |                 |                          |  `- Exp.Var c#M.23
          |                 |                          |
-         |                 |                          `- 65#c
+         |                 |                          `- c#M.24
          |                 |                             |
          |                 |                             `- Exp.Exp
          |                 |                                |
@@ -526,7 +526,7 @@ sum
          |                 |                                   |  |  |  |
          |                 |                                   |  |  |  +- Exp.TypeApp
          |                 |                                   |  |  |  |  |
-         |                 |                                   |  |  |  |  +- Exp.Var send
+         |                 |                                   |  |  |  |  +- Exp.Var send#Builtin.13
          |                 |                                   |  |  |  |  |
          |                 |                                   |  |  |  |  `- Type.Type
          |                 |                                   |  |  |  |     |
@@ -558,11 +558,11 @@ sum
          |                 |                                   |  |  |        |
          |                 |                                   |  |  |        `- Type.End
          |                 |                                   |  |  |
-         |                 |                                   |  |  `- Exp.Var 58#acc
+         |                 |                                   |  |  `- Exp.Var acc#M.17
          |                 |                                   |  |
-         |                 |                                   |  `- Exp.Var 65#c
+         |                 |                                   |  `- Exp.Var c#M.24
          |                 |                                   |
-         |                 |                                   `- 66#c
+         |                 |                                   `- c#M.25
          |                 |                                      |
          |                 |                                      `- Exp.Exp
          |                 |                                         |
@@ -574,7 +574,7 @@ sum
          |                 |                                            |  |  |
          |                 |                                            |  |  +- Exp.TypeApp
          |                 |                                            |  |  |  |
-         |                 |                                            |  |  |  +- Exp.Var receive
+         |                 |                                            |  |  |  +- Exp.Var receive#Builtin.14
          |                 |                                            |  |  |  |
          |                 |                                            |  |  |  `- Type.Type
          |                 |                                            |  |  |     |
@@ -598,9 +598,9 @@ sum
          |                 |                                            |  |     |
          |                 |                                            |  |     `- Type.End
          |                 |                                            |  |
-         |                 |                                            |  `- Exp.Var 66#c
+         |                 |                                            |  `- Exp.Var c#M.25
          |                 |                                            |
-         |                 |                                            `- (,) 67#acc' 68#c
+         |                 |                                            `- (,)#Builtin.0 acc'#M.26 c#M.27
          |                 |                                               |
          |                 |                                               `- Exp.App
          |                 |                                                  |
@@ -608,15 +608,15 @@ sum
          |                 |                                                  |  |
          |                 |                                                  |  +- Exp.App
          |                 |                                                  |  |  |
-         |                 |                                                  |  |  +- Exp.Var 57#go
+         |                 |                                                  |  |  +- Exp.Var go#M.16
          |                 |                                                  |  |  |
-         |                 |                                                  |  |  `- Exp.Var 67#acc'
+         |                 |                                                  |  |  `- Exp.Var acc'#M.26
          |                 |                                                  |  |
-         |                 |                                                  |  `- Exp.Var 62#xs
+         |                 |                                                  |  `- Exp.Var xs#M.21
          |                 |                                                  |
-         |                 |                                                  `- Exp.Var 68#c
+         |                 |                                                  `- Exp.Var c#M.27
          |                 |
-         |                 `- Nil
+         |                 `- Nil#M.7
          |                    |
          |                    `- Exp.Exp
          |                       |
@@ -628,7 +628,7 @@ sum
          |                          |  |  |
          |                          |  |  +- Exp.TypeApp
          |                          |  |  |  |
-         |                          |  |  |  +- Exp.Select Quit
+         |                          |  |  |  +- Exp.Select Quit#M.8
          |                          |  |  |  |
          |                          |  |  |  `- Type.Type
          |                          |  |  |     |
@@ -638,17 +638,17 @@ sum
          |                          |  |  |
          |                          |  |  `- Type.End
          |                          |  |
-         |                          |  `- Exp.Var 60#c
+         |                          |  `- Exp.Var c#M.19
          |                          |
-         |                          `- 69#_
+         |                          `- _#M.28
          |                             |
-         |                             `- Exp.Var 58#acc
+         |                             `- Exp.Var acc#M.17
          |
-         `- 70#go
+         `- go#M.29
             |
             `- Exp.App
                |
-               +- Exp.Var 70#go
+               +- Exp.Var go#M.29
                |
                `- Exp.Lit
                   |

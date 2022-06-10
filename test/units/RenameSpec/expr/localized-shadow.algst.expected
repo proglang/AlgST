@@ -1,4 +1,4 @@
-Exp.UnLet 0#a
+Exp.UnLet a#M.0
 |
 +- Exp.Lit
 |  |
@@ -8,15 +8,15 @@ Exp.UnLet 0#a
    |
    +- Exp.App
    |  |
-   |  +- Exp.Var (+)
+   |  +- Exp.Var (+)#Builtin.7
    |  |
-   |  `- Exp.UnLet 1#a
+   |  `- Exp.UnLet a#M.1
    |     |
    |     +- Exp.Lit
    |     |  |
    |     |  `- Lit.Int 2
    |     |
-   |     `- Exp.Var 1#a
+   |     `- Exp.Var a#M.1
    |
-   `- Exp.Var 0#a
+   `- Exp.Var a#M.0
 

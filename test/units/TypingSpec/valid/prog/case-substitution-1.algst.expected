@@ -1,4 +1,4 @@
-Id
+Id#M.0
 |
 `- DataDecl
    |
@@ -10,25 +10,25 @@ Id
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.3:TU)
    |
    `- constructors
       |
-      `- Id
+      `- Id#M.1
          |
-         `- Type.Var 3#a
+         `- Type.Var a#M.3
             |
             `- TU
 
-Id
+Id#M.1
 |
-`- Decl.DataCon (Id)
+`- Decl.DataCon (Id#M.0)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.3:TU)
    |
    +- multiplicity
    |  |
@@ -36,15 +36,15 @@ Id
    |
    `- items
       |
-      `- Type.Var 3#a
+      `- Type.Var a#M.3
          |
          `- TU
 
-getId
+getId#M.2
 |
 +- type
 |  |
-|  `- Type.Forall 48#a:TU
+|  `- Type.Forall a#M.7:TU
 |     |
 |     `- Type.Arrow U
 |        |
@@ -54,25 +54,25 @@ getId
 |        |     |
 |        |     +- Id
 |        |     |
-|        |     `- Type.Var 48#a
+|        |     `- Type.Var a#M.7
 |        |        |
 |        |        `- TU
 |        |
-|        `- Type.Var 48#a
+|        `- Type.Var a#M.7
 |           |
 |           `- TU
 |
 +- params
 |  |
-|  +- [46#_]
+|  +- [_#M.5]
 |  |
-|  `- 47#id
+|  `- id#M.6
 |
 `- definition
    |
-   `- Exp.TypeAbs 46#_:TU
+   `- Exp.TypeAbs _#M.5:TU
       |
-      `- Exp.Abs U 47#id
+      `- Exp.Abs U id#M.6
          |
          +- Type.Type
          |  |
@@ -80,7 +80,7 @@ getId
          |     |
          |     +- Id
          |     |
-         |     `- Type.Var 46#_
+         |     `- Type.Var _#M.5
          |        |
          |        `- TU
          |
@@ -88,9 +88,9 @@ getId
             |
             `- TcExpX.ValueCase
                |
-               +- Exp.Var 47#id
+               +- Exp.Var id#M.6
                |
-               `- Id 49#a
+               `- Id#M.1 a#M.8
                   |
-                  `- Exp.Var 49#a
+                  `- Exp.Var a#M.8
 

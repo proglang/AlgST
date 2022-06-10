@@ -1,4 +1,4 @@
-D
+D#M.0
 |
 `- DataDecl
    |
@@ -12,11 +12,11 @@ D
    |
    `- constructors
       |
-      `- D
+      `- D#M.1
 
-D
+D#M.1
 |
-`- Decl.DataCon (D)
+`- Decl.DataCon (D#M.0)
    |
    +- OriginUser
    |
@@ -28,7 +28,7 @@ D
    |
    `- items
 
-foo
+foo#M.2
 |
 +- type
 |  |
@@ -44,11 +44,11 @@ foo
 |
 +- params
 |  |
-|  `- 39#x
+|  `- x#M.3
 |
 `- definition
    |
-   `- Exp.Abs U 39#x
+   `- Exp.Abs U x#M.3
       |
       +- Type.Type
       |  |
@@ -60,9 +60,9 @@ foo
          |
          `- TcExpX.ValueCase
             |
-            +- Exp.Var 39#x
+            +- Exp.Var x#M.3
             |
-            `- D
+            `- D#M.1
                |
                `- Exp.Lit
                   |

@@ -1,4 +1,4 @@
-Identity
+Identity#M.0
 |
 `- DataDecl
    |
@@ -10,25 +10,25 @@ Identity
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.4:TU)
    |
    `- constructors
       |
-      `- Identity
+      `- Identity#M.1
          |
-         `- Type.Var 6#a
+         `- Type.Var a#M.4
             |
             `- TU
 
-Identity
+Identity#M.1
 |
-`- Decl.DataCon (Identity)
+`- Decl.DataCon (Identity#M.0)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.4:TU)
    |
    +- multiplicity
    |  |
@@ -36,11 +36,11 @@ Identity
    |
    `- items
       |
-      `- Type.Var 6#a
+      `- Type.Var a#M.4
          |
          `- TU
 
-matchD0
+matchD0#M.2
 |
 +- type
 |  |
@@ -56,11 +56,11 @@ matchD0
 |
 +- params
 |  |
-|  `- 46#d0
+|  `- d0#M.6
 |
 `- definition
    |
-   `- Exp.Abs U 46#d0
+   `- Exp.Abs U d0#M.6
       |
       +- Type.Type
       |  |
@@ -72,19 +72,19 @@ matchD0
          |
          `- TcExpX.ValueCase
             |
-            +- Exp.Var 46#d0
+            +- Exp.Var d0#M.6
             |
-            `- D0
+            `- D0#Declarations.14
                |
                `- Exp.Lit
                   |
                   `- Lit.Unit
 
-runIdentity
+runIdentity#M.3
 |
 +- type
 |  |
-|  `- Type.Forall 50#a:TU
+|  `- Type.Forall a#M.8:TU
 |     |
 |     `- Type.Arrow U
 |        |
@@ -94,23 +94,23 @@ runIdentity
 |        |     |
 |        |     +- Identity
 |        |     |
-|        |     `- Type.Var 50#a
+|        |     `- Type.Var a#M.8
 |        |        |
 |        |        `- TU
 |        |
-|        `- Type.Var 50#a
+|        `- Type.Var a#M.8
 |           |
 |           `- TU
 |
 +- params
 |  |
-|  `- 49#id
+|  `- id#M.7
 |
 `- definition
    |
-   `- Exp.TypeAbs 67#_:TU
+   `- Exp.TypeAbs _#M.10:TU
       |
-      `- Exp.Abs U 49#id
+      `- Exp.Abs U id#M.7
          |
          +- Type.Type
          |  |
@@ -118,7 +118,7 @@ runIdentity
          |     |
          |     +- Identity
          |     |
-         |     `- Type.Var 67#_
+         |     `- Type.Var _#M.10
          |        |
          |        `- TU
          |
@@ -126,9 +126,9 @@ runIdentity
             |
             `- TcExpX.ValueCase
                |
-               +- Exp.Var 49#id
+               +- Exp.Var id#M.7
                |
-               `- Identity 51#a
+               `- Identity#M.1 a#M.9
                   |
-                  `- Exp.Var 51#a
+                  `- Exp.Var a#M.9
 

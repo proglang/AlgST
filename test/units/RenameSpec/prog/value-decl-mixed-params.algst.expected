@@ -1,62 +1,62 @@
-const1
+const1#M.0
 |
 +- type
 |  |
-|  `- Type.Forall 26#a:TL
+|  `- Type.Forall a#M.7:TL
 |     |
-|     `- Type.Forall 27#b:TU
+|     `- Type.Forall b#M.8:TU
 |        |
 |        `- Type.Arrow U
 |           |
-|           +- Type.Var 26#a
+|           +- Type.Var a#M.7
 |           |
 |           `- Type.Arrow U
 |              |
-|              +- Type.Var 27#b
+|              +- Type.Var b#M.8
 |              |
-|              `- Type.Var 26#a
+|              `- Type.Var a#M.7
 |
 +- params
 |  |
-|  +- [22#_]
+|  +- [_#M.3]
 |  |
-|  +- [23#_]
+|  +- [_#M.4]
 |  |
-|  +- 24#a
+|  +- a#M.5
 |  |
-|  `- 25#_
+|  `- _#M.6
 |
 `- definition
    |
-   `- Exp.Var 24#a
+   `- Exp.Var a#M.5
 
-const2
+const2#M.1
 |
 +- type
 |  |
-|  `- Type.Forall 32#a:TL
+|  `- Type.Forall a#M.13:TL
 |     |
-|     `- Type.Forall 33#b:TU
+|     `- Type.Forall b#M.14:TU
 |        |
 |        `- Type.Arrow U
 |           |
-|           +- Type.Var 32#a
+|           +- Type.Var a#M.13
 |           |
 |           `- Type.Arrow U
 |              |
-|              +- Type.Var 33#b
+|              +- Type.Var b#M.14
 |              |
-|              `- Type.Var 32#a
+|              `- Type.Var a#M.13
 |
 +- params
 |  |
-|  +- [28#a]
+|  +- [a#M.9]
 |  |
-|  +- [29#b]
+|  +- [b#M.10]
 |  |
-|  +- 30#a
+|  +- a#M.11
 |  |
-|  `- 31#_
+|  `- _#M.12
 |
 `- definition
    |
@@ -64,31 +64,31 @@ const2
       |
       +- Exp.TypeApp
       |  |
-      |  +- Exp.Var id
+      |  +- Exp.Var id#M.2
       |  |
-      |  `- Type.Var 28#a
+      |  `- Type.Var a#M.9
       |
-      `- Exp.Var 30#a
+      `- Exp.Var a#M.11
 
-id
+id#M.2
 |
 +- type
 |  |
-|  `- Type.Forall 41#a:TL
+|  `- Type.Forall a#M.17:TL
 |     |
 |     `- Type.Arrow U
 |        |
-|        +- Type.Var 41#a
+|        +- Type.Var a#M.17
 |        |
-|        `- Type.Var 41#a
+|        `- Type.Var a#M.17
 |
 +- params
 |  |
-|  +- [39#_]
+|  +- [_#M.15]
 |  |
-|  `- 40#a
+|  `- a#M.16
 |
 `- definition
    |
-   `- Exp.Var 40#a
+   `- Exp.Var a#M.16
 

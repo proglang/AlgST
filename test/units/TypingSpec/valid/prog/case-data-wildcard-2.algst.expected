@@ -1,4 +1,4 @@
-List
+List#M.0
 |
 `- DataDecl
    |
@@ -10,13 +10,13 @@ List
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.4:TU)
    |
    `- constructors
       |
-      +- Cons
+      +- Cons#M.1
       |  |
-      |  +- Type.Var 6#a
+      |  +- Type.Var a#M.4
       |  |  |
       |  |  `- TU
       |  |
@@ -26,21 +26,21 @@ List
       |        |
       |        +- List
       |        |
-      |        `- Type.Var 6#a
+      |        `- Type.Var a#M.4
       |           |
       |           `- TU
       |
-      `- Nil
+      `- Nil#M.2
 
-Cons
+Cons#M.1
 |
-`- Decl.DataCon (List)
+`- Decl.DataCon (List#M.0)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.4:TU)
    |
    +- multiplicity
    |  |
@@ -48,7 +48,7 @@ Cons
    |
    `- items
       |
-      +- Type.Var 6#a
+      +- Type.Var a#M.4
       |  |
       |  `- TU
       |
@@ -58,19 +58,19 @@ Cons
             |
             +- List
             |
-            `- Type.Var 6#a
+            `- Type.Var a#M.4
                |
                `- TU
 
-Nil
+Nil#M.2
 |
-`- Decl.DataCon (List)
+`- Decl.DataCon (List#M.0)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.4:TU)
    |
    +- multiplicity
    |  |
@@ -78,11 +78,11 @@ Nil
    |
    `- items
 
-unsafe_head
+unsafe_head#M.3
 |
 +- type
 |  |
-|  `- Type.Forall 56#a:TU
+|  `- Type.Forall a#M.9:TU
 |     |
 |     `- Type.Arrow U
 |        |
@@ -92,25 +92,25 @@ unsafe_head
 |        |     |
 |        |     +- List
 |        |     |
-|        |     `- Type.Var 56#a
+|        |     `- Type.Var a#M.9
 |        |        |
 |        |        `- TU
 |        |
-|        `- Type.Var 56#a
+|        `- Type.Var a#M.9
 |           |
 |           `- TU
 |
 +- params
 |  |
-|  +- [54#a]
+|  +- [a#M.7]
 |  |
-|  `- 55#xs
+|  `- xs#M.8
 |
 `- definition
    |
-   `- Exp.TypeAbs 54#a:TU
+   `- Exp.TypeAbs a#M.7:TU
       |
-      `- Exp.Abs U 55#xs
+      `- Exp.Abs U xs#M.8
          |
          +- Type.Type
          |  |
@@ -118,7 +118,7 @@ unsafe_head
          |     |
          |     +- List
          |     |
-         |     `- Type.Var 54#a
+         |     `- Type.Var a#M.7
          |        |
          |        `- TU
          |
@@ -126,23 +126,23 @@ unsafe_head
             |
             `- TcExpX.ValueCase
                |
-               +- Exp.Var 55#xs
+               +- Exp.Var xs#M.8
                |
-               +- Cons 57#a 58#_
+               +- Cons#M.1 a#M.10 _#M.11
                |  |
-               |  `- Exp.Var 57#a
+               |  `- Exp.Var a#M.10
                |
-               `- 59#xs'
+               `- xs'#M.12
                   |
                   `- Exp.App
                      |
                      +- Exp.TypeApp
                      |  |
-                     |  +- Exp.Var unsafe_head
+                     |  +- Exp.Var unsafe_head#M.3
                      |  |
-                     |  `- Type.Var 54#a
+                     |  `- Type.Var a#M.7
                      |     |
                      |     `- TU
                      |
-                     `- Exp.Var 59#xs'
+                     `- Exp.Var xs'#M.12
 

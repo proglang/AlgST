@@ -38,12 +38,6 @@ spec = do
         (dir "invalid/decl")
         (swap . parseTree parseModule)
 
-    -- These tests will probably be dropped.
-    describe "declarations + builtins" do
-      goldenTests
-        (dir "invalid/decl+builtins")
-        (swap . parseTree parseModule)
-
   describe "associativity" do
     specify "type application" do
       let ?parser = parseType

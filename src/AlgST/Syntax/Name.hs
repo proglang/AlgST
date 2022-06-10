@@ -328,7 +328,7 @@ pprName (nameWritten -> n) = fold modulePrefix ++ getUnqualified (nameUnqualifie
 
 pprResolved :: Name Resolved scope -> String
 pprResolved (ResolvedName _ (ModuleName m) (ResolvedId r)) =
-  m ++ '#' : show r
+  m ++ '.' : show r
 
 -- TODO: Check if there is difference in runtime/allocation when switching
 -- between ordered and unorderered maps.

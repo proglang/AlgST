@@ -1,86 +1,91 @@
-Arith
+imports
 |
-`- ProtoDecl
-   |
-   +- OriginUser
-   |
-   +- kind
-   |  |
-   |  `- P
-   |
-   +- parameters
-   |
-   `- constructors
-      |
-      +- Add
-      |  |
-      |  +- Type.Con Int
-      |  |
-      |  +- Type.Con Int
-      |  |
-      |  +- Type.Negate
-      |  |  |
-      |  |  `- Type.Con Int
-      |  |
-      |  `- Type.Con Arith
-      |
-      +- Neg
-      |  |
-      |  +- Type.Con Int
-      |  |
-      |  +- Type.Negate
-      |  |  |
-      |  |  `- Type.Con Int
-      |  |
-      |  `- Type.Con Arith
-      |
-      `- Quit
 
-Add
+declarations
 |
-`- Decl.ProtocolCon (Arith)
-   |
-   +- OriginUser
-   |
-   +- parameters
-   |
-   `- items
-      |
-      +- Type.Con Int
-      |
-      +- Type.Con Int
-      |
-      +- Type.Negate
-      |  |
-      |  `- Type.Con Int
-      |
-      `- Type.Con Arith
-
-Neg
++- Arith
+|  |
+|  `- ProtoDecl
+|     |
+|     +- OriginUser
+|     |
+|     +- kind
+|     |  |
+|     |  `- P
+|     |
+|     +- parameters
+|     |
+|     `- constructors
+|        |
+|        +- Add
+|        |  |
+|        |  +- Type.Con Int
+|        |  |
+|        |  +- Type.Con Int
+|        |  |
+|        |  +- Type.Negate
+|        |  |  |
+|        |  |  `- Type.Con Int
+|        |  |
+|        |  `- Type.Con Arith
+|        |
+|        +- Neg
+|        |  |
+|        |  +- Type.Con Int
+|        |  |
+|        |  +- Type.Negate
+|        |  |  |
+|        |  |  `- Type.Con Int
+|        |  |
+|        |  `- Type.Con Arith
+|        |
+|        `- Quit
 |
-`- Decl.ProtocolCon (Arith)
-   |
-   +- OriginUser
-   |
-   +- parameters
-   |
-   `- items
-      |
-      +- Type.Con Int
-      |
-      +- Type.Negate
-      |  |
-      |  `- Type.Con Int
-      |
-      `- Type.Con Arith
-
-Quit
++- Add
+|  |
+|  `- Decl.ProtocolCon (Arith)
+|     |
+|     +- OriginUser
+|     |
+|     +- parameters
+|     |
+|     `- items
+|        |
+|        +- Type.Con Int
+|        |
+|        +- Type.Con Int
+|        |
+|        +- Type.Negate
+|        |  |
+|        |  `- Type.Con Int
+|        |
+|        `- Type.Con Arith
 |
-`- Decl.ProtocolCon (Arith)
++- Neg
+|  |
+|  `- Decl.ProtocolCon (Arith)
+|     |
+|     +- OriginUser
+|     |
+|     +- parameters
+|     |
+|     `- items
+|        |
+|        +- Type.Con Int
+|        |
+|        +- Type.Negate
+|        |  |
+|        |  `- Type.Con Int
+|        |
+|        `- Type.Con Arith
+|
+`- Quit
    |
-   +- OriginUser
-   |
-   +- parameters
-   |
-   `- items
+   `- Decl.ProtocolCon (Arith)
+      |
+      +- OriginUser
+      |
+      +- parameters
+      |
+      `- items
 

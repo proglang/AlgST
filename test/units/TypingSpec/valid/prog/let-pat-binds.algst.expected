@@ -1,4 +1,4 @@
-foo
+foo#M.0
 |
 +- type
 |  |
@@ -26,15 +26,15 @@ foo
          |     |
          |     `- Lit.String "20"
          |
-         `- (,) 39#theInt 40#theString
+         `- (,)#Builtin.0 theInt#M.1 theString#M.2
             |
             `- Exp.App
                |
                +- Exp.App
                |  |
-               |  +- Exp.Var (+)
+               |  +- Exp.Var (+)#Builtin.7
                |  |
-               |  `- Exp.Var 39#theInt
+               |  `- Exp.Var theInt#M.1
                |
                `- Exp.Lit
                   |

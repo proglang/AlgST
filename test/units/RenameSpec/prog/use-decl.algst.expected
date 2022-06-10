@@ -1,22 +1,22 @@
-add
+add#M.0
 |
 +- type
 |  |
 |  `- Type.Arrow U
 |     |
-|     +- Type.Con Int
+|     +- Type.Con Int#Builtin.1
 |     |
 |     `- Type.Arrow U
 |        |
-|        +- Type.Con Int
+|        +- Type.Con Int#Builtin.1
 |        |
-|        `- Type.Con Int
+|        `- Type.Con Int#Builtin.1
 |
 +- params
 |  |
-|  +- 22#a
+|  +- a#M.2
 |  |
-|  `- 23#b
+|  `- b#M.3
 |
 `- definition
    |
@@ -24,37 +24,37 @@ add
       |
       +- Exp.App
       |  |
-      |  +- Exp.Var (+)
+      |  +- Exp.Var (+)#Builtin.7
       |  |
-      |  `- Exp.Var 22#a
+      |  `- Exp.Var a#M.2
       |
-      `- Exp.Var 23#b
+      `- Exp.Var b#M.3
 
-add3
+add3#M.1
 |
 +- type
 |  |
 |  `- Type.Arrow U
 |     |
-|     +- Type.Con Int
+|     +- Type.Con Int#Builtin.1
 |     |
 |     `- Type.Arrow U
 |        |
-|        +- Type.Con Int
+|        +- Type.Con Int#Builtin.1
 |        |
 |        `- Type.Arrow U
 |           |
-|           +- Type.Con Int
+|           +- Type.Con Int#Builtin.1
 |           |
-|           `- Type.Con Int
+|           `- Type.Con Int#Builtin.1
 |
 +- params
 |  |
-|  +- 24#a
+|  +- a#M.4
 |  |
-|  +- 25#b
+|  +- b#M.5
 |  |
-|  `- 26#c
+|  `- c#M.6
 |
 `- definition
    |
@@ -62,17 +62,17 @@ add3
       |
       +- Exp.App
       |  |
-      |  +- Exp.Var add
+      |  +- Exp.Var add#M.0
       |  |
       |  `- Exp.App
       |     |
       |     +- Exp.App
       |     |  |
-      |     |  +- Exp.Var add
+      |     |  +- Exp.Var add#M.0
       |     |  |
-      |     |  `- Exp.Var 24#a
+      |     |  `- Exp.Var a#M.4
       |     |
-      |     `- Exp.Var 25#b
+      |     `- Exp.Var b#M.5
       |
-      `- Exp.Var 26#c
+      `- Exp.Var c#M.6
 

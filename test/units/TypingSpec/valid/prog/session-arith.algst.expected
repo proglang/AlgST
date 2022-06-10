@@ -1,4 +1,4 @@
-Arith
+Arith#M.0
 |
 `- ProtoDecl
    |
@@ -12,7 +12,7 @@ Arith
    |
    `- constructors
       |
-      +- Add
+      +- Add#M.1
       |  |
       |  +- Type.Type
       |  |  |
@@ -34,7 +34,7 @@ Arith
       |           |
       |           `- Int
       |
-      `- Neg
+      `- Neg#M.2
          |
          +- Type.Type
          |  |
@@ -50,9 +50,9 @@ Arith
                   |
                   `- Int
 
-Add
+Add#M.1
 |
-`- Decl.ProtocolCon (Arith)
+`- Decl.ProtocolCon (Arith#M.0)
    |
    +- OriginUser
    |
@@ -80,9 +80,9 @@ Add
                |
                `- Int
 
-Neg
+Neg#M.2
 |
-`- Decl.ProtocolCon (Arith)
+`- Decl.ProtocolCon (Arith#M.0)
    |
    +- OriginUser
    |
@@ -104,11 +104,11 @@ Neg
                |
                `- Int
 
-arithServer
+arithServer#M.3
 |
 +- type
 |  |
-|  `- Type.Forall 41#s:SL
+|  `- Type.Forall s#M.6:SL
 |     |
 |     `- Type.Arrow U
 |        |
@@ -120,25 +120,25 @@ arithServer
 |        |  |     |
 |        |  |     `- Arith
 |        |  |
-|        |  `- Type.Var 41#s
+|        |  `- Type.Var s#M.6
 |        |     |
 |        |     `- SL
 |        |
-|        `- Type.Var 41#s
+|        `- Type.Var s#M.6
 |           |
 |           `- SL
 |
 +- params
 |  |
-|  +- [39#s]
+|  +- [s#M.4]
 |  |
-|  `- 40#c
+|  `- c#M.5
 |
 `- definition
    |
-   `- Exp.TypeAbs 39#s:SL
+   `- Exp.TypeAbs s#M.4:SL
       |
-      `- Exp.Abs U 40#c
+      `- Exp.Abs U c#M.5
          |
          +- Type.Session (?)
          |  |
@@ -148,7 +148,7 @@ arithServer
          |  |     |
          |  |     `- Arith
          |  |
-         |  `- Type.Var 39#s
+         |  `- Type.Var s#M.4
          |     |
          |     `- SL
          |
@@ -156,9 +156,9 @@ arithServer
             |
             `- TcExpX.RecvCase
                |
-               +- Exp.Var 40#c
+               +- Exp.Var c#M.5
                |
-               +- Add 42#c
+               +- Add#M.1 c#M.7
                |  |
                |  `- Exp.Exp
                |     |
@@ -170,7 +170,7 @@ arithServer
                |        |  |  |
                |        |  |  +- Exp.TypeApp
                |        |  |  |  |
-               |        |  |  |  +- Exp.Var receive
+               |        |  |  |  +- Exp.Var receive#Builtin.14
                |        |  |  |  |
                |        |  |  |  `- Type.Type
                |        |  |  |     |
@@ -194,13 +194,13 @@ arithServer
                |        |  |        |     |
                |        |  |        |     `- Int
                |        |  |        |
-               |        |  |        `- Type.Var 39#s
+               |        |  |        `- Type.Var s#M.4
                |        |  |           |
                |        |  |           `- SL
                |        |  |
-               |        |  `- Exp.Var 42#c
+               |        |  `- Exp.Var c#M.7
                |        |
-               |        `- (,) 43#x 44#c
+               |        `- (,)#Builtin.0 x#M.8 c#M.9
                |           |
                |           `- Exp.Exp
                |              |
@@ -212,7 +212,7 @@ arithServer
                |                 |  |  |
                |                 |  |  +- Exp.TypeApp
                |                 |  |  |  |
-               |                 |  |  |  +- Exp.Var receive
+               |                 |  |  |  +- Exp.Var receive#Builtin.14
                |                 |  |  |  |
                |                 |  |  |  `- Type.Type
                |                 |  |  |     |
@@ -228,13 +228,13 @@ arithServer
                |                 |  |     |     |
                |                 |  |     |     `- Int
                |                 |  |     |
-               |                 |  |     `- Type.Var 39#s
+               |                 |  |     `- Type.Var s#M.4
                |                 |  |        |
                |                 |  |        `- SL
                |                 |  |
-               |                 |  `- Exp.Var 44#c
+               |                 |  `- Exp.Var c#M.9
                |                 |
-               |                 `- (,) 45#y 46#c
+               |                 `- (,)#Builtin.0 y#M.10 c#M.11
                |                    |
                |                    `- Exp.App
                |                       |
@@ -244,7 +244,7 @@ arithServer
                |                       |  |  |
                |                       |  |  +- Exp.TypeApp
                |                       |  |  |  |
-               |                       |  |  |  +- Exp.Var send
+               |                       |  |  |  +- Exp.Var send#Builtin.13
                |                       |  |  |  |
                |                       |  |  |  `- Type.Type
                |                       |  |  |     |
@@ -252,7 +252,7 @@ arithServer
                |                       |  |  |        |
                |                       |  |  |        `- Int
                |                       |  |  |
-               |                       |  |  `- Type.Var 39#s
+               |                       |  |  `- Type.Var s#M.4
                |                       |  |     |
                |                       |  |     `- SL
                |                       |  |
@@ -260,15 +260,15 @@ arithServer
                |                       |     |
                |                       |     +- Exp.App
                |                       |     |  |
-               |                       |     |  +- Exp.Var (+)
+               |                       |     |  +- Exp.Var (+)#Builtin.7
                |                       |     |  |
-               |                       |     |  `- Exp.Var 43#x
+               |                       |     |  `- Exp.Var x#M.8
                |                       |     |
-               |                       |     `- Exp.Var 45#y
+               |                       |     `- Exp.Var y#M.10
                |                       |
-               |                       `- Exp.Var 46#c
+               |                       `- Exp.Var c#M.11
                |
-               `- Neg 47#c
+               `- Neg#M.2 c#M.12
                   |
                   `- Exp.Exp
                      |
@@ -280,7 +280,7 @@ arithServer
                         |  |  |
                         |  |  +- Exp.TypeApp
                         |  |  |  |
-                        |  |  |  +- Exp.Var receive
+                        |  |  |  +- Exp.Var receive#Builtin.14
                         |  |  |  |
                         |  |  |  `- Type.Type
                         |  |  |     |
@@ -296,13 +296,13 @@ arithServer
                         |  |     |     |
                         |  |     |     `- Int
                         |  |     |
-                        |  |     `- Type.Var 39#s
+                        |  |     `- Type.Var s#M.4
                         |  |        |
                         |  |        `- SL
                         |  |
-                        |  `- Exp.Var 47#c
+                        |  `- Exp.Var c#M.12
                         |
-                        `- (,) 48#x 49#c
+                        `- (,)#Builtin.0 x#M.13 c#M.14
                            |
                            `- Exp.App
                               |
@@ -312,7 +312,7 @@ arithServer
                               |  |  |
                               |  |  +- Exp.TypeApp
                               |  |  |  |
-                              |  |  |  +- Exp.Var send
+                              |  |  |  +- Exp.Var send#Builtin.13
                               |  |  |  |
                               |  |  |  `- Type.Type
                               |  |  |     |
@@ -320,7 +320,7 @@ arithServer
                               |  |  |        |
                               |  |  |        `- Int
                               |  |  |
-                              |  |  `- Type.Var 39#s
+                              |  |  `- Type.Var s#M.4
                               |  |     |
                               |  |     `- SL
                               |  |
@@ -328,13 +328,13 @@ arithServer
                               |     |
                               |     +- Exp.App
                               |     |  |
-                              |     |  +- Exp.Var (-)
+                              |     |  +- Exp.Var (-)#Builtin.8
                               |     |  |
                               |     |  `- Exp.Lit
                               |     |     |
                               |     |     `- Lit.Int 0
                               |     |
-                              |     `- Exp.Var 48#x
+                              |     `- Exp.Var x#M.13
                               |
-                              `- Exp.Var 49#c
+                              `- Exp.Var c#M.14
 

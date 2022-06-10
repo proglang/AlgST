@@ -1,8 +1,8 @@
 Exp.Case
 |
-+- Exp.Var global
++- Exp.Var global#R.0
 |
-`- C1 0#a 1#b 2#c
+`- C1#R.1 a#M.0 b#M.1 c#M.2
    |
    `- Exp.App
       |
@@ -10,11 +10,11 @@ Exp.Case
       |  |
       |  +- Exp.App
       |  |  |
-      |  |  +- Exp.Con C2
+      |  |  +- Exp.Con C2#R.2
       |  |  |
-      |  |  `- Exp.Var 0#a
+      |  |  `- Exp.Var a#M.0
       |  |
-      |  `- Exp.Var 1#b
+      |  `- Exp.Var b#M.1
       |
-      `- Exp.Var 2#c
+      `- Exp.Var c#M.2
 

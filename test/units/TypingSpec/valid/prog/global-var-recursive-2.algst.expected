@@ -1,10 +1,10 @@
-bottom1
+bottom1#M.0
 |
 +- type
 |  |
-|  `- Type.Forall 39#a:TU
+|  `- Type.Forall a#M.2:TU
 |     |
-|     `- Type.Var 39#a
+|     `- Type.Var a#M.2
 |        |
 |        `- TU
 |
@@ -12,31 +12,31 @@ bottom1
 |
 `- definition
    |
-   `- Exp.Var bottom2
+   `- Exp.Var bottom2#M.1
 
-bottom2
+bottom2#M.1
 |
 +- type
 |  |
-|  `- Type.Forall 41#a:TU
+|  `- Type.Forall a#M.4:TU
 |     |
-|     `- Type.Var 41#a
+|     `- Type.Var a#M.4
 |        |
 |        `- TU
 |
 +- params
 |  |
-|  `- [40#a]
+|  `- [a#M.3]
 |
 `- definition
    |
-   `- Exp.TypeAbs 40#a:TU
+   `- Exp.TypeAbs a#M.3:TU
       |
       `- Exp.TypeApp
          |
-         +- Exp.Var bottom1
+         +- Exp.Var bottom1#M.0
          |
-         `- Type.Var 40#a
+         `- Type.Var a#M.3
             |
             `- TU
 

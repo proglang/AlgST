@@ -30,7 +30,9 @@ module AlgST.Rename
     renameSyntax,
 
     -- * Handling imports
-    RenameEnv,
+    RenameEnv (..),
+    Bindings (..),
+    PartialResolve (..),
     ResolvedImport,
     importedRenameEnv,
     foldImportedRenameEnv,
@@ -234,7 +236,7 @@ importedRenameEnv stmt =
 
 -- | A simplified version of 'importedRenameEnv' which does no renaming and no
 -- hiding. This allows us to guarantee that no errors will occur.
-importAllEnv :: Pos -> ModuleName -> ModuleMap -> ModuleName-> RenameEnv
+importAllEnv :: Pos -> ModuleName -> ModuleMap -> ModuleName -> RenameEnv
 importAllEnv loc targetName targetMap qualifier =
   RenameEnv
     { rnTyVars = mkBindings,
@@ -315,7 +317,7 @@ type RenameResult a = (ModuleMap, RenameEnv -> Either DErrors a)
 
 renameModule :: ModuleName -> RenameEnv -> PModule -> Either DErrors RnModule
 renameModule name env m = do
-  let (_, rn) = renameModuleExtra name m 
+  let (_, rn) = renameModuleExtra name m
   rn env >>= \(RenameExtra extra) -> extra pure
 
 renameModuleExtra :: ModuleName -> PModule -> RenameResult RenameExtra

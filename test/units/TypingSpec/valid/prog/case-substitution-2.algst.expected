@@ -1,4 +1,4 @@
-List
+List#M.0
 |
 `- DataDecl
    |
@@ -10,13 +10,13 @@ List
    |
    +- parameters
    |  |
-   |  `- (elem:TU)
+   |  `- (elem#M.8:TU)
    |
    `- constructors
       |
-      +- Cons
+      +- Cons#M.2
       |  |
-      |  +- Type.Var 6#elem
+      |  +- Type.Var elem#M.8
       |  |  |
       |  |  `- TU
       |  |
@@ -26,13 +26,13 @@ List
       |        |
       |        +- List
       |        |
-      |        `- Type.Var 6#elem
+      |        `- Type.Var elem#M.8
       |           |
       |           `- TU
       |
-      `- Nil
+      `- Nil#M.4
 
-Maybe
+Maybe#M.1
 |
 `- DataDecl
    |
@@ -44,27 +44,27 @@ Maybe
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.9:TU)
    |
    `- constructors
       |
-      +- Just
+      +- Just#M.3
       |  |
-      |  `- Type.Var 7#a
+      |  `- Type.Var a#M.9
       |     |
       |     `- TU
       |
-      `- Nothing
+      `- Nothing#M.5
 
-Cons
+Cons#M.2
 |
-`- Decl.DataCon (List)
+`- Decl.DataCon (List#M.0)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (elem:TU)
+   |  `- (elem#M.8:TU)
    |
    +- multiplicity
    |  |
@@ -72,7 +72,7 @@ Cons
    |
    `- items
       |
-      +- Type.Var 6#elem
+      +- Type.Var elem#M.8
       |  |
       |  `- TU
       |
@@ -82,19 +82,19 @@ Cons
             |
             +- List
             |
-            `- Type.Var 6#elem
+            `- Type.Var elem#M.8
                |
                `- TU
 
-Just
+Just#M.3
 |
-`- Decl.DataCon (Maybe)
+`- Decl.DataCon (Maybe#M.1)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.9:TU)
    |
    +- multiplicity
    |  |
@@ -102,19 +102,19 @@ Just
    |
    `- items
       |
-      `- Type.Var 7#a
+      `- Type.Var a#M.9
          |
          `- TU
 
-Nil
+Nil#M.4
 |
-`- Decl.DataCon (List)
+`- Decl.DataCon (List#M.0)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (elem:TU)
+   |  `- (elem#M.8:TU)
    |
    +- multiplicity
    |  |
@@ -122,15 +122,15 @@ Nil
    |
    `- items
 
-Nothing
+Nothing#M.5
 |
-`- Decl.DataCon (Maybe)
+`- Decl.DataCon (Maybe#M.1)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.9:TU)
    |
    +- multiplicity
    |  |
@@ -138,11 +138,11 @@ Nothing
    |
    `- items
 
-empty
+empty#M.6
 |
 +- type
 |  |
-|  `- Type.Forall 46#a:TU
+|  `- Type.Forall a#M.15:TU
 |     |
 |     `- Type.Type
 |        |
@@ -150,27 +150,27 @@ empty
 |           |
 |           +- List
 |           |
-|           `- Type.Var 46#a
+|           `- Type.Var a#M.15
 |              |
 |              `- TU
 |
 +- params
 |  |
-|  `- [45#a]
+|  `- [a#M.14]
 |
 `- definition
    |
-   `- Exp.TypeAbs 45#a:TU
+   `- Exp.TypeAbs a#M.14:TU
       |
       `- Exp.TypeApp
          |
-         +- Exp.Con Nil
+         +- Exp.Con Nil#M.4
          |
-         `- Type.Var 45#a
+         `- Type.Var a#M.14
             |
             `- TU
 
-empty_head
+empty_head#M.7
 |
 +- type
 |  |
@@ -192,27 +192,27 @@ empty_head
          |
          +- Exp.TypeApp
          |  |
-         |  +- Exp.Var empty
+         |  +- Exp.Var empty#M.6
          |  |
          |  `- Type.Unit
          |
-         +- Cons 47#x 48#_
+         +- Cons#M.2 x#M.16 _#M.17
          |  |
          |  `- Exp.App
          |     |
          |     +- Exp.TypeApp
          |     |  |
-         |     |  +- Exp.Con Just
+         |     |  +- Exp.Con Just#M.3
          |     |  |
          |     |  `- Type.Unit
          |     |
-         |     `- Exp.Var 47#x
+         |     `- Exp.Var x#M.16
          |
-         `- Nil
+         `- Nil#M.4
             |
             `- Exp.TypeApp
                |
-               +- Exp.Con Nothing
+               +- Exp.Con Nothing#M.5
                |
                `- Type.Unit
 

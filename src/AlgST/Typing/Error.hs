@@ -240,7 +240,7 @@ invalidNominalKind loc nomKind name actual allowed =
 mismatchedBind :: Pos -> ANameG scope -> TcType -> Diagnostic
 mismatchedBind loc var t =
   PosError loc $
-    Error (choose "Binding of variable" "Binding of type variable") :
+    Error (choose "Binding of type variable" "Binding of variable") :
     Error var :
     Error "does not align with type" :
     ErrLine :

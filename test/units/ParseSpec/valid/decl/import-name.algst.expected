@@ -1,8 +1,21 @@
-import UnnestedQualifiedModule
+imports
 |
-`- ImportAll
+`- |
+   +- Import unqualified
+   |  |
+   |  +- target
+   |  |  |
+   |  |  `- Nested.Qualified.Module
+   |  |
+   |  `- ImportAll
+   |
+   `- Import unqualified
+      |
+      +- target
+      |  |
+      |  `- UnnestedQualifiedModule
+      |
+      `- ImportAll
 
-import Nested.Qualified.Module
-|
-`- ImportAll
+declarations
 

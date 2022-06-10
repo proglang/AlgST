@@ -1,4 +1,4 @@
-BTree
+BTree#M.0
 |
 `- DataDecl
    |
@@ -10,37 +10,37 @@ BTree
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.3:TU)
    |
    `- constructors
       |
-      +- Branch
+      +- Branch#M.1
       |  |
       |  +- Type.App
       |  |  |
-      |  |  +- Type.Con BTree
+      |  |  +- Type.Con BTree#M.0
       |  |  |
-      |  |  `- Type.Var 0#a
+      |  |  `- Type.Var a#M.3
       |  |
       |  `- Type.App
       |     |
-      |     +- Type.Con BTree
+      |     +- Type.Con BTree#M.0
       |     |
-      |     `- Type.Var 0#a
+      |     `- Type.Var a#M.3
       |
-      `- Leaf
+      `- Leaf#M.2
          |
-         `- Type.Var 0#a
+         `- Type.Var a#M.3
 
-Branch
+Branch#M.1
 |
-`- Decl.DataCon (BTree)
+`- Decl.DataCon (BTree#M.0)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.4:TU)
    |
    +- multiplicity
    |  |
@@ -50,25 +50,25 @@ Branch
       |
       +- Type.App
       |  |
-      |  +- Type.Con BTree
+      |  +- Type.Con BTree#M.0
       |  |
-      |  `- Type.Var 23#a
+      |  `- Type.Var a#M.4
       |
       `- Type.App
          |
-         +- Type.Con BTree
+         +- Type.Con BTree#M.0
          |
-         `- Type.Var 23#a
+         `- Type.Var a#M.4
 
-Leaf
+Leaf#M.2
 |
-`- Decl.DataCon (BTree)
+`- Decl.DataCon (BTree#M.0)
    |
    +- OriginUser
    |
    +- parameters
    |  |
-   |  `- (a:TU)
+   |  `- (a#M.5:TU)
    |
    +- multiplicity
    |  |
@@ -76,5 +76,5 @@ Leaf
    |
    `- items
       |
-      `- Type.Var 24#a
+      `- Type.Var a#M.5
 

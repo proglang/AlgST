@@ -1,22 +1,27 @@
-id
+imports
 |
-+- type
-|  |
-|  `- Type.Forall a:TU
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Var a
-|        |
-|        `- Type.Var a
+
+declarations
 |
-+- params
-|  |
-|  +- [a]
-|  |
-|  `- a
-|
-`- definition
+`- id
    |
-   `- Exp.Var a
+   +- type
+   |  |
+   |  `- Type.Forall a:TU
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Var a
+   |        |
+   |        `- Type.Var a
+   |
+   +- params
+   |  |
+   |  +- [a]
+   |  |
+   |  `- a
+   |
+   `- definition
+      |
+      `- Exp.Var a
 

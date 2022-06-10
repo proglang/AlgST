@@ -1,28 +1,33 @@
-Service
+imports
 |
-`- AliasDecl
+
+declarations
+|
+`- Service
    |
-   +- OriginUser
-   |
-   +- kind
-   |  |
-   |  `- Nothing
-   |
-   +- parameters
-   |  |
-   |  `- (x:P)
-   |
-   `- alias
+   `- AliasDecl
       |
-      `- Type.Forall s:SL
+      +- OriginUser
+      |
+      +- kind
+      |  |
+      |  `- Nothing
+      |
+      +- parameters
+      |  |
+      |  `- (x:P)
+      |
+      `- alias
          |
-         `- Type.Arrow U
+         `- Type.Forall s:SL
             |
-            +- Type.Session (?)
-            |  |
-            |  +- Type.Var x
-            |  |
-            |  `- Type.Var s
-            |
-            `- Type.Var s
+            `- Type.Arrow U
+               |
+               +- Type.Session (?)
+               |  |
+               |  +- Type.Var x
+               |  |
+               |  `- Type.Var s
+               |
+               `- Type.Var s
 

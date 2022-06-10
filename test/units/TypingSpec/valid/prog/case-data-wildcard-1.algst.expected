@@ -1,4 +1,4 @@
-and
+and#M.0
 |
 +- type
 |  |
@@ -26,13 +26,13 @@ and
 |
 +- params
 |  |
-|  +- 39#x
+|  +- x#M.1
 |  |
-|  `- 40#y
+|  `- y#M.2
 |
 `- definition
    |
-   `- Exp.Abs U 39#x
+   `- Exp.Abs U x#M.1
       |
       +- Type.Type
       |  |
@@ -40,7 +40,7 @@ and
       |     |
       |     `- Bool
       |
-      `- Exp.Abs U 40#y
+      `- Exp.Abs U y#M.2
          |
          +- Type.Type
          |  |
@@ -52,13 +52,13 @@ and
             |
             `- TcExpX.ValueCase
                |
-               +- Exp.Var 39#x
+               +- Exp.Var x#M.1
                |
-               +- True
+               +- True#Builtin.5
                |  |
-               |  `- Exp.Var 40#y
+               |  `- Exp.Var y#M.2
                |
-               `- 41#_
+               `- _#M.3
                   |
-                  `- Exp.Con False
+                  `- Exp.Con False#Builtin.6
 

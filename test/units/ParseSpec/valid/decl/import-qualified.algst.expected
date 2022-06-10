@@ -1,12 +1,25 @@
-import Data.List as List
+imports
 |
-`- ImportOnly
+`- |
+   +- Import as Control.Monad
+   |  |
+   |  +- target
+   |  |  |
+   |  |  `- Control.Monad
+   |  |
+   |  `- ImportAll
+   |     |
+   |     `- hide value ‘join’
    |
-   `- use value ‘unwords’ as ‘joinSpaces’
+   `- Import as List
+      |
+      +- target
+      |  |
+      |  `- Data.List
+      |
+      `- ImportOnly
+         |
+         `- use value ‘unwords’ as ‘joinSpaces’
 
-import Control.Monad as Control.Monad
-|
-`- ImportAll
-   |
-   `- hide value ‘join’
+declarations
 
