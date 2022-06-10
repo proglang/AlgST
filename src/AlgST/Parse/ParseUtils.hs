@@ -21,6 +21,8 @@ module AlgST.Parse.ParseUtils
     scopeName,
     ParsedModule (..),
     emptyParsedModule,
+    resolveImports,
+    partitionImports,
 
     -- * Errors
     addError,
@@ -66,6 +68,7 @@ import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
+import AlgST.Syntax.Tree qualified as T
 import AlgST.Util.ErrorMessage
 import AlgST.Util.Lenses qualified as L
 import Control.Arrow
@@ -74,6 +77,7 @@ import Control.Monad.State
 import Control.Monad.Validate
 import Data.DList.DNonEmpty (DNonEmpty)
 import Data.DList.DNonEmpty qualified as DL
+import Data.Either
 import Data.Function
 import Data.Functor.Identity
 import Data.HashMap.Strict qualified as HM
@@ -89,12 +93,42 @@ import Lens.Family2 hiding ((&))
 import Syntax.Base
 
 data ParsedModule = ParsedModule
-  { parsedImports :: [Located Import],
+  { parsedImports :: [Located (Import ModuleName)],
     parsedModule :: PModule
   }
 
 emptyParsedModule :: ParsedModule
 emptyParsedModule = ParsedModule [] emptyModule
+
+resolveImports ::
+  Applicative f =>
+  (ModuleName -> f a) ->
+  ParsedModule ->
+  f [Located (Import (ModuleName, a))]
+resolveImports lookupModule = do
+  let resolve name = (name,) <$> lookupModule name
+  traverse (traverse (traverse resolve)) . parsedImports
+
+partitionImports ::
+  (ModuleName -> Maybe a) ->
+  ParsedModule ->
+  (Map.Map ModuleName Pos, [Located (Import (ModuleName, a))])
+partitionImports f =
+  parsedImports
+    >>> fmap (\locImp -> maybe (failed locImp) Right (resolve locImp))
+    >>> partitionEithers
+    >>> first (Map.fromListWith min)
+  where
+    failed (p :@ i) =
+      Left (importTarget i, p)
+    resolve =
+      traverse (traverse (\n -> (n,) <$> f n))
+
+instance T.LabeledTree ParsedModule where
+  labeledTree pm =
+    [ T.tree "imports" [T.labeledTree (parsedImports pm)],
+      T.tree "declarations" [T.labeledTree (parsedModule pm)]
+    ]
 
 data ImportMergeState = IMS
   { -- | A subset of the keys of 'imsRenamed'.

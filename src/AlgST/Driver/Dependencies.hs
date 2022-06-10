@@ -7,10 +7,12 @@
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE TupleSections #-}
 
 module AlgST.Driver.Dependencies
   ( DepVertex,
     Cycles (..),
+    DepsTree,
     DepsGraph,
     emptyDepsGraph,
     depsGraphSize,
@@ -18,9 +20,11 @@ module AlgST.Driver.Dependencies
     Dependency (DependsOn),
     insertModule,
     insertDependency,
+    lookupVertex,
     depsMember,
     removeCycles,
-    traverseGraphPar,
+    traverseTreePar,
+    traverseVerticesPar,
     ImportLocation (..),
     importLocPath,
 
@@ -48,6 +52,7 @@ import Data.Map qualified as Map
 import Data.Ord
 import Data.Semigroup
 import Data.Set qualified as Set
+import Data.Traversable
 import Syntax.Base
 
 newtype ImportLocation = ImportLocation (Located FilePath)
@@ -90,6 +95,8 @@ data Cycles
   | MaybeCyclic
 
 type DepVertex = ModuleName
+
+type DepsTree = DepsGraph Acyclic
 
 type DepsGraph :: Cycles -> Type -> Type
 data DepsGraph cycles a = DepsGraph
@@ -136,6 +143,9 @@ depsMember v dg = G.hasVertex v (dgVerticesToDeps dg)
 
 depsVertices :: DepsGraph acyclic a -> HashMap DepVertex a
 depsVertices = dgVertices
+
+lookupVertex :: DepVertex -> DepsGraph acyclic a -> Maybe a
+lookupVertex v = HM.lookup v . depsVertices
 
 -- | Data type to help with understanding the direction of the depedency.
 -- Consider using the constructor in its infix form:
@@ -225,14 +235,14 @@ data TraverseState a = TraverseState !Int [a]
 --
 -- Note that the computation strategy 'Seq' will degrade to @'ParN' 1@ based on
 -- implementation requirements.
-traverseGraphPar ::
+traverseTreePar ::
   forall a b m.
   MonadUnliftIO m =>
   Comp ->
-  DepsGraph Acyclic a ->
+  DepsTree a ->
   ([(DepVertex, b)] -> DepVertex -> Maybe a -> m b) ->
-  m (DepsGraph Acyclic b)
-traverseGraphPar strat dg op =
+  m (DepsTree b)
+traverseTreePar strat dg op =
   buildGraph <$> withScheduler strat' \s -> do
     askRunInIO >>= \runIO -> liftIO mdo
       -- For each vertex we create an action which waits for N inputs. When the
@@ -280,6 +290,22 @@ traverseGraphPar strat dg op =
       Seq -> ParN 1
       _ -> strat
 
+traverseVerticesPar ::
+  MonadUnliftIO m =>
+  Comp ->
+  (DepVertex -> a -> m b) ->
+  DepsGraph cycles a ->
+  m (DepsGraph cycles b)
+traverseVerticesPar comp f dg = withRunInIO \run -> do
+  -- `traverseConcurrently` from the 'scheduler' package adapted for an indexed
+  -- traversal.
+  bs <- withScheduler comp \s ->
+    HM.traverseWithKey (\k -> scheduleWork s . run . f k) (dgVertices dg)
+  let nextB (b : bs) _ = (bs, b)
+      nextB _ _ = error "impossible: 2nd traverse has different shape"
+  let (_, bVertices) = mapAccumL nextB bs (dgVertices dg)
+  pure dg {dgVertices = bVertices}
+
 exportTextual :: DepsGraph cycles a -> String
 exportTextual dg =
   dgVerticesToDeps dg
@@ -307,8 +333,9 @@ exportTextual dg =
               padded v . showString "--> " . padded d
         let renderIloc d =
               showString $ maybe "???" show $ HM.lookup (v `DependsOn` d) (dgEdges dg)
-        [ Endo $ edge d . showString " [" . renderIloc d . showString "]\n"
-          | d <- Set.toList deps ]
+        let render d =
+              edge d . showString " [" . renderIloc d . showString "]\n"
+        [Endo $ render d | d <- Set.toList deps]
 
 padString :: Int -> String -> String
 padString n s = take n $ s ++ repeat ' '

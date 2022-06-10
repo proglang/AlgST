@@ -1,6 +1,8 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
@@ -13,15 +15,13 @@ import AlgST.Syntax.Name
 import AlgST.Util
 import AlgST.Util.ErrorMessage
 import Control.Monad.Validate
-import Data.DList.DNonEmpty (DNonEmpty)
 import Data.DList.DNonEmpty qualified as DNE
 import Data.List qualified as List
 import Data.Singletons
+import Language.Haskell.TH.Syntax (Lift)
 import Syntax.Base
 
-type Errors = DNonEmpty Diagnostic
-
-type MonadErrors = MonadValidate Errors
+type MonadErrors = MonadValidate DErrors
 
 addError :: MonadErrors m => Diagnostic -> m ()
 addError !e = dispute (DNE.singleton e)
@@ -32,6 +32,7 @@ fatalError !e = refute (DNE.singleton e)
 data AmbiguousOrigin
   = AmbiguousImport !Pos !ModuleName
   | AmbiguousDefine !Pos
+  deriving stock (Lift)
 
 instance Position AmbiguousOrigin where
   pos = \case

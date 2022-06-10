@@ -3,9 +3,7 @@
 
 module ParseSpec (spec) where
 
-import AlgST.Builtins
 import AlgST.Parse.Parser
-import AlgST.Syntax.Module
 import AlgST.Syntax.Tree
 import System.FilePath
 import Test.Golden
@@ -27,7 +25,7 @@ spec = do
     describe "declarations" do
       goldenTests
         (dir "valid/decl")
-        (parseTree (parseProg emptyModule))
+        (parseTree parseModule)
 
   describe "invalid" do
     describe "expressions" do
@@ -38,12 +36,13 @@ spec = do
     describe "declarations" do
       goldenTests
         (dir "invalid/decl")
-        (swap . parseTree (parseProg emptyModule))
+        (swap . parseTree parseModule)
 
+    -- These tests will probably be dropped.
     describe "declarations + builtins" do
       goldenTests
         (dir "invalid/decl+builtins")
-        (swap . parseTree (parseProg builtins))
+        (swap . parseTree parseModule)
 
   describe "associativity" do
     specify "type application" do

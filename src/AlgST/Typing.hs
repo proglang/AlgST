@@ -21,6 +21,7 @@ module AlgST.Typing
     TcM,
     runTcM,
     runErrors,
+    checkResultAsRnM,
 
     -- * Kinds
     HasKiEnv,
@@ -84,6 +85,7 @@ import AlgST.Util
 import AlgST.Util.ErrorMessage
 import Control.Applicative
 import Control.Category ((>>>))
+import Control.Monad.Eta
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State.Strict
@@ -210,6 +212,9 @@ checkWithModule ctxt prog k = do
 
 checkModule :: CheckContext -> Module Rn -> ValidateT Errors Fresh TcModule
 checkModule ctxt p = checkWithModule ctxt p \_ -> pure
+
+checkResultAsRnM :: ValidateT Errors Fresh a -> RnM a
+checkResultAsRnM = mapValidateT lift >>> mapErrors runErrors
 
 addError :: MonadValidate Errors m => Diagnostic -> m ()
 addError !e = dispute $ This $ DNE.singleton e

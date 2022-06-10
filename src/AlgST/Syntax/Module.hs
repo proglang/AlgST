@@ -2,6 +2,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -54,16 +55,19 @@ type ForallX c x =
   )
 
 -- | Describes a single import statement.
-data Import = Import
-  { -- | Full name of the imported module.
-    importTarget :: ModuleName,
-    -- | The qualifier for imported identifiers. Can be empty (@ModuleName ""@)
+--
+-- @Import@ is parameterized over the imported thing which could be either an
+-- unresolved module name or a resolved module.
+data Import a = Import
+  { -- | The imported thing.
+    importTarget :: a,
+    -- | The qualifier for imported identifiers. Can be empty (@'ModuleName' ""@)
     -- in which case names are imported unqualified.
     importQualifier :: ModuleName,
     -- | The set of imported identifiers.
     importSelection :: ImportSelection
   }
-  deriving stock (Show, Lift)
+  deriving stock (Functor, Foldable, Traversable, Show, Lift)
 
 -- | Describes the set of imported identifiers.
 data ImportSelection

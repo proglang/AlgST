@@ -31,6 +31,7 @@ import Data.Functor.Identity
 import Data.HashMap.Strict qualified as HM
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
+import Data.Maybe
 import Data.Ord
 import Data.Tree
 import Data.Void
@@ -68,6 +69,9 @@ instance LabeledTree a => LabeledTree (Located a) where
 
 instance LabeledTree K.Kind where
   labeledTree = pure . leaf . show
+
+instance LabeledTree ModuleName where
+  labeledTree = pure . leaf . unModuleName
 
 instance LabeledTree (Name stage scope) where
   labeledTree = pure . leaf . describeName
@@ -297,17 +301,18 @@ instance ForallX LabeledTree x => LabeledTree (Module x) where
           (\_ d -> either labeledTree labeledTree d)
           (moduleValues pp)
 
-instance LabeledTree Import where
+instance LabeledTree a => LabeledTree (Import a) where
   labeledTree i =
     [ tree
-        ("import " ++ m ++ fold qualified)
-        [labeledTree (importSelection i)]
+        ("Import " ++ "unqualified" `fromMaybe` qualified)
+        [ [tree "target" [labeledTree (importTarget i)]],
+          labeledTree (importSelection i)
+        ]
     ]
     where
-      ModuleName m = importTarget i
       qualified = do
         guard $ emptyModuleName /= importQualifier i
-        Just $ " as " ++ unModuleName (importQualifier i)
+        Just $ "as " ++ unModuleName (importQualifier i)
 
 instance LabeledTree ImportSelection where
   labeledTree =

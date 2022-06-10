@@ -1,20 +1,19 @@
-{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module TypingSpec (spec) where
 
-import AlgST.Builtins (builtins)
-import AlgST.Builtins.TH
+import AlgST.Builtins
 import AlgST.Parse.Parser
 import AlgST.Parse.Phase
 import AlgST.Rename
-import AlgST.Rename.Fresh
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
@@ -27,8 +26,12 @@ import Control.DeepSeq
 import Control.Exception
 import Control.Monad
 import Data.Bifunctor
+import Data.DList.DNonEmpty qualified as DNE
 import Data.Foldable
+import Data.Function
 import Data.List.NonEmpty (NonEmpty)
+import Language.Haskell.TH.CodeDo qualified as Code
+import Syntax.Base
 import System.FilePath
 import Test.Golden
 import Test.Hspec
@@ -55,7 +58,7 @@ spec = do
     describe "invalid" do
       goldenTests
         (dir "invalid/prog")
-        (swap . bimap plainErrors drawNoBuiltins . parseAndCheckProgram)
+        (swap . bimap plainErrors drawLabeledTree . parseAndCheckProgram)
 
   describe "kind checking" do
     specify "builtin types" do
@@ -133,7 +136,7 @@ spec = do
     describe "valid" do
       goldenTests
         (dir "valid/prog")
-        (bimap plainErrors drawNoBuiltins . parseAndCheckProgram)
+        (bimap plainErrors drawLabeledTree . parseAndCheckProgram)
 
     parallel $ describe "invalid" do
       goldenTests
@@ -161,16 +164,19 @@ nfShouldBe t1 t2 = do
   (t1NF, t2Tc) <- shouldNotError do
     t1' <- runParser parseType t1
     t2' <- runParser parseType t2
-    runFresh (ModuleName "") do
-      (rnDecls, t1Rn, t2Rn) <- withRenamedModule declarations \rnDecls -> do
+
+    let (_, getExtra) = renameModuleExtra (ModuleName "M") emptyModule
+    RenameExtra f <- first DNE.toNonEmpty $ getExtra fullEnv
+    first DNE.toNonEmpty $
+      f $ const do
         t1Rn <- renameSyntax t1'
         t2Rn <- renameSyntax t2'
-        pure (rnDecls, t1Rn, t2Rn)
-      checkWithModule rnDecls \_ runTc _ -> runTc do
-        (t1Tc, _) <- kisynth t1Rn
-        (t2Tc, _) <- kisynth t2Rn
-        t1NF <- normalize t1Tc
-        pure (t1NF, t2Tc)
+        checkResultAsRnM $ checkWithModule fullCtxt emptyModule \_ _ -> do
+          (t1Tc, _) <- kisynth t1Rn
+          (t2Tc, _) <- kisynth t2Rn
+          t1NF <- normalize t1Tc
+          pure (t1NF, t2Tc)
+
   when (Eq.Alpha t1NF /= Eq.Alpha t2Tc) do
     expectationFailure $
       unlines
@@ -192,7 +198,7 @@ runKiAction ::
   Parser (s Parse) ->
   ( forall env st.
     (HasKiEnv env, HasKiSt st) =>
-    RunTyM ->
+    RunTyM env st ->
     s Rn ->
     TcM env st a
   ) ->
@@ -200,48 +206,68 @@ runKiAction ::
   Either String a
 runKiAction p m src = first plainErrors do
   parsed <- runParser p src
-  runFresh (ModuleName "") do
-    rnDecls <- runRename $ renameModule declarations
-    renamed <- runRename $ renameSyntax parsed
-    checkWithModule rnDecls \embed runTc _ -> runTc $ m embed renamed
+  let (_, getExtra) = renameModuleExtra (ModuleName "M") emptyModule
+  RenameExtra f <- first DNE.toNonEmpty $ getExtra fullEnv
+  first DNE.toNonEmpty $
+    f $ const do
+      renamed <- renameSyntax parsed
+      checkResultAsRnM $ checkWithModule fullCtxt emptyModule \runTypeM _ -> do
+        m runTypeM renamed
 
--- | Parses and typecheks a program in the context of 'declarations'.
 parseAndCheckProgram :: String -> Either (NonEmpty Diagnostic) (Module Tc)
 parseAndCheckProgram src = do
-  parsed <- runParser (parseProg declarations) src
-  runFresh (ModuleName "") $ runRename (renameModule parsed) >>= checkModule
+  parsed <- runParser parseDecls src
+  let (_, getExtra) = renameModuleExtra (ModuleName "M") parsed
+  RenameExtra f <- first DNE.toNonEmpty $ getExtra fullEnv
+  first DNE.toNonEmpty $ f $ checkResultAsRnM . checkModule fullCtxt
 
-drawNoBuiltins :: TcModule -> String
-drawNoBuiltins p = drawLabeledTree $ p `withoutDefinitions` declarations
+declEnv :: RenameEnv
+declCtxt :: CheckContext
+(declEnv, declCtxt) =
+  $$( Code.do
+        let src =
+              [ "data D0         = D0",
+                "data D0'   : TU = D0'",
+                "data D0_TL : TL = D0_TL",
+                --
+                "protocol P0      = P0",
+                "protocol P0' : P = P0'",
+                --
+                "type Id_MU : MU (a:MU) = a",
+                "type Id_TU : TU (a:TU) = a",
+                "type Id_TL : TL (a:TL) = a",
+                --
+                "data     D3 (a:P) (b:SL) (c:TL) = D3",
+                "protocol P3 (a:P) (b:SL) (c:TL) = P3",
+                --
+                "type Session (x:P) = forall (s:SL). ?x.s -> s",
+                --
+                "data AB = A | B"
+              ]
 
--- | Declares some data types.
---
--- The basic 'builtins' are included.
-declarations :: Module Parse
-declarations =
-  $$( let sigs =
-            []
-          decls =
-            [ "data D0         = D0",
-              "data D0'   : TU = D0'",
-              "data D0_TL : TL = D0_TL",
-              --
-              "protocol P0      = P0",
-              "protocol P0' : P = P0'",
-              --
-              "type Id_MU : MU (a:MU) = a",
-              "type Id_TU : TU (a:TU) = a",
-              "type Id_TL : TL (a:TL) = a",
-              --
-              "data     D3 (a:P) (b:SL) (c:TL) = D3",
-              "protocol P3 (a:P) (b:SL) (c:TL) = P3",
-              --
-              "type Session (x:P) = forall (s:SL). ?x.s -> s",
-              --
-              "data AB = A | B"
-            ]
-       in parseStatic' builtins sigs decls
+        parsed <-
+          unlines src
+            & runParserSimple parseDecls
+            & either fail pure
+        let name = ModuleName "Declarations"
+        let (declMM, mkRn) = renameModuleExtra name parsed
+        let checkRes = do
+              RenameExtra f <- mkRn builtinsEnv
+              f \renamed -> do
+                checkResultAsRnM $ checkWithModule
+                  builtinsModuleCtxt
+                  renamed
+                  \runTypeM _ -> runTypeM extractCheckContext
+        ctxt <- either (fail . plainErrors) pure checkRes
+        let checkEnv = importAllEnv defaultPos name declMM emptyModuleName
+        [||(checkEnv, ctxt)||]
     )
+
+fullEnv :: RenameEnv
+fullEnv = builtinsEnv <> declEnv
+
+fullCtxt :: CheckContext
+fullCtxt = builtinsModuleCtxt <> declCtxt
 
 dir :: FilePath -> FilePath
 dir sub = dropExtension __FILE__ </> sub

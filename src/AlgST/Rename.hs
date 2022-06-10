@@ -1,6 +1,7 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -24,21 +25,20 @@ module AlgST.Rename
     ModuleMap,
     renameModule,
     renameModuleExtra,
-    continueRenameExtra,
+    continueRename,
     RenameExtra (..),
     renameSyntax,
 
     -- * Handling imports
     RenameEnv,
-    resolveImport,
-    resolveImports,
-    moduleImportsEnv,
-    renameSimple,
+    ResolvedImport,
+    importedRenameEnv,
+    foldImportedRenameEnv,
+    importAllEnv,
   )
 where
 
 import AlgST.Builtins.Names qualified as Builtin
-import AlgST.Parse.ParseUtils (ParsedModule (..))
 import AlgST.Parse.Phase
 import AlgST.Rename.Error (MonadErrors, addError, fatalError)
 import AlgST.Rename.Error qualified as Error
@@ -55,14 +55,12 @@ import AlgST.Util
 import AlgST.Util.ErrorMessage (DErrors)
 import AlgST.Util.Lenses
 import AlgST.Util.Lenses qualified as L
-import Control.Monad
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.Validate
 import Data.Bitraversable
 import Data.Coerce
 import Data.DList qualified as DL
-import Data.Foldable
 import Data.Functor.Compose
 import Data.Generics.Lens.Lite
 import Data.HashMap.Strict qualified as HM
@@ -72,6 +70,8 @@ import Data.Monoid
 import Data.Semigroup
 import Data.Singletons
 import GHC.Generics (Generic)
+import Instances.TH.Lift ()
+import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2
 import Lens.Family2.State.Strict ((%=))
 import Lens.Family2.Stock
@@ -101,6 +101,7 @@ import Syntax.Base
 data PartialResolve scope
   = PartialResolve !(Map.Map (NameR scope) Error.AmbiguousOrigin)
   | UniqueLocal !(NameR scope)
+  deriving stock (Lift)
 
 instance Semigroup (PartialResolve scope) where
   PartialResolve x <> PartialResolve y =
@@ -122,6 +123,7 @@ viewUniqueResolve = \case
 -- | A map from user written names to the globally unique renamed version.
 newtype Bindings scope = Bindings (NameMapG Written scope (PartialResolve scope))
   deriving newtype (Monoid)
+  deriving stock (Lift)
 
 instance Semigroup (Bindings scope) where
   Bindings x <> Bindings y = Bindings $ Map.unionWith (<>) x y
@@ -140,7 +142,7 @@ data RenameEnv = RenameEnv
   { rnTyVars :: !(Bindings Types),
     rnProgVars :: !(Bindings Values)
   }
-  deriving stock (Generic)
+  deriving stock (Generic, Lift)
 
 instance Monoid RenameEnv where
   mempty = RenameEnv mempty mempty
@@ -156,37 +158,28 @@ instance ScopeIndexed RenameEnv Bindings where
   typesScopeL = field @"rnTyVars"
   valuesScopeL = field @"rnProgVars"
 
-moduleImportsEnv :: MonadErrors m => Globals -> ParsedModule -> m RenameEnv
-moduleImportsEnv globals = resolveImports globals . parsedImports
+-- | For a @ResolvedImport@ the 'importTarget' has to point to the imported
+-- module's name (used for error messages) and the imported module's
+-- 'ModuleMap'.
+type ResolvedImport = Import (ModuleName, ModuleMap)
 
-resolveImports ::
-  MonadErrors m => Globals -> [Located Import] -> m RenameEnv
-resolveImports modules =
-  getAp . foldMap' (Ap . resolveImport modules)
+-- | Merges the 'RenameEnv's extracted from all given imports. See
+-- 'importedRenameEnv' for more information.
+foldImportedRenameEnv :: MonadErrors m => [Located ResolvedImport] -> m RenameEnv
+foldImportedRenameEnv = getAp . foldMap (Ap . importedRenameEnv)
 
--- | Resolve a single 'Import' to the starting 'RenameEnv'.
-resolveImport ::
-  MonadErrors m => Globals -> Located Import -> m RenameEnv
-resolveImport modules stmt = getAp do
-  -- At the moment the driver diagnoses unresolvable imports. Therefore here we
-  -- fail silently.
-  flip foldMap (HM.lookup (foldL importTarget stmt) modules) $
-    Ap . selectedRenameEnv stmt
-
--- | Apply an 'ImportSelection' to a 'ModuleMap'. Essentially this restricts
--- the 'ModuleMap' and/or applies renamings. However this function does more
--- work:
+-- | This function builds a 'RenameEnv' from a 'ResolvedImport'. The keys in
+-- the returned 'RenameEnv' will have been adjusted based on any renamings and
+-- the 'importQualifier'.
 --
--- * Unresolvable identifiers are diagnosed.
--- * It returns a complete 'RenameEnv'. The names contained inside have been
--- adjusted based on the 'importQualifier'.
-selectedRenameEnv ::
+-- Any hidden/explicitly imported/renamed identifiers which do not exist in the
+-- imported module will be diagnosed.
+importedRenameEnv ::
   forall m.
   MonadErrors m =>
-  Located Import ->
-  ModuleMap ->
+  Located ResolvedImport ->
   m RenameEnv
-selectedRenameEnv stmt mm =
+importedRenameEnv stmt =
   case foldL importSelection stmt of
     ImportAll allLoc hides renames -> do
       -- The allSet contains all identifiers which are not hidden.
@@ -196,6 +189,8 @@ selectedRenameEnv stmt mm =
     ImportOnly renames ->
       getAp $ HM.foldMapWithKey (coerce addItem) renames
   where
+    (importName, importMap) = importTarget (unL stmt)
+
     nameHereQ :: Unqualified -> NameW scope
     nameHereQ = Name (foldL importQualifier stmt)
 
@@ -204,7 +199,7 @@ selectedRenameEnv stmt mm =
       Bindings . Map.singleton (nameHereQ unq) $
         resolvedUnique
           (nameR & nameWrittenL .~ nameHereQ unq)
-          (Error.AmbiguousImport loc (foldL importTarget stmt))
+          (Error.AmbiguousImport loc importName)
 
     allItems :: Pos -> (ImportKey -> Bool) -> RenameEnv
     allItems allLoc include = do
@@ -213,23 +208,54 @@ selectedRenameEnv stmt mm =
             mguard
               (include (demote @scope, unqualified))
               (singleBinding allLoc unqualified nameR)
-      RenameEnv
-        { rnTyVars = HM.foldMapWithKey item (modMapTypes mm ^. _TopLevels),
-          rnProgVars = HM.foldMapWithKey item (modMapValues mm ^. _TopLevels)
-        }
+      let mkBindings :: forall scope. SingI scope => Bindings scope
+          mkBindings = HM.foldMapWithKey item $ importMap ^. scopeL . _TopLevels
+      RenameEnv {rnTyVars = mkBindings, rnProgVars = mkBindings}
 
     addItem :: ImportKey -> Located Unqualified -> m RenameEnv
     addItem (scope, nameHere) item@(_ :@ nameThere) = withSomeSing scope \sscope -> do
-      let resolvedItem = mm ^. scopeL' sscope . _TopLevels . L.hashAt nameThere
-      when (isNothing resolvedItem) do
-        addError $
-          Error.unknownImportItem
-            (pos stmt)
-            (foldL importTarget stmt)
-            scope
-            item
-      pure $ flip foldMap resolvedItem \nameThereR ->
-        mempty & scopeL' sscope .~ singleBinding (pos item) nameHere nameThereR
+      let resolvedItem =
+            importMap
+              ^. scopeL' sscope
+                . _TopLevels
+                . L.hashAt nameThere
+      let unknownItemErr =
+            Error.unknownImportItem
+              (pos stmt)
+              (foldL (fst . importTarget) stmt)
+              scope
+              item
+      case resolvedItem of
+        Nothing -> do
+          mempty <$ addError unknownItemErr
+        Just nameThereR -> do
+          let binding = singleBinding (pos item) nameHere nameThereR
+          pure $ mempty & scopeL' sscope .~ binding
+
+-- | A simplified version of 'importedRenameEnv' which does no renaming and no
+-- hiding. This allows us to guarantee that no errors will occur.
+importAllEnv :: Pos -> ModuleName -> ModuleMap -> ModuleName-> RenameEnv
+importAllEnv loc targetName targetMap qualifier =
+  RenameEnv
+    { rnTyVars = mkBindings,
+      rnProgVars = mkBindings
+    }
+  where
+    mkBindings :: forall scope. SingI scope => Bindings scope
+    mkBindings =
+      targetMap
+        ^. scopeL
+          . _TopLevels
+          . to HM.toList
+          . traverse
+          . to (uncurry singleBinding)
+
+    singleBinding :: forall scope. Unqualified -> NameR scope -> Bindings scope
+    singleBinding unq nameR = do
+      Bindings . Map.singleton (Name qualifier unq) $
+        resolvedUnique
+          (nameR & nameWrittenL .~ Name qualifier unq)
+          (Error.AmbiguousImport loc targetName)
 
 type RnM = ValidateT DErrors (ReaderT (ModuleMap, RenameEnv) Fresh)
 
@@ -285,36 +311,25 @@ withBindings f k = do
 
 newtype RenameExtra = RenameExtra (forall a. (RnModule -> RnM a) -> Either DErrors a)
 
-type RenameResult a = (ModuleMap, Globals -> Validate DErrors a)
+type RenameResult a = (ModuleMap, RenameEnv -> Either DErrors a)
 
-renameSimple ::
-  Globals -> (Globals -> Validate DErrors RenameExtra) -> Either DErrors RnModule
-renameSimple globals resolve =
-  runValidate (resolve globals) >>= \(RenameExtra f) -> f pure
+renameModule :: ModuleName -> RenameEnv -> PModule -> Either DErrors RnModule
+renameModule name env m = do
+  let (_, rn) = renameModuleExtra name m 
+  rn env >>= \(RenameExtra extra) -> extra pure
 
-renameModule :: ModuleName -> ParsedModule -> RenameResult RnModule
-renameModule name m =
-  ( moduleMap,
-    \g -> do
-      RenameExtra extra <- rename g
-      let errOrA = extra pure
-      either refute pure errOrA
-  )
-  where
-    (moduleMap, rename) = renameModuleExtra name m
-
-renameModuleExtra :: ModuleName -> ParsedModule -> RenameResult RenameExtra
-renameModuleExtra = continueRenameExtra emptyModuleMap
+renameModuleExtra :: ModuleName -> PModule -> RenameResult RenameExtra
+renameModuleExtra = continueRename emptyModuleMap
 
 -- | Given a partial module map (base map) this function “continues” the rename
 -- of the given model in the sense that any top-level identifiers are first
 -- looked for in the base map before a fresh name is generated.
 --
 -- This allows to refer to top-level identifiers before the whole module is
--- renamed. Also, it gives you stable identifiers you can generate which are
--- valid after renaming.
-continueRenameExtra :: ModuleMap -> ModuleName -> ParsedModule -> RenameResult RenameExtra
-continueRenameExtra baseMap moduleName m =
+-- renamed. Also, it allows you to generate stable (resolved) identifiers which
+-- are valid after renaming.
+continueRename :: ModuleMap -> ModuleName -> PModule -> RenameResult RenameExtra
+continueRename baseMap moduleName m =
   -- Renaming traverses the module top-levels twice. Overall this is acceptable
   -- but it might be possible using laziness and recrursive definitions to
   -- reduce it to one traversal.
@@ -328,17 +343,15 @@ continueRenameExtra baseMap moduleName m =
         [] -> firstResolvedId
         ids -> nextResolvedId $ maximum ids
     ((toplevels, localsEnv), nextRid) =
-      moduleTopLevels baseMap (parsedModule m)
+      moduleTopLevels baseMap m
         & unFresh
         & flip runReaderT moduleName
         & flip runState firstId
-    renameBodies globals = do
-      importsEnv <- moduleImportsEnv globals m
-      let baseEnv = localsEnv <> importsEnv
+    renameBodies baseEnv = do
       pure $ RenameExtra \k ->
-        (doRename (parsedModule m) >>= k)
+        (doRename m >>= k)
           & runValidateT
-          & flip runReaderT (toplevels, baseEnv)
+          & flip runReaderT (toplevels, localsEnv <> baseEnv)
           & unFresh
           & flip runReaderT moduleName
           & flip evalState nextRid

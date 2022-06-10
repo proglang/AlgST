@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -35,7 +36,6 @@ import AlgST.Driver.Output
 import AlgST.Parse.Parser qualified as P
 import AlgST.Rename qualified as Rn
 import AlgST.Rename.Fresh (runFresh)
-import AlgST.Rename.Modules qualified as Rn
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
 import AlgST.Typing qualified as Tc
@@ -51,6 +51,7 @@ import Control.Monad.Cont
 import Control.Monad.IO.Unlift
 import Control.Monad.Reader
 import Control.Monad.ST (RealWorld)
+import Control.Monad.Trans.Maybe
 import Control.Monad.Validate
 import Control.Scheduler hiding (Scheduler, traverse_)
 import Control.Scheduler qualified as S
@@ -62,7 +63,6 @@ import Data.HashMap.Strict qualified as HM
 import Data.IORef
 import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty (..))
-import Data.Maybe
 import Data.Sequence (Seq (..))
 import Data.Sequence qualified as Seq
 import Lens.Family2 ((+~), (.~))
@@ -93,7 +93,7 @@ type Source = (FilePath, String)
 
 type Scheduler = S.Scheduler RealWorld
 
-type DepsTracker = IORef (DepsGraph MaybeCyclic P.ParsedModule)
+type DepsTracker = IORef (DepsGraph MaybeCyclic ParseResult)
 
 newtype Driver a = Driver {unDriver :: ReaderT DriverState IO a}
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadUnliftIO)
@@ -180,10 +180,16 @@ addTask scheduler m = do
   env <- askState
   liftIO $ scheduleWork scheduler $ runDriverSt env m
 
+data ParseResult = ParseResult
+  { prModule :: P.ParsedModule,
+    prGlobals :: Rn.ModuleMap,
+    prRename :: Rn.RenameEnv -> Either DErrors Rn.RenameExtra
+  }
+
 -- | Parse the given module and all dependencies. The result does not contain
 -- any modules where errors occured.
 parseAllModules ::
-  ModuleName -> Driver (HashMap ModuleName FilePath, DepsGraph Acyclic P.ParsedModule)
+  ModuleName -> Driver (HashMap ModuleName FilePath, DepsTree ParseResult)
 parseAllModules firstName = do
   depsRef <- liftIO $ newIORef emptyDepsGraph
   (output, _) <- askOutput
@@ -220,7 +226,7 @@ parseAllModules firstName = do
 -- given scheduler (see 'parseModuleNow'). When locating the module's source
 -- code fails an error is emitted.
 parseModule ::
-  -- | Where to schedule parsing of the module.
+  -- | Where to schedule parsing ofethe module.
   Scheduler (ModuleName, FilePath) ->
   -- | Where to note down the inter-module dependencies.
   DepsTracker ->
@@ -265,38 +271,48 @@ parseModuleNow scheduler depsRef progress moduleName modulePath moduleSource = d
       Left errs -> do
         reportErrors modulePath errs
       Right parsed -> do
-        newDeps <- noteDependencies depsRef moduleName modulePath parsed
+        let (globals, rename) =
+              Rn.renameModuleExtra moduleName $ P.parsedModule parsed
+        let parseResult =
+              ParseResult
+                { prModule = parsed,
+                  prGlobals = globals,
+                  prRename = rename
+                }
+        newDeps <- noteDependencies depsRef moduleName modulePath parseResult
         traverse_ (uncurry $ parseModule scheduler depsRef progress) newDeps
     pure (moduleName, modulePath)
 
 renameAll ::
   HashMap ModuleName FilePath ->
-  DepsGraph Acyclic P.ParsedModule ->
-  Driver (DepsGraph Acyclic (Maybe Rn.RnModule))
+  DepsGraph Acyclic ParseResult ->
+  Driver (DepsTree (Maybe Rn.RnModule))
 renameAll paths dg = do
   (output, _) <- askOutput
   counter <- newCounter output do
     zeroCounter & counterOverallL .~ depsGraphSize dg
-  strat <- askStrategy
-  fmap snd <$> traverseGraphPar strat dg \deps name mparsed -> do
-    resolved <- maybeCounter counter "Resolving" name mparsed (rename deps name)
-    pure $ fromMaybe (Rn.emptyModuleMap, Nothing) resolved
+  parStrat <- askStrategy
+  traverseVerticesPar parStrat (renameModule counter) dg
   where
-    rename deps name parsed = do
-      let importingBuiltins pm =
-            pm {P.parsedImports = defaultPos @- builtinsImport : P.parsedImports pm}
-      let (rnMap, rnAction) =
-            Rn.renameModule name (importingBuiltins parsed)
-      let availableImports =
-            HM.fromList $
-              (BuiltinsModule, builtinsModuleMap) :
-                [(depName, depGlobals) | (depName, (depGlobals, _)) <- deps]
-      case runValidate (rnAction availableImports) of
-        Left errs -> do
-          reportErrors (fold (HM.lookup name paths)) errs
-          pure (rnMap, Nothing)
-        Right rnMod -> do
-          pure (rnMap, Just rnMod)
+    renameModule counter name parseRes = fmap join $ runMaybeT do
+      wrapCounter counter ("Resolving " ++ unModuleName name) do
+        -- Resolve imports. Abort, if any dependency failed to parse.
+        let findImport n = prGlobals <$> lookupVertex n dg
+        imports <-
+          MaybeT . pure $
+            P.resolveImports findImport $ prModule parseRes
+        -- Run the renamer on this module.
+        let allImports = defaultPos @- builtinsImport : imports
+        let doRename = do
+              baseEnv <- runValidate $ Rn.foldImportedRenameEnv allImports
+              Rn.RenameExtra go <- prRename parseRes baseEnv
+              go pure
+        lift case doRename of
+          Left errs -> do
+            reportErrors (fold (HM.lookup name paths)) errs
+            pure Nothing
+          Right rnMod -> do
+            pure (Just rnMod)
 
 checkAll ::
   HashMap ModuleName FilePath ->
@@ -310,7 +326,7 @@ checkAll paths dg = do
       & counterTitleL .~ "Checking..."
 
   strat <- askStrategy
-  fmap (fmap fst) <$> traverseGraphPar strat dg \deps name mRn -> do
+  fmap (fmap fst) <$> traverseTreePar strat dg \deps name mRn -> do
     let depCtxt = mconcat . fmap snd <$> traverse snd deps
     let mcheck = check name <$> join mRn <*> depCtxt
     join <$> maybeCounter counter "Checking" name mcheck id
@@ -391,13 +407,14 @@ noteDependencies ::
   -- | Filepath of the containing module. Used at a later stage for reporting
   -- cyclic dependency errors.
   FilePath ->
-  -- | The imports from which to read and update the dependency graph.
-  P.ParsedModule ->
+  -- | The parsed module from which to update the dependency graph.
+  ParseResult ->
   Driver [(ImportLocation, ModuleName)]
 noteDependencies depsRef name fp parsed = do
   let depList =
         [ (ImportLocation (p @- fp), target)
-          | p :@ Import {importTarget = target} <- P.parsedImports parsed
+          | p :@ Import {importTarget = target} <-
+              P.parsedImports (prModule parsed)
         ]
   -- Update the dependency graph. This step also signals to any other workers
   -- that this worker will be responsible for delegating parsing of any

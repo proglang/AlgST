@@ -10,6 +10,8 @@ module AlgST.Parse.Parser
   ( -- * Parsers
     Parser
   , parseModule
+  , parseDecls
+  , parseImports
   , parseType
   , parseKind
   , parseExpr
@@ -23,6 +25,8 @@ module AlgST.Parse.Parser
     -- * Re-exports
   , ParsedModule(..)
   , emptyParsedModule
+  , resolveImports
+  , partitionImports
   ) where
 
 import           Control.Category              ((>>>), (<<<))
@@ -59,6 +63,8 @@ import           Syntax.Base
 }
 
 %name parseModule_  Module
+%name parseImports_ Imports
+%name parseDecls_   Decls
 %name parseKind_    Kind
 %name parseType_    Type
 %name parseExpr_    Exp
@@ -150,11 +156,11 @@ NL :: { () }
 -- Imports
 -------------------------------------------------------------------------------
 
-Imports :: { [Located Import] }
+Imports :: { [Located (Import ModuleName)] }
   : Import              { [$1] }
   | Imports NL Import   { $3 : $1 }
 
-Import :: { Located Import }
+Import :: { Located (Import ModuleName) }
   : import ModuleName ImportList {% do
       selection <- $3 $! pos $1
       pure $ $1 @- Import {
@@ -654,6 +660,12 @@ newtype Parser a = Parser ([Token] -> ParseM a)
 
 parseModule :: Parser ParsedModule
 parseModule = Parser parseModule_
+
+parseImports :: Parser [Located (Import ModuleName)]
+parseImports = Parser parseImports_
+
+parseDecls :: Parser PModule
+parseDecls = Parser (parseDecls_ >=> runModuleBuilder)
 
 parseType :: Parser PType
 parseType = Parser $ parseType_ . dropNewlines

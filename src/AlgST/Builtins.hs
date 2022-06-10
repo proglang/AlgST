@@ -6,26 +6,20 @@ module AlgST.Builtins
     builtinsModule,
     builtinsModuleMap,
     builtinsModuleCtxt,
+    builtinsEnv,
   )
 where
 
 import AlgST.Builtins.Names hiding (builtinsPartialModuleMap)
 import AlgST.Builtins.Names qualified as B
 import AlgST.Builtins.TH
-import AlgST.Rename (ModuleMap)
+import AlgST.Rename (ModuleMap, RenameEnv, ResolvedImport)
+import AlgST.Rename qualified as Rn
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
 import AlgST.Typing qualified as Tc
 import AlgST.Typing.Phase (TcModule)
 import Syntax.Base
-
-builtinsImport :: Import
-builtinsImport =
-  Import
-    { importTarget = BuiltinsModule,
-      importQualifier = emptyModuleName,
-      importSelection = ImportAll defaultPos mempty mempty
-    }
 
 builtinsModule :: TcModule
 builtinsModuleMap :: ModuleMap
@@ -88,5 +82,17 @@ builtinsModuleCtxt :: Tc.CheckContext
               "(/) : Int -> Int -> Int",
               "(%) : Int -> Int -> Int"
             ]
-       in parseTH mempty BuiltinsModule B.builtinsPartialModuleMap defs
+       in parseTH BuiltinsModule B.builtinsPartialModuleMap defs
     )
+
+builtinsImport :: ResolvedImport
+builtinsImport =
+  Import
+    { importTarget = (BuiltinsModule, builtinsModuleMap),
+      importQualifier = emptyModuleName,
+      importSelection = ImportAll defaultPos mempty mempty
+    }
+
+builtinsEnv :: RenameEnv
+builtinsEnv =
+  Rn.importAllEnv defaultPos BuiltinsModule builtinsModuleMap emptyModuleName

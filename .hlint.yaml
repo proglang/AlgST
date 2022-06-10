@@ -64,6 +64,7 @@
 # - ignore: {name: Use const, within: SpecialModule} # Only within certain modules
 - ignore: {name: "Use ?~"}
 - ignore: {name: "Use &&"}
+- ignore: {name: "Use <$>"}
 - ignore: {name: "Use unless"}
 - ignore: {name: "Avoid lambda using `infix`"}
 

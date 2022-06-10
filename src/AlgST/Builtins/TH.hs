@@ -12,6 +12,7 @@ import AlgST.Syntax.Module
 import AlgST.Syntax.Name
 import AlgST.Typing
 import AlgST.Util.Error
+import Control.Monad
 import Control.Monad.Eta
 import Control.Monad.Trans
 import Control.Monad.Validate
@@ -20,15 +21,19 @@ import Language.Haskell.TH hiding (Name)
 import Language.Haskell.TH.CodeDo qualified as Code
 
 parseTH ::
-  Globals -> ModuleName -> ModuleMap -> [String] -> CodeQ (ModuleMap, CheckContext, TcModule)
-parseTH globals modName baseMap srcLines = Code.do
+  ModuleName -> ModuleMap -> [String] -> CodeQ (ModuleMap, CheckContext, TcModule)
+parseTH modName baseMap srcLines = Code.do
   parsed <- case runParserSimple parseModule (unlines srcLines) of
     Left err -> do
       reportError $ "parse error:" ++ err
-      pure $ ParsedModule [] emptyModule
+      pure emptyParsedModule
     Right p -> do
       pure p
-  let (modmap, resolve) = continueRenameExtra baseMap modName parsed
+  when (not (null (parsedImports parsed))) do
+    -- This restriction exists only because there wasn't any necessity to
+    -- implement this.
+    reportError "Imports not yet supported by ‘parseTH’."
+  let (modmap, resolve) = continueRename baseMap modName (parsedModule parsed)
   let check renamed = do
         let markBuiltin = \case
               DataDecl _ decl -> DataDecl OriginBuiltin decl
@@ -37,7 +42,7 @@ parseTH globals modName baseMap srcLines = Code.do
         let doCheck = checkWithModule mempty builtinRenamed \runTypeM checked ->
               (checked,) <$> runTypeM extractCheckContext
         mapErrors runErrors $ mapValidateT lift doCheck
-  let checked = runValidate (resolve globals) >>= \(RenameExtra f) -> f check
+  let checked = resolve mempty >>= \(RenameExtra f) -> f check
   case checked of
     Left errs -> Code.do
       traverse_ (reportError . tail . formatErrorMessages Plain "") errs
