@@ -37,6 +37,7 @@ import qualified Data.DList                    as DL
 import           Data.Foldable
 import           Data.Functor
 import           Data.Functor.Identity
+import qualified Data.List                     as List
 import           Data.List.NonEmpty            (NonEmpty(..))
 import qualified Data.Map.Strict               as Map
 import           Data.Maybe
@@ -98,9 +99,6 @@ import           Syntax.Base
   '(*)'     { TokenLowerId  ($$ :@ "(*)") }
   LOWER_ID  { TokenLowerId  $$ }
   UPPER_ID  { TokenUpperId  $$ }
-  UPPER_IDq { TokenUpperIdQ $$ }
-  -- Not yet used.
-  -- LOWER_IDq {TokenLowerIdQ _ _}
 
   -- Operators. +/-/* can appear as special syntax items.
   '+'      { TokenOperator ($$ :@ "+") }
@@ -166,14 +164,6 @@ Import :: { Located (Import ModuleName) }
       pure $ $1 @- Import {
         importTarget = unL $2,
         importQualifier = emptyModuleName,
-        importSelection = selection
-      }
-    }
-  | import ModuleName as ModuleName ImportList {% do
-      selection <- $5 $! pos $1
-      pure $ $1 @- Import {
-        importTarget = unL $2,
-        importQualifier = unL $4,
         importSelection = selection
       }
     }
@@ -570,9 +560,21 @@ UnqualifiedVar :: { Located Unqualified }
   | -- 'as' is a contextual keyword.
     as              { $1 @- Unqualified "as" }
 
+-- Do to a clash with session type syntax we can't parse module names in the
+-- lexer.
+-- Note: I guess we could but this would require more work as we would have to
+-- introduce start codes.
+-- See https://www.jyotirmoy.net/posts/2015-08-17-alex-happy-startcodes.html
+-- if this comes into focus again.
 ModuleName :: { Located ModuleName }
-  : UnqualifiedCon  { $1 @- ModuleName (getUnqualified (unL $1)) }
-  | UPPER_IDq       { $1 @- ModuleName (unL $1) }
+  : ModuleNameRec
+    { fmap (ModuleName . List.intercalate "." . DL.toList) $1 }
+
+ModuleNameRec :: { Located (DL.DList String) }
+  : UnqualifiedCon
+    { fmap (DL.singleton . getUnqualified) $1 }
+  | ModuleNameRec '.' UnqualifiedCon
+    { fmap (`DL.snoc` getUnqualified (unL $3)) $1 }
 
 NameVar :: { Located UnscopedName }
   : UnqualifiedVar  { $1 <&> \u -> UName (UnqualifiedName u) }

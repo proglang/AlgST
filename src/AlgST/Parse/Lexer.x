@@ -110,8 +110,6 @@ tokens :-
   "(" @operator ")"             { textToken TokenLowerId }
   @lowerId                      { textToken TokenLowerId }
   @upperId                      { textToken TokenUpperId }
-  ( @upperId "." )+ @lowerId    { textToken TokenLowerIdQ }
-  ( @upperId "." )+ @upperId    { textToken TokenUpperIdQ }
   "(,)"                         { simpleToken TokenPairCon }
 
 {
@@ -129,7 +127,6 @@ data Token =
   | TokenComma Pos
   | TokenColon Pos
   | TokenUpperId (Located String)
-  | TokenUpperIdQ (Located String)
   | TokenPairCon Pos
   | TokenMOut Pos
   | TokenMIn Pos
@@ -137,7 +134,6 @@ data Token =
   | TokenRBrace Pos
   | TokenDot Pos
   | TokenLowerId (Located String)
-  | TokenLowerIdQ (Located String)
   | TokenOperator (Located String)
   | TokenKind (Located K.Kind)
   | TokenInt (Located Integer)
@@ -180,7 +176,6 @@ instance Show Token where
   show (TokenComma _) = ","
   show (TokenColon _) = ":"
   show (TokenUpperId (_ :@ c)) = c
-  show (TokenUpperIdQ (_ :@ c)) = c
   show (TokenPairCon _) = "(,)"
   show (TokenMOut _) = "!"
   show (TokenMIn _) = "?"
@@ -188,7 +183,6 @@ instance Show Token where
   show (TokenRBrace _) = "}"
   show (TokenDot _) = "."
   show (TokenLowerId (_ :@ s)) = s
-  show (TokenLowerIdQ (_ :@ s)) = s
   show (TokenOperator (_ :@ s)) = s
   show (TokenKind (_ :@ k)) = show k
   show (TokenInt (_ :@ i)) = show i
@@ -283,7 +277,6 @@ instance Position Token where
   pos (TokenComma p) = p
   pos (TokenColon p) = p
   pos (TokenUpperId (p :@ _)) = p
-  pos (TokenUpperIdQ (p :@ _)) = p
   pos (TokenPairCon p) = p
   pos (TokenMOut p) = p
   pos (TokenMIn p) = p
@@ -291,7 +284,6 @@ instance Position Token where
   pos (TokenRBrace p) = p
   pos (TokenDot p) = p
   pos (TokenLowerId (p :@ _)) = p
-  pos (TokenLowerIdQ (p :@ _)) = p
   pos (TokenOperator (p :@ _)) = p
   pos (TokenKind (p :@ _)) = p
   pos (TokenInt (p :@ _)) = p

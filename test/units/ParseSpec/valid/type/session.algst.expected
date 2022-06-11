@@ -1,0 +1,6 @@
+Type.Session (?)
+|
++- Type.Con A
+|
+`- Type.Var rest
+
