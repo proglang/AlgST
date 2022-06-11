@@ -30,8 +30,7 @@ $letter = [$lower$upper$greek]
 $ascdigit = 0-9
 $digit = [$ascdigit] -- $unidigit]
 
-$opsymbol = [\!\#\$\%\&\+\-\*\/\<\=\>\@\\\^\|\~\:≤≠≥∧∨]
-@operator = $opsymbol+
+@operator = "|>" | "<|" | "||" | "&&" | [\=\/\<\>]\= | [\<\>\+\-\*\/\%]
 
 $alphaNumeric = [$letter$digit\_\']
 

@@ -1,0 +1,8 @@
+Type.Pair
+|
++- Type.Con A
+|
+`- Type.Negate
+   |
+   `- Type.Con B
+

@@ -19,7 +19,7 @@ data Precedence
     PCmp
   | -- | > (+), (-)
     PAddSub
-  | -- | > (*), (/)
+  | -- | > (*), (/), (%)
     PMulDiv
   deriving (Eq, Ord, Enum, Bounded, Show)
 
