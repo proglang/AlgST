@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 module AlgST.Main (main) where
 
 import AlgST.Builtins (builtinsModule)
@@ -11,10 +13,6 @@ import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
 import AlgST.Util.Output
-import Control.Applicative
-import Control.Monad
-import Control.Monad.Reader
-import Control.Monad.Trans.Maybe
 import Data.Foldable
 import Data.Function
 import Data.HashMap.Strict qualified as HM
@@ -22,6 +20,7 @@ import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Syntax.Base
 import System.Exit
+import System.FilePath qualified as FP
 import System.IO
 
 main :: IO ()
@@ -31,34 +30,38 @@ main = do
 
   let allowAnsi = stderrMode /= Plain
   withOutput allowAnsi stderr \outputHandle -> do
-    inputIsTerm <- (sourceIsTerm (optsSource runOpts) &&) <$> hIsTerminalDevice stdin
-
-    let srcName = case optsSource runOpts of
-          SourceFile fp -> fp
-          SourceStdin -> "«stdin»"
-    src <- readSource (optsSource runOpts)
-
-    -- When we read the source code from STDIN and STDIN + one of the output
-    -- streams are terminal devices we output a seperating newline.
-    void $ runMaybeT do
-      guard inputIsTerm
-      let checkOut h = do
-            isTerm <- lift $ hIsTerminalDevice h
-            guard isTerm
-            lift $ hPutChar h '\n'
-      checkOut stdout <|> checkOut stderr
+    mainSource <- case optsSource runOpts of
+      SourceFile fp -> do
+        Just . (FP.normalise fp,) <$> readFile' fp
+      SourceStdin -> do
+        -- If the input comes from the terminal and either of the output
+        -- streams goes to the terminal we output a separating newline.
+        stdinTerm <- hIsTerminalDevice stdin
+        stdoutTerm <- hIsTerminalDevice stdout
+        stderrTerm <- hIsTerminalDevice stderr
+        let termOut
+              | stdinTerm && stdoutTerm = Just stdout
+              | stdinTerm && stderrTerm = Just stderr
+              | otherwise = Nothing
+        Just . ("«stdin»",)
+          <$> getContents'
+          <* for_ termOut \h -> hPutChar h '\n'
+      SourceMain ->
+        -- We expect the driver to find the Main module through its usual
+        -- module lookup mechanism.
+        pure Nothing
 
     let mainModule = ModuleName "Main"
     let driverSettings =
-          Driver.defaultSettings
-            { driverSequential = optsDriverSeq runOpts,
-              driverVerboseDeps = optsDriverDeps runOpts,
-              driverVerboseSearches = optsDriverModSearch runOpts,
-              driverSearchPaths = optsDriverPaths runOpts,
-              driverOutputMode = stderrMode,
-              driverOutputHandle = outputHandle
-            }
-            & Driver.addModuleSource mainModule srcName src
+          maybe id (uncurry (Driver.addModuleSource mainModule)) mainSource $
+            Driver.defaultSettings
+              { driverSequential = optsDriverSeq runOpts,
+                driverVerboseDeps = optsDriverDeps runOpts,
+                driverVerboseSearches = optsDriverModSearch runOpts,
+                driverSearchPaths = FP.normalise <$> optsDriverPaths runOpts,
+                driverOutputMode = stderrMode,
+                driverOutputHandle = outputHandle
+              }
 
     mcheckedGraph <- Driver.runDriver driverSettings do
       (pathsMap, parsed) <- Driver.parseAllModules mainModule

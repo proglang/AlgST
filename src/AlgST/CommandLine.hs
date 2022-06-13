@@ -5,10 +5,6 @@ module AlgST.CommandLine
   ( getOptions,
     RunOpts (..),
     Source (..),
-    sourceIsFile,
-    sourceIsTerm,
-    sourcePrettyName,
-    readSource,
     Action (..),
     actionSource,
   )
@@ -21,46 +17,25 @@ import Data.Sequence (Seq)
 import Data.Sequence qualified as Seq
 import Numeric.Natural (Natural)
 import Options.Applicative qualified as O
-import System.FilePath
-import System.IO
 
 data Source
   = SourceFile !FilePath
+  | SourceMain
   | SourceStdin
-  deriving (Show)
-
-sourcePrettyName :: Source -> Maybe String
-sourcePrettyName = \case
-  SourceFile fp -> Just (normalise fp)
-  SourceStdin -> Nothing
-
-sourceIsFile :: Source -> Bool
-sourceIsFile = \case
-  SourceFile _ -> True
-  _ -> False
-
-sourceIsTerm :: Source -> Bool
-sourceIsTerm = \case
-  SourceStdin -> True
-  _ -> False
-
-readSource :: Source -> IO String
-readSource = \case
-  -- When reading from STDIN we wait for all the input to avoid the case where
-  -- messages may overlap with the input prompt.
-  SourceStdin -> getContents'
-  SourceFile fp -> readFile fp
+  deriving (Eq, Show)
 
 sourceParser :: O.Parser Source
 sourceParser =
-  fmap (maybe SourceStdin SourceFile)
-    . O.optional
-    . O.strArgument
-    $ mconcat [O.metavar "FILE", O.help fpHelp]
+  fmap decideInput . O.optional . O.strArgument . mconcat $
+    [ O.metavar "FILE",
+      O.help
+        "Read Main module from FILE. Use ‘-’ to read from standard input. \
+        \Omitting FILE searches for the Main module in the search path."
+    ]
   where
-    fpHelp =
-      "If a FILE is given input will be read from that file. Otherwise it \
-      \will be read from STDIN."
+    decideInput (Just "-") = SourceStdin
+    decideInput (Just fp) = SourceFile fp
+    decideInput Nothing = SourceMain
 
 data Action
   = ActionTySynth !String

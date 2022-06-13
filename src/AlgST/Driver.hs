@@ -370,7 +370,7 @@ findModule name = flip runContT pure do
   -- Not a virtual module. Look through the search paths instead.
   env <- lift askState
   let paths = driverSearchPaths $ driverSettings env
-  let npaths = show (length paths) ++ plural paths "search path" "search paths"
+  let npaths = show (length paths) ++ plural paths " search path" " search paths"
   liftIO $ searchMsg $ ".. not a virtual module, looking through " ++ npaths
 
   -- Check all search paths.
@@ -389,9 +389,9 @@ findModule name = flip runContT pure do
   res <- liftIO . tryIOError . asum . fmap tryRead $ paths
 
   -- Summarize the result.
-  liftIO $ searchMsg $ ".. " ++ npaths ++ " enumerated"
   liftIO case res of
     Left _ -> do
+      searchMsg $ ".. " ++ npaths ++ " enumerated"
       searchMsg $ "++ Module ‘" ++ unModuleName name ++ "’ not found"
       pure Nothing
     Right found@(fp, _) -> do
