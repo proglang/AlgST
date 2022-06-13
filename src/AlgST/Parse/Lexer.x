@@ -15,32 +15,15 @@ import           Syntax.Base
 
 %wrapper "posn"
 
-$greek = [\880-\1023] -- # λ  -- forall not in range ([λ ∀])
+$upper  = [A-Z]
+$lower  = [a-z]
+$digit  = [0-9]
+$alphaNumeric = [$upper $lower $digit \_ \']
 
-$upperA  = [A-Z]
-$upper = [$upperA$greek]
-
--- $lowerU  = \x02 -- Trick Alex into handling Unicode. See [Unicode in Alex].
-$lowerA = [a-z]
-$lower = [$lowerA$greek\_] --  $greek \_]
-
-$letter = [$lower$upper$greek]
-
--- $unidigit  = \x03
-$ascdigit = 0-9
-$digit = [$ascdigit] -- $unidigit]
+@lowerId = $lower $alphaNumeric* | "_" $alphaNumeric+
+@upperId = $upper $alphaNumeric*
 
 @operator = "|>" | "<|" | "||" | "&&" | [\=\/\<\>]\= | [\<\>\+\-\*\/\%]
-
-$alphaNumeric = [$letter$digit\_\']
-
-$eol=[\n]
-
-@blockComment = "{-" (\-[^\}]|[^\-]|\n)* "-}"
-
-$greekId = [λ ∀]
-@lowerId = ($lower # $greekId) $alphaNumeric*
-@upperId = ($upper # $greekId) $alphaNumeric*
 
 -- Supported escape sequences:
 --
@@ -48,6 +31,13 @@ $greekId = [λ ∀]
 @escape = \\ [\\ \" \' n]
 @char   = \' (@escape | [^ \\ \']) \'
 @string = \" (@escape | [^ \\ \"])* \"
+
+$eol = [\n]
+
+-- The regex looks strange because complementing a character set never includes
+-- the newline character. We can use nested character sets to create -- the
+-- desired set.
+@blockComment = "{-" ([[^\-] $eol] | \-[[^\}] $eol])* "-}"
 
 tokens :-
   $white*$eol+                  { simpleToken TokenNL }
