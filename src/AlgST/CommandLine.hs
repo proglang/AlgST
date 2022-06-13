@@ -17,6 +17,8 @@ where
 import AlgST.Interpret qualified as I
 import AlgST.Util.Output
 import Control.Applicative
+import Data.Sequence (Seq)
+import Data.Sequence qualified as Seq
 import Numeric.Natural (Natural)
 import Options.Applicative qualified as O
 import System.FilePath
@@ -57,7 +59,7 @@ sourceParser =
     $ mconcat [O.metavar "FILE", O.help fpHelp]
   where
     fpHelp =
-      "If a FILE is given input will be read from this file. Otherwise it \
+      "If a FILE is given input will be read from that file. Otherwise it \
       \will be read from STDIN."
 
 data Action
@@ -79,10 +81,10 @@ actionParser = tysynth <|> kisynth <|> nf
       unwords
         [ "Synthesize the",
           x,
-          "for the given",
+          "of the given",
           y,
-          "in the context of the parsed program.",
-          "May be repeated."
+          "in the context of the Main module.",
+          "Can be repeated."
         ]
     tysynth =
       fmap ActionTySynth . O.strOption . mconcat $
@@ -102,7 +104,9 @@ actionParser = tysynth <|> kisynth <|> nf
       fmap ActionNF . O.strOption . mconcat $
         [ O.long "nf",
           O.metavar "TYPE",
-          O.help "Calculate the normal form of the given type. May be repeated."
+          O.help
+            "Calculate the normal form of the given type in the context of \
+            \the Main module. Can be repeated."
         ]
 
 data RunOpts = RunOpts
@@ -111,6 +115,7 @@ data RunOpts = RunOpts
     optsActions :: ![Action],
     optsDebugEval :: !Bool,
     optsBufferSize :: !Natural,
+    optsDriverPaths :: !(Seq FilePath),
     optsDriverSeq :: !Bool,
     optsDriverDeps :: !Bool,
     optsDriverModSearch :: !Bool
@@ -119,11 +124,12 @@ data RunOpts = RunOpts
 
 optsParser :: O.Parser RunOpts
 optsParser = do
-  optsOutputMode <- optional modeParser
   optsSource <- sourceParser
+  optsDriverPaths <- driverSearchDirs
   optsActions <- many actionParser
-  optsBufferSize <- bufSizeParser
-  optsDebugEval <- debugParser
+  optsOutputMode <- optional modeParser
+  optsBufferSize <- evalBufSizeParser
+  optsDebugEval <- evalVerboseParser
   optsDriverSeq <- driverSeqParser
   optsDriverDeps <- driverDepsParser
   optsDriverModSearch <- driverModSearchParser
@@ -137,7 +143,8 @@ modeParser = plain <|> colorized
         mconcat
           [ O.long "plain",
             O.short 'p',
-            O.help "Output messages without colors."
+            O.help "Output messages without colors.",
+            O.hidden
           ]
     colorized =
       O.flag' Colorized $
@@ -145,30 +152,46 @@ modeParser = plain <|> colorized
           [ O.long "colors",
             O.help
               "Output messages with colors even when the output device is \
-              \not a terminal."
+              \not a terminal.",
+            O.hidden
           ]
 
-debugParser :: O.Parser Bool
-debugParser =
+evalVerboseParser :: O.Parser Bool
+evalVerboseParser =
   O.flag False True $
     mconcat
-      [ O.long "debug",
-        O.short 'd',
-        O.help "Output debug messages during evaluation."
+      [ O.long "eval-verbose",
+        O.help "Output verbose messages during evaluation.",
+        O.hidden
       ]
 
-bufSizeParser :: O.Parser Natural
-bufSizeParser =
+evalBufSizeParser :: O.Parser Natural
+evalBufSizeParser =
   O.option O.auto . mconcat $
-    [ O.long "buffer-size",
-      O.short 'B',
+    [ O.long "eval-chan-size",
       O.value (I.evalBufferSize I.defaultSettings),
+      O.metavar "N",
       O.help
         "The buffer size of channels when interpreted. ‘0’ specifies fully \
         \synchronous communication.",
       O.showDefault,
       O.hidden
     ]
+
+driverSearchDirs :: O.Parser (Seq FilePath)
+driverSearchDirs =
+  fmap nullDefault . O.many . O.strOption . mconcat $
+    [ O.long "search-dir",
+      O.short 'I',
+      O.metavar "DIR",
+      O.help
+        "Search the given directory for imported modules. Can be repeated to \
+        \search multiple directories in order. If not specfied it defaults to \
+        \the working directory."
+    ]
+  where
+    nullDefault [] = Seq.singleton "."
+    nullDefault ps = Seq.fromList ps
 
 driverSeqParser :: O.Parser Bool
 driverSeqParser =
@@ -196,4 +219,14 @@ driverDebugFlag name help =
     O.long name <> O.help help <> O.hidden
 
 getOptions :: IO RunOpts
-getOptions = O.execParser $ O.info (optsParser <**> O.helper) mempty
+getOptions =
+  O.execParser $
+    O.info
+      (optsParser <**> O.helper)
+      (mconcat parserInfo)
+  where
+    parserInfo =
+      [ O.header
+          "AlgST - frontend, typechecker and interpreter for Algebraic \
+          \Session Types."
+      ]

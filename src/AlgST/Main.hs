@@ -54,7 +54,7 @@ main = do
             { driverSequential = optsDriverSeq runOpts,
               driverVerboseDeps = optsDriverDeps runOpts,
               driverVerboseSearches = optsDriverModSearch runOpts,
-              driverSearchPaths = pure ".",
+              driverSearchPaths = optsDriverPaths runOpts,
               driverOutputMode = stderrMode,
               driverOutputHandle = outputHandle
             }
@@ -83,9 +83,15 @@ main = do
           moduleValues mainChecked
             & Map.keys
             & List.find ((Unqualified "main" ==) . nameUnqualified)
-    -- Run Main.main if we can find such a definition.
-    for_ mmainName \mainName -> do
-      outputSticky outputHandle "Running ‘main’"
-      r <- I.runEval (I.programEnvironment bigModule) $ I.eval $ E.Var defaultPos mainName
-      clearSticky outputHandle
-      outputStrLn outputHandle $ "Result: " ++ show r
+
+    mainName <- case mmainName of
+      Nothing -> do
+        outputStrLn outputHandle "Success. No ‘main’ to run."
+        exitSuccess
+      Just n -> do
+        pure n
+
+    outputSticky outputHandle "Running ‘main’"
+    r <- I.runEval (I.programEnvironment bigModule) $ I.eval $ E.Var defaultPos mainName
+    clearSticky outputHandle
+    outputStrLn outputHandle $ "Result: " ++ show r
