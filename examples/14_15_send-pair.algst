@@ -1,4 +1,4 @@
-type Send (a:TL) = ∀(s:SL). a -> !a.s -o s
+type Send (a:TL) = ∀(s:SL). a -> !a.s -> s
 type Recv (a:TL) = ∀(s:SL). ?a.s -> (a, s)
 
 sendPair : ∀(a:TL). Send a -> ∀(b:TL). Send b -> Send (a, b)
@@ -15,8 +15,8 @@ recvPair [a] recvA [b] recvB [s] c =
   let (b, c) = recvB [s] c in
   ((a, b), c)
 
-sendPairM : ∀(a:ML). ∀(b:ML). Send (a, b)
+sendPairM : ∀(a:MU). ∀(b:MU). Send (a, b)
 sendPairM [a, b] = sendPair [a, b] (send [a]) (send [b])
 
-recvPairM : ∀(a:ML). ∀(b:ML). Recv (a, b)
+recvPairM : ∀(a:MU). ∀(b:MU). Recv (a, b)
 recvPairM [a, b] = recvPair [a, b] (receive [a]) (receive [b])
