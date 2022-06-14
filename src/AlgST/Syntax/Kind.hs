@@ -20,8 +20,10 @@ module AlgST.Syntax.Kind
 where
 
 import AlgST.Syntax.Name
+import Control.Applicative
 import Language.Haskell.TH.Syntax (Lift)
 import Syntax.Base
+import Text.Read
 
 data Basic = Session | Message | Top
   -- Ordering is important for correctness of the subkind check (<=?)!
@@ -45,6 +47,23 @@ instance Show Kind where
   show SL = "SL"
   show MU = "MU"
   show ML = "ML"
+
+instance Read Kind where
+  readPrec =
+    lexP >>= \case
+      Ident "P" -> pure P
+      Ident "T" -> pure TL
+      Ident "TL" -> pure TL
+      Ident "TU" -> pure TU
+      Ident "S" -> pure SL
+      Ident "SL" -> pure SL
+      Ident "SU" -> pure SU
+      Ident "M" -> pure ML
+      Ident "ML" -> pure ML
+      Ident "MU" -> pure MU
+      _ -> empty
+
+  readListPrec = readListPrecDefault
 
 {- ORMOLU_DISABLE -}
 pattern TL, TU, SL, SU, ML, MU :: Kind

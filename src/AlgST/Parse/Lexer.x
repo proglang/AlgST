@@ -7,10 +7,9 @@ module AlgST.Parse.Lexer
 , dropNewlines
 ) where
 
-import qualified AlgST.Syntax.Kind as K
-import           AlgST.Util.ErrorMessage
-import           AlgST.Util.Output
-import           Syntax.Base
+import AlgST.Util.ErrorMessage
+import AlgST.Util.Output
+import Syntax.Base
 }
 
 %wrapper "posn"
@@ -62,14 +61,6 @@ tokens :-
   "="                           { simpleToken TokenEq }
   "|"                           { simpleToken TokenPipe }
   "_"                           { simpleToken TokenWild }
--- Kinds
-  SU                            { simpleToken \p -> TokenKind (p @- K.SU) }
-  SL                            { simpleToken \p -> TokenKind (p @- K.SL) }
-  TU                            { simpleToken \p -> TokenKind (p @- K.TU) }
-  TL                            { simpleToken \p -> TokenKind (p @- K.TL) }
-  MU                            { simpleToken \p -> TokenKind (p @- K.MU) }
-  ML                            { simpleToken \p -> TokenKind (p @- K.ML) }
-  P                             { simpleToken \p -> TokenKind (p @- K.P)  }
 -- Keywords
   rec                           { simpleToken TokenRec }
   let                           { simpleToken TokenLet }
@@ -125,7 +116,6 @@ data Token =
   | TokenDot Pos
   | TokenLowerId (Located String)
   | TokenOperator (Located String)
-  | TokenKind (Located K.Kind)
   | TokenInt (Located Integer)
   | TokenChar (Located Char)
   | TokenString (Located String)
@@ -174,7 +164,6 @@ instance Show Token where
   show (TokenDot _) = "."
   show (TokenLowerId (_ :@ s)) = s
   show (TokenOperator (_ :@ s)) = s
-  show (TokenKind (_ :@ k)) = show k
   show (TokenInt (_ :@ i)) = show i
   show (TokenChar (_ :@ c)) = show c
   show (TokenBool (_ :@ b)) = show b
@@ -275,7 +264,6 @@ instance Position Token where
   pos (TokenDot p) = p
   pos (TokenLowerId (p :@ _)) = p
   pos (TokenOperator (p :@ _)) = p
-  pos (TokenKind (p :@ _)) = p
   pos (TokenInt (p :@ _)) = p
   pos (TokenChar (p :@ _)) = p
   pos (TokenBool (p :@ _)) = p

@@ -35,6 +35,7 @@ module AlgST.Parse.ParseUtils
     errorMultipleWildcards,
     errorMisplacedPairCon,
     errorDuplicateBind,
+    errorInvalidKind,
 
     -- * Operators
     Parenthesized (..),
@@ -611,3 +612,7 @@ errorConflictingImports importLoc (scope, name) i1 i2 =
       ImportFrom orig ->
         [Error "    renamed from", Error orig, Error "at", Error p]
 {-# NOINLINE errorConflictingImports #-}
+
+errorInvalidKind :: Pos -> String -> Diagnostic
+errorInvalidKind p s = PosError p [Error "Invalid kind", Error (Unqualified s)]
+{-# NOINLINE errorInvalidKind #-}

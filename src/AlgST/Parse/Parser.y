@@ -109,7 +109,6 @@ import           Syntax.Base
   '*'      { TokenOperator ($$ :@ "*") }
   OPERATOR { TokenOperator $$ }
 
-  KIND     { TokenKind     $$ }
   INT      { TokenInt      $$ }
   CHAR     { TokenChar     $$ }
   STR      { TokenString   $$ }
@@ -553,7 +552,11 @@ TypeSeq :: { DL.DList PType }
 -------------------------------------------------------------------------------
 
 Kind :: { Located K.Kind }
-  : KIND { $1 }
+  : UPPER_ID {%
+      case reads (unL $1) of
+        [(k, "")] -> pure $ $1 @- k
+        _ -> $1 @- K.TU <$ addErrors [uncurryL errorInvalidKind $1]
+    }
 
 
 -------------------------------------------------------------------------------
@@ -562,8 +565,6 @@ Kind :: { Located K.Kind }
 
 UnqualifiedCon :: { Located Unqualified }
   : UPPER_ID        { $1 @- Unqualified (unL $1) }
-  | -- Allow the kinds to be used as constructor names.
-    Kind            { $1 @- Unqualified (show (unL $1)) }
 
 UnqualifiedVar :: { Located Unqualified }
   : LOWER_ID        { $1 @- Unqualified (unL $1) }
