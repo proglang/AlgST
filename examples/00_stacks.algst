@@ -29,6 +29,25 @@ handleStack [s] top c = case c of {
     send [Int, s] top c
 }
 
+makeStack : ∀(s:SL). Int -> !Stack.s -> s
+makeStack [s] n stc =
+  let c = select Push [s] stc in
+  let c = send [Int, !Stack.!Stack.s] n c in
+  let c =
+    if n > 1 then
+      let c = makeStack [!Stack.s] (n - 1) c in
+      c
+    else -- n <= 0
+      let c = select Pop [!Stack.s] c in
+      let (x1, c) = receive [Int, !Stack.s] c in
+      c
+  in
+      let c = select Pop [s] c in
+      let (x, c) = receive [Int, s] c in
+      -- assert x == n
+      c
+
+
 interaction : ∀(s:SL). !EmptyStack.s -> !EmptyStack.s
 interaction [s] c =
   let c = select Bottom [s] c in
