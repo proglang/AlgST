@@ -1,0 +1,13 @@
+data List a = Nil | Cons a (List a)
+
+type Send a = forall(s:S). a -> !a.s -> s
+type Recv a = forall(s:S). ?a.s -> (a, s)
+
+sendList : forall a. Send a -> Send (List a)
+sendList [a] send_a [s] xs c =
+  case xs of {
+    Nil       -> select Nil [a,s] c,
+    Cons x xs -> select Cons [a,s] c
+              |> send_a [!List a.s] x
+	      |> sendList [a] send_a [s] xs
+  }
