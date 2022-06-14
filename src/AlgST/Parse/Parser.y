@@ -279,6 +279,7 @@ TypeParams1 :: { NonEmpty (Located (TypeVar PStage), K.Kind) }
 
 DataCons :: { Constructors PStage PType }
   : DataCon              {  uncurry Map.singleton $1 }
+  | '|' DataCon          {  uncurry Map.singleton $2 }
   | DataCons '|' DataCon {% uncurry insertNoDuplicates $3 $1 }
 
 DataCon :: { (ProgVar PStage, (Pos, [PType])) }
