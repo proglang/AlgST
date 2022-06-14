@@ -1,0 +1,20 @@
+protocol Arith =
+  | Neg Int -Int
+  | Add Int Int -Int
+
+server : forall (s:S). ?Arith.s -> s
+server [s] c =
+  case c of {
+    Neg c -> let (x, c) = receive [Int, !Int.s] c in
+             send [Int, s] (0-x) c,
+    Add c -> let (x, c) = receive [Int, ?Int.!Int.s] c in
+             let (y, c) = receive [Int, !Int.s] c in
+             send [Int, s] (x+y) c }
+
+client_neg : forall (s:S). Int -> !Arith.s -> (Int, s)
+client_neg [s] x c =
+  select Neg [s] c |> send [Int, ?Int.s] x |> receive [Int, s]
+
+client_add : forall (s:S). Int -> Int -> !Arith.s -> (Int, s)
+client_add [s] x y c =
+  select Add [s] c |> send [Int, !Int.?Int.s] x |> send [Int, ?Int.s] y |> receive [Int, s]
