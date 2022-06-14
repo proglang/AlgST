@@ -59,7 +59,7 @@ builtins :: PProgram
 builtins =
   $$( let sigs =
             [ -- Session operations.
-              (,) "send" "∀(a : ML). ∀(s : SL). a -> !a.s -o s",
+              (,) "send" "∀(a : MU). ∀(s : SL). a -> !a.s -> s",
               (,) "receive" "∀(a : ML). ∀(s : SL). ?a.s -> (a, s)",
               -- Arithmetic operations.
               (,) "(+)" "Int -> Int -> Int",
