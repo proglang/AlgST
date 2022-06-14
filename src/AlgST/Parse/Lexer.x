@@ -74,11 +74,11 @@ tokens :-
   "_"                           { simpleToken TokenWild }
 -- Kinds
   SU                            { simpleToken (TokenKind . K.SU) }
-  SL                            { simpleToken (TokenKind . K.SL) }
+  (S|SL)                        { simpleToken (TokenKind . K.SL) }
   TU                            { simpleToken (TokenKind . K.TU) }
-  TL                            { simpleToken (TokenKind . K.TL) }
+  (T|TL)                        { simpleToken (TokenKind . K.TL) }
   MU                            { simpleToken (TokenKind . K.MU) }
-  ML                            { simpleToken (TokenKind . K.ML) }
+  (M|ML)                        { simpleToken (TokenKind . K.ML) }
   P                             { simpleToken (TokenKind . K.P) }
 -- Keywords
   rec                           { simpleToken TokenRec }
@@ -136,8 +136,8 @@ data Token =
   | TokenDot Pos
   | TokenLowerId Pos String
   | TokenOperator Pos String
-  | TokenPlus Pos   -- Has to be seperate because it can appear in a non-operator context
-  | TokenMinus Pos  -- Has to be seperate because it can appear in a non-operator context
+  | TokenPlus Pos   -- Has to be separate because it can appear in a non-operator context
+  | TokenMinus Pos  -- Has to be separate because it can appear in a non-operator context
   | TokenKind K.Kind
   | TokenInt Pos Integer
   | TokenChar Pos Char
