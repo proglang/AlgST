@@ -1,4 +1,4 @@
-echoServer : ∀(a : ML). ∀(s : SL). (a -> a) -> ?a.!a.s -> s
+echoServer : ∀(a : MU). ∀(s : SL). (a -> a) -> ?a.!a.s -> s
 echoServer [a, s] f c =
   let (a, c) = receive [a, !a.s] c in
   send [a, s] (f a) c
