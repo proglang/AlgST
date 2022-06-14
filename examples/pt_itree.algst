@@ -1,0 +1,20 @@
+data ITree = ILeaf Int | INode ITree ITree
+
+protocol ITree_P = ILeaf_P Int | INode_P ITree_P ITree_P
+
+sendITree : ITree -> forall (s:S). !ITree_P.s -> s
+sendITree t [s] c =
+  case t of {
+    ILeaf x     -> select ILeaf_P [s] c
+                |> send [Int, s] x,
+    INode tl tr -> select INode_P [s] c
+                |> sendITree tl [!ITree_P.s] |> sendITree tr [s] }
+
+recvITree : forall (s:S). ?ITree_P.s -> (ITree, s)
+recvITree [s] c =
+  case c of {
+    ILeaf_P c -> let (x, c) = receive [Int, s] c in
+                 (ILeaf x, c),
+    INode_P c -> let (tl, c) = recvITree [?ITree_P.s] c in
+                 let (tr, c) = recvITree [s] c in
+                 (INode tl tr, c) }
