@@ -1,0 +1,20 @@
+data IAst = ICon Int | IAdd IAst IAst
+
+protocol IAst_P = ICon_P Int | IAdd_P IAst_P IAst_P
+
+sendIAst : IAst -> forall (s:S). !IAst_P.s -> s
+sendIAst t [s] c =
+  case t of {
+    ICon x     -> select ICon_P [s] c
+               |> send [Int, s] x,
+    IAdd tl tr -> select IAdd_P [s] c
+               |> sendIAst tl [!IAst_P.s] |> sendIAst tr [s] }
+
+recvIAst : forall (s:S). ?IAst_P.s -> (IAst, s)
+recvIAst [s] c =
+  case c of {
+    ICon_P c -> let (x, c) = receive [Int, s] c in
+                (ICon x, c),
+    IAdd_P c -> let (tl, c) = recvIAst [?IAst_P.s] c in
+                let (tr, c) = recvIAst [s] c in
+                (IAdd tl tr, c) }

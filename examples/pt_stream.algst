@@ -1,0 +1,5 @@
+protocol Stream (a:P) = Cons a (Stream a)
+
+ones : !Stream Int.end -> end
+ones c =
+  select Cons [Int, end] c |> send [Int, !Stream Int.end] 1 |> ones
