@@ -14,6 +14,7 @@ module AlgST.Driver.Output
     outputStr,
     outputStrLn,
     outputShow,
+    outputLnS,
     outputS,
 
     -- ** Sticky messages
@@ -103,7 +104,10 @@ outputStrLn :: MonadIO m => OutputHandle -> String -> m ()
 outputStrLn b s = outputS b $ showString s . showChar '\n'
 
 outputShow :: (MonadIO m, Show a) => OutputHandle -> a -> m ()
-outputShow b = outputS b . shows
+outputShow b = outputLnS b . shows
+
+outputLnS :: MonadIO m => OutputHandle -> ShowS -> m ()
+outputLnS h s = outputS h (s . showChar '\n')
 
 outputS :: MonadIO m => OutputHandle -> ShowS -> m ()
 outputS (OutputHandle buf) =

@@ -7,7 +7,6 @@
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
-{-# LANGUAGE TupleSections #-}
 
 module AlgST.Driver.Dependencies
   ( DepVertex,

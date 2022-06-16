@@ -9,6 +9,7 @@ import Data.Maybe
 import Data.Ord
 import Data.Sequence (Seq)
 import Syntax.Base (Pos, Position (..))
+import Prelude hiding (truncate)
 
 joinConnector :: String -> NonEmpty String -> ShowS
 joinConnector _ (x :| []) =
@@ -31,6 +32,9 @@ whenJust = flip $ maybe (pure ())
 -- discarded.
 truncate :: Int -> a -> [a] -> [a]
 truncate n a as = zipWith fromMaybe as $ replicate n Nothing ++ [Just a]
+
+truncate' :: Int -> [a] -> [a] -> [a]
+truncate' n trunc as = concat $ truncate n trunc (pure <$> as)
 
 class Counted a where
   pluralZ :: (zero ~ b, one ~ b, many ~ b) => a -> zero -> one -> many -> b

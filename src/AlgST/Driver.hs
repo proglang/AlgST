@@ -45,6 +45,7 @@ import AlgST.Util.Error
 import AlgST.Util.ErrorMessage
 import AlgST.Util.Output
 import Algebra.Graph.AdjacencyMap.Algorithm qualified as G (Cycle)
+import Control.Applicative
 import Control.Category ((>>>))
 import Control.Exception
 import Control.Monad.Cont
@@ -286,7 +287,7 @@ parseModuleNow scheduler depsRef progress moduleName modulePath moduleSource = d
 renameAll ::
   HashMap ModuleName FilePath ->
   DepsGraph Acyclic ParseResult ->
-  Driver (DepsTree (Maybe Rn.RnModule))
+  Driver (DepsTree (Maybe (Rn.RnModule, Rn.RenameEnv)))
 renameAll paths dg = do
   (output, _) <- askOutput
   counter <- newCounter output do
@@ -294,30 +295,38 @@ renameAll paths dg = do
   parStrat <- askStrategy
   traverseVerticesPar parStrat (renameModule counter) dg
   where
-    renameModule counter name parseRes = fmap join $ runMaybeT do
+    renameModule counter name parseRes = runMaybeT do
       wrapCounter counter ("Resolving " ++ unModuleName name) do
         -- Resolve imports. Abort, if any dependency failed to parse.
         let findImport n = prGlobals <$> lookupVertex n dg
         imports <-
-          MaybeT . pure $
-            P.resolveImports findImport $ prModule parseRes
+          MaybeT
+            . pure
+            . P.resolveImports findImport
+            $ prModule parseRes
         -- Run the renamer on this module.
-        let allImports = defaultPos @- builtinsImport : imports
         let doRename = do
-              baseEnv <- runValidate $ Rn.foldImportedRenameEnv allImports
-              Rn.RenameExtra go <- prRename parseRes baseEnv
-              go pure
-        lift case doRename of
+              baseEnv <- runValidate $ Rn.foldImportedRenameEnv imports
+              let fullEnv = builtinsEnv <> baseEnv
+              Rn.RenameExtra go <- prRename parseRes fullEnv
+              (,fullEnv) <$> go pure
+        case doRename of
           Left errs -> do
-            reportErrors (fold (HM.lookup name paths)) errs
-            pure Nothing
-          Right rnMod -> do
-            pure (Just rnMod)
+            lift $ reportErrors (fold (HM.lookup name paths)) errs
+            empty
+          Right (rnMod, env) -> do
+            let thisEnv =
+                  Rn.importAllEnv
+                    defaultPos
+                    name
+                    (prGlobals parseRes)
+                    emptyModuleName
+            pure (rnMod, env <> thisEnv)
 
 checkAll ::
   HashMap ModuleName FilePath ->
   DepsGraph Acyclic (Maybe Rn.RnModule) ->
-  Driver (DepsGraph Acyclic (Maybe TcModule))
+  Driver (DepsTree (Maybe (TcModule, Tc.CheckContext)))
 checkAll paths dg = do
   (output, _) <- askOutput
   counter <- newCounterStart output do
@@ -326,7 +335,7 @@ checkAll paths dg = do
       & counterTitleL .~ "Checking..."
 
   strat <- askStrategy
-  fmap (fmap fst) <$> traverseTreePar strat dg \deps name mRn -> do
+  traverseTreePar strat dg \deps name mRn -> do
     let depCtxt = mconcat . fmap snd <$> traverse snd deps
     let mcheck = check name <$> join mRn <*> depCtxt
     join <$> maybeCounter counter "Checking" name mcheck id

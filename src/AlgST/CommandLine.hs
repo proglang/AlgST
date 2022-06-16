@@ -5,7 +5,7 @@ module AlgST.CommandLine
   ( getOptions,
     RunOpts (..),
     Source (..),
-    Action (..),
+    Query (..),
     actionSource,
   )
 where
@@ -37,20 +37,20 @@ sourceParser =
     decideInput (Just fp) = SourceFile fp
     decideInput Nothing = SourceMain
 
-data Action
-  = ActionTySynth !String
-  | ActionKiSynth !String
-  | ActionNF !String
+data Query
+  = QueryTySynth !String
+  | QueryKiSynth !String
+  | QueryNF !String
   deriving (Show)
 
-actionSource :: Action -> String
+actionSource :: Query -> String
 actionSource = \case
-  ActionTySynth s -> s
-  ActionKiSynth s -> s
-  ActionNF s -> s
+  QueryTySynth s -> s
+  QueryKiSynth s -> s
+  QueryNF s -> s
 
-actionParser :: O.Parser Action
-actionParser = tysynth <|> kisynth <|> nf
+queryParser :: O.Parser Query
+queryParser = tysynth <|> kisynth <|> nf
   where
     synthHelp x y =
       unwords
@@ -62,21 +62,21 @@ actionParser = tysynth <|> kisynth <|> nf
           "Can be repeated."
         ]
     tysynth =
-      fmap ActionTySynth . O.strOption . mconcat $
+      fmap QueryTySynth . O.strOption . mconcat $
         [ O.long "type",
           O.short 'T',
           O.metavar "EXPR",
           O.help $ synthHelp "type" "expression"
         ]
     kisynth =
-      fmap ActionKiSynth . O.strOption . mconcat $
+      fmap QueryKiSynth . O.strOption . mconcat $
         [ O.long "kind",
           O.short 'K',
           O.metavar "TYPE",
           O.help $ synthHelp "kind" "type"
         ]
     nf =
-      fmap ActionNF . O.strOption . mconcat $
+      fmap QueryNF . O.strOption . mconcat $
         [ O.long "nf",
           O.metavar "TYPE",
           O.help
@@ -87,7 +87,7 @@ actionParser = tysynth <|> kisynth <|> nf
 data RunOpts = RunOpts
   { optsSource :: !Source,
     optsOutputMode :: !(Maybe OutputMode),
-    optsActions :: ![Action],
+    optsQueries :: ![Query],
     optsDebugEval :: !Bool,
     optsBufferSize :: !Natural,
     optsDriverPaths :: !(Seq FilePath),
@@ -101,7 +101,7 @@ optsParser :: O.Parser RunOpts
 optsParser = do
   optsSource <- sourceParser
   optsDriverPaths <- driverSearchDirs
-  optsActions <- many actionParser
+  optsQueries <- many queryParser
   optsOutputMode <- optional modeParser
   optsBufferSize <- evalBufSizeParser
   optsDebugEval <- evalVerboseParser
