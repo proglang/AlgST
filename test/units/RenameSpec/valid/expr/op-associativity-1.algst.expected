@@ -42,7 +42,7 @@ Exp.App
 |        |     |
 |        |     `- Exp.App
 |        |        |
-|        |        +- Exp.Var negate#Builtin.25
+|        |        +- Exp.Var negate#Builtin.26
 |        |        |
 |        |        `- Exp.Lit
 |        |           |

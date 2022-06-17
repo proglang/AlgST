@@ -40,6 +40,9 @@ builtinsModuleCtxt :: Tc.CheckContext
               "(<|) : ∀(a:TL). ∀(b:TL). (a -o b) -> a -o b",
               "(<|) f x = f x",
               --
+              "(<&>) : ∀(a:TU). ∀(b:TL). ∀(c:SL). (a, c) -> (a -> b) -o (b, c)",
+              "(<&>) x f = let (a, c) = x in (f a, c)",
+              --
               "not : Bool -> Bool",
               "not b = if b then False else True",
               --

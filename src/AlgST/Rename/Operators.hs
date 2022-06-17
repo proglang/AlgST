@@ -13,6 +13,7 @@
 module AlgST.Rename.Operators (rewriteOperatorSequence) where
 
 import AlgST.Builtins.Names qualified as B
+import AlgST.Rename.Fresh
 import AlgST.Rename.Monad
 import AlgST.Rename.Phase
 import AlgST.Syntax.Expression qualified as E
@@ -21,6 +22,7 @@ import AlgST.Syntax.Operators
 import AlgST.Util.ErrorMessage
 import Control.Category ((>>>))
 import Control.Monad
+import Control.Monad.Trans
 import Control.Monad.Validate
 import Data.DList.DNonEmpty qualified as DNE
 import Data.Foldable
@@ -193,14 +195,27 @@ foldOperators e0 ops0 = \case
 
 buildOpApplication :: ResolvedOp -> RnExp -> Maybe RnExp -> RnM RnExp
 buildOpApplication op lhs mrhs
-  | opName op == B.opPipeBwd && noTypeArgs op,
+  | -- (<|)
+    opName op == B.opPipeBwd && noTypeArgs op,
     Just rhs <- mrhs =
     -- Desugar operator to direct function application.
     pure $ E.App (pos op) lhs rhs
-  | opName op == B.opPipeFwd && noTypeArgs op,
+  | -- (|>)
+    opName op == B.opPipeFwd && noTypeArgs op,
     Just rhs <- mrhs =
     -- Desugar operator to (flipped) direct function application.
     pure $ E.App (pos op) rhs lhs
+  | -- (<&>)
+    opName op == B.opMapAfter && noTypeArgs op,
+    Just rhs <- mrhs = lift . lift $ do
+    -- Desugar to
+    --    let (a, c) = lhs in (rhs a, c)
+    let loc = pos op
+    a <- freshResolvedU $ Unqualified "a"
+    c <- freshResolvedU $ Unqualified "c"
+    pure
+      . E.PatLet loc (op @- B.conPair) [op @- a, op @- c] lhs
+      $ E.Pair loc (E.App loc rhs (E.Var loc a)) (E.Var loc c)
   | otherwise = do
     let appLhs = E.App (pos lhs) (opExpr op) lhs
     pure $ maybe appLhs (E.App <$> pos <*> pure appLhs <*> id) mrhs

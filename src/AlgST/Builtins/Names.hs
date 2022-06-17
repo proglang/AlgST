@@ -34,21 +34,22 @@ $( runDefines (ModuleName "Builtin") "builtinsPartialModuleMap" "builtinOperator
      val "receive"
 
 {- ORMOLU_DISABLE -}
-     op_          "||" L  POr
-     op_          "&&" L  PAnd
-     op_          "<"  NA PCmp
-     op_          ">"  NA PCmp
-     op "LEQ"     "<=" NA PCmp
-     op_          ">=" NA PCmp
-     op_          "==" NA PCmp
-     op_          "/=" NA PCmp
-     op "add"     "+"  L  PAddSub
-     op "sub"     "-"  L  PAddSub
-     op "mul"     "*"  L  PMulDiv
-     op "div"     "/"  L  PMulDiv
-     op "mod"     "%"  L  PMulDiv
-     op "pipeFwd" "|>" L  PForward
-     op "pipeBwd" "<|" R  PBackward
+     op_           "||"  L  POr
+     op_           "&&"  L  PAnd
+     op_           "<"   NA PCmp
+     op_           ">"   NA PCmp
+     op "LEQ"      "<="  NA PCmp
+     op_           ">="  NA PCmp
+     op_           "=="  NA PCmp
+     op_           "/="  NA PCmp
+     op "add"      "+"   L  PAddSub
+     op "sub"      "-"   L  PAddSub
+     op "mul"      "*"   L  PMulDiv
+     op "div"      "/"   L  PMulDiv
+     op "mod"      "%"   L  PMulDiv
+     op "pipeFwd"  "|>"  L  PForward
+     op "pipeBwd"  "<|"  R  PBackward
+     op "mapAfter" "<&>" NA PBackward
 {- ORMOLU_ENABLE -}
  )
 

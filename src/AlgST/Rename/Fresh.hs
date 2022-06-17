@@ -14,6 +14,7 @@ module AlgST.Rename.Fresh
     etaFreshT,
     currentModule,
     freshResolved,
+    freshResolvedU,
     freshResolvedParams,
   )
 where
@@ -55,6 +56,9 @@ freshResolved n = do
   mod <- currentModule
   Fresh $ state \ !nextId ->
     (ResolvedName (nameWritten n) mod nextId, nextResolvedId nextId)
+
+freshResolvedU :: Monad m => Unqualified -> FreshT m (NameR scope)
+freshResolvedU = freshResolved . Name emptyModuleName
 
 freshResolvedParams :: Monad m => Params stage -> FreshT m (Params Resolved)
 freshResolvedParams = traverse (bitraverse (traverse freshResolved) pure)
