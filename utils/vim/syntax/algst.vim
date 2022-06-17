@@ -18,7 +18,7 @@ syn case match
 syn sync fromstart
 syn spell notoplevel
 
-syn keyword algstControl case of if then else
+syn keyword algstControl case match of if then else
 syn keyword algstKeyword dual dualof rec let in _
 syn keyword algstDecl type data protocol
   \ nextgroup=algstKindAnnot
@@ -27,7 +27,7 @@ syn keyword algstDecl type data protocol
 syn keyword algstBuiltin select receive send new fork fork_
 syn keyword algstEnd end
 
-syn keyword algstKind contained TL TU SL SU ML MU P
+syn match algstKind contained "\<\([TSM][LU]\?\|P\)\>"
 
 syn match algstKindAnnot "\<\k\+\s*:" 
       \ contained
