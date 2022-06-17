@@ -12,7 +12,7 @@ sendIAst t [s] c =
 
 recvIAst : forall (s:S). ?IAst_P.s -> (IAst, s)
 recvIAst [s] c =
-  case c of {
+  match c of {
     ICon_P c -> let (x, c) = receive [Int, s] c in
                 (ICon x, c),
     IAdd_P c -> let (tl, c) = recvIAst [?IAst_P.s] c in
