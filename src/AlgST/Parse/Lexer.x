@@ -94,7 +94,7 @@ tokens :-
   select                        { simpleToken TokenSelect }
   fork                          { simpleToken TokenFork }
   fork_                         { simpleToken TokenFork_ }
-  case                          { simpleToken TokenCase }
+  (case|match)                  { simpleToken TokenCase }
   of                            { simpleToken TokenOf }
   (forall|∀)                    { simpleToken TokenForall }
   dual                          { simpleToken TokenDualof }
