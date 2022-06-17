@@ -208,6 +208,16 @@ buildOpApplication op lhs mrhs
     Just rhs <- mrhs =
     -- Desugar operator to (flipped) direct function application.
     E.App (pos op) rhs lhs
+  | UserNamed "<&>" <- operatorName op,
+    null (operatorTyArgs op),
+    Just rhs <- mrhs =
+    -- Desugar operator to: let (x,c) = lhs in (rhs x, c)
+    let varBase = mkVar (pos op) $ opName $ operatorInfo op
+        varX = mkNewVar 1 varBase
+        varC = mkNewVar 2 varBase
+        po = pos op
+    in  E.PatLet po (mkVar po "(,)") [varX, varC] lhs
+                    (E.Pair po (E.App po rhs (E.Var po varX)) (E.Var po varC))
   | otherwise = do
     let opVar = E.Var (pos op) $ mkVar (pos op) $ opName $ operatorInfo op
     let opExp = E.foldTypeApps (const pos) opVar (operatorTyArgs op)

@@ -49,7 +49,8 @@ knownOperators = Map.unions (opMap <$> ops)
         Info "/" L PMulDiv,
         Info "%" L PMulDiv,
         Info "|>" L PForward,
-        Info "<|" R PBackward
+        Info "<|" R PBackward,
+        Info "<&>" NA PBackward -- ???
       ]
 
     opMap :: Info -> Map.Map String Info

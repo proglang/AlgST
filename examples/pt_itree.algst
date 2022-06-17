@@ -12,9 +12,8 @@ sendITree t [s] c =
 
 recvITree : forall (s:S). ?ITree_P.s -> (ITree, s)
 recvITree [s] c =
-  case c of {
-    ILeaf_P c -> let (x, c) = receive [Int, s] c in
-                 (ILeaf x, c),
+  match c of {
+    ILeaf_P c -> receive [Int, s] c <&> ILeaf,
     INode_P c -> let (tl, c) = recvITree [?ITree_P.s] c in
-                 let (tr, c) = recvITree [s] c in
-                 (INode tl tr, c) }
+                 recvITree [s] c <&> INode tl
+  }

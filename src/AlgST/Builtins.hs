@@ -86,6 +86,9 @@ builtins =
               "(<|) : ∀(a:TL). ∀(b:TL). (a -o b) -> a -o b",
               "(<|) f x = f x",
               --
+              "(<&>) : ∀(x:TU). ∀(y:TL). ∀(c:SU). (x, c) -> (x -> y) -> (y, c)",
+              "(<&>) p f = let (x, c) = p in (f x, c)",
+              --
               "not : Bool -> Bool",
               "not b = if b then False else True",
               --
