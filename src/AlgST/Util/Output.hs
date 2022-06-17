@@ -17,18 +17,15 @@ style :: [SGR] -> ShowS -> ShowS
 style [] s = s
 style sgr s = showString (setSGRCode sgr) . s . showString (setSGRCode [])
 
-boldSGR :: SGR
-boldSGR = SetConsoleIntensity BoldIntensity
-
 styleBold :: ShowS -> ShowS
-styleBold = style [boldSGR]
+styleBold = style [SetConsoleIntensity BoldIntensity]
 
-styleRed :: ShowS -> ShowS
-styleRed = style redFGStyling
+styleFG :: Color -> ShowS -> ShowS
+styleFG color = style [SetColor Foreground Dull color]
 
 applyStyle :: OutputMode -> (a -> a) -> a -> a
 applyStyle Colorized f = f
 applyStyle Plain _ = id
 
 redFGStyling :: [SGR]
-redFGStyling = [SetColor Foreground Vivid Red]
+redFGStyling = [SetColor Foreground Dull Red]

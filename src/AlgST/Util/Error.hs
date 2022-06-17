@@ -71,7 +71,7 @@ styledMessagePart mode a =
   -- Every part has to be bolded by itself instead of the whole message because
   -- resetting the color after a colored part in the error message would reset
   -- the boldness for the rest of the message as well.
-  applyStyle mode (style (boldSGR : msgStyling a)) (msg a ++)
+  applyStyle mode (styleBold . style (msgStyling a)) (msg a ++)
 
 styleHeader :: OutputMode -> DiagKind -> String -> Pos -> ShowS
 styleHeader mode kind f p =

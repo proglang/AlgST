@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
@@ -18,8 +19,9 @@ import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
 import AlgST.Syntax.Traversal
-import AlgST.Typing (CheckContext, TcModule)
+import AlgST.Typing (CheckContext, TcModule, TcType)
 import AlgST.Typing qualified as Tc
+import AlgST.Typing.Equality qualified as Eq
 import AlgST.Util qualified as Util
 import AlgST.Util.Error
 import AlgST.Util.Output
@@ -36,6 +38,7 @@ import Data.List.NonEmpty (NonEmpty)
 import Data.Map.Strict qualified as Map
 import Data.Traversable
 import Syntax.Base
+import System.Console.ANSI qualified as ANSI
 import System.Exit
 import System.FilePath qualified as FP
 import System.IO
@@ -119,17 +122,33 @@ answerQueries ::
 answerQueries out outMode queries renameEnvs checkEnvs = do
   and <$> for queries \case
     QueryTySynth s ->
-      parseRename P.parseExpr s (fmap snd . Tc.tysynth)
+      parseRename P.parseExpr s tysynth
+        & fmap showTySynth
         & printResult "--type" s
     QueryKiSynth s ->
       parseRename P.parseType s (fmap snd . Tc.kisynth)
+        & fmap (pure . show)
         & printResult "--kind" s
     QueryNF s ->
       parseRename P.parseType s (Tc.kisynth >=> Tc.normalize . fst)
+        & fmap (pure . show)
         & printResult "--nf" s
   where
     queryEnv = fold $ HM.lookup mainModule renameEnvs
     queryCtxt = fold $ HM.lookup mainModule checkEnvs
+
+    tysynth expr = do
+      t <- fmap snd $ Tc.tysynth expr
+      tNF <- Tc.normalize t
+      let !res
+            | Eq.Alpha t == Eq.Alpha tNF = Left t
+            | otherwise = Right (t, tNF)
+      pure res
+
+    showTySynth = either (pure . show) \(t, tNF) ->
+      [ applyStyle outMode styleBold (showString "[SYN] ") (show t),
+        applyStyle outMode styleBold (showString " [NF] ") (show tNF)
+      ]
 
     parseRename ::
       SynTraversable (s Parse) Parse (s Rn) Rn =>
@@ -149,21 +168,21 @@ answerQueries out outMode queries renameEnvs checkEnvs = do
         Tc.checkResultAsRnM $ Tc.checkWithModule queryCtxt emptyModule \runTypeM _ ->
           runTypeM $ f renamed
 
-    printResult :: Show a => String -> String -> Either (NonEmpty Diagnostic) a -> IO Bool
+    printResult :: String -> String -> Either (NonEmpty Diagnostic) [String] -> IO Bool
     printResult heading src = \case
       Left errs -> do
         outputS out $ prefix . renderErrors' (Just 5) outMode "" (toList errs)
         pure False
-      Right a -> do
+      Right lns -> do
         outputLnS out prefix
-        outputLnS out $ showString "  " . shows a
+        sequence_ [outputLnS out $ showString $ "  " ++ s | s <- lns]
         pure True
       where
         prefix =
           showChar '\n'
-            . applyStyle outMode styleBold (showString heading)
+            . applyStyle outMode (styleBold . styleFG ANSI.Cyan) (showString heading)
             . showChar ' '
-            . showString (truncateSource src)
+            . applyStyle outMode (styleFG ANSI.Cyan) (showString (truncateSource src))
 
     truncateSource :: String -> String
     truncateSource =
