@@ -23,7 +23,8 @@ $alphaNumeric = [$upper $lower $digit \_ \']
 @lowerId = $lower $alphaNumeric* | "_" $alphaNumeric+
 @upperId = $upper $alphaNumeric*
 
-@operator = "|>" | "<|" | "||" | "&&" | [\=\/\<\>]\= | [\<\>\+\-\*\/\%]
+$opsymbol = [\!\?\#\$\%\&\+\-\*\/\<\=\>\@\\\^\|\~\:]
+@operator = [$opsymbol # [\!\?]] $opsymbol*
 
 -- Supported escape sequences:
 --

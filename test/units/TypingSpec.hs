@@ -40,7 +40,7 @@ spec :: Spec
 spec = do
   describe "normal form" do
     it "normalises parameters" do
-      "forall (p:P). D3 (-+-+p) (!-p.end) (forall (a:TU) (b:TU). a -> b)"
+      "forall (p:P). D3 -(+(-(+p))) (!-p.end) (forall (a:TU) (b:TU). a -> b)"
         `nfShouldBe` "forall (p:P). D3 p (?p.end) (forall (a:TU). a -> forall (b:TU). b)"
 
     context "forall isomorphism" do
