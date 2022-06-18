@@ -13,6 +13,7 @@
 module AlgST.Rename.Operators (rewriteOperatorSequence) where
 
 import AlgST.Builtins.Names qualified as B
+import AlgST.Rename.Monad
 import AlgST.Rename.Phase
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Name
@@ -53,7 +54,7 @@ noTypeArgs :: ResolvedOp -> Bool
 noTypeArgs (opExpr -> E.Var {}) = True
 noTypeArgs _ = False
 
-rewriteOperatorSequence :: MonadValidate DErrors m => OperatorSequence Rn -> m RnExp
+rewriteOperatorSequence :: OperatorSequence Rn -> RnM RnExp
 rewriteOperatorSequence =
   groupOperators
     >>> traverse resolveOperator
@@ -113,7 +114,7 @@ instance Bounded Prec where
   minBound = MinPrec
   maxBound = MaxPrec
 
-foldGroupedOperators :: MonadValidate DErrors m => OpGrouping ResolvedOp -> m RnExp
+foldGroupedOperators :: OpGrouping ResolvedOp -> RnM RnExp
 foldGroupedOperators = \case
   OpGrouping Nothing [] _ ->
     -- The parser handles a single operator. See the 'EOps' production.
@@ -123,13 +124,7 @@ foldGroupedOperators = \case
   OpGrouping (Just e) ops mopr ->
     foldOperators e ops mopr
 
-foldOperators ::
-  forall m.
-  MonadValidate DErrors m =>
-  RnExp ->
-  [(ResolvedOp, RnExp)] ->
-  Maybe ResolvedOp ->
-  m RnExp
+foldOperators :: RnExp -> [(ResolvedOp, RnExp)] -> Maybe ResolvedOp -> RnM RnExp
 foldOperators e0 ops0 = \case
   Nothing ->
     -- Ordinary operator chain.
@@ -161,7 +156,7 @@ foldOperators e0 ops0 = \case
     case remainingOps of
       [] ->
         -- All fine. Construct the final partial application.
-        pure $ buildOpApplication secOp e Nothing
+        buildOpApplication secOp e Nothing
       (op, _) : _ ->
         refute . pure $ errorPrecConflict secOp op
   where
@@ -184,31 +179,31 @@ foldOperators e0 ops0 = \case
       Prec ->
       Maybe ResolvedOp ->
       [(ResolvedOp, RnExp)] ->
-      m (RnExp, [(ResolvedOp, RnExp)])
+      RnM (RnExp, [(ResolvedOp, RnExp)])
     go lhs minPrec mprev ((op, rhs) : ops)
       | Just prevOp <- mprev,
         minPrec == Prec (opPrec op) && opAssoc prevOp == NA =
         refute $ DNE.singleton $ errorNonAssocOperators prevOp op
       | minPrec <= Prec (opPrec op) = do
         (rhs', ops') <- go rhs (nextPrec Right op) (Just op) ops
-        let res = buildOpApplication op lhs (Just rhs')
+        res <- buildOpApplication op lhs (Just rhs')
         go res minPrec (Just op) ops'
     go lhs _ _ ops =
       pure (lhs, ops)
 
-buildOpApplication :: ResolvedOp -> RnExp -> Maybe RnExp -> RnExp
+buildOpApplication :: ResolvedOp -> RnExp -> Maybe RnExp -> RnM RnExp
 buildOpApplication op lhs mrhs
   | opName op == B.opPipeBwd && noTypeArgs op,
     Just rhs <- mrhs =
     -- Desugar operator to direct function application.
-    E.App (pos op) lhs rhs
+    pure $ E.App (pos op) lhs rhs
   | opName op == B.opPipeFwd && noTypeArgs op,
     Just rhs <- mrhs =
     -- Desugar operator to (flipped) direct function application.
-    E.App (pos op) rhs lhs
+    pure $ E.App (pos op) rhs lhs
   | otherwise = do
     let appLhs = E.App (pos lhs) (opExpr op) lhs
-    maybe appLhs (E.App <$> pos <*> pure appLhs <*> id) mrhs
+    pure $ maybe appLhs (E.App <$> pos <*> pure appLhs <*> id) mrhs
 
 type Side = forall a. a -> Either a a
 
