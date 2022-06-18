@@ -27,6 +27,7 @@ import Data.List qualified as List
 import Data.Maybe
 import System.Directory
 import System.FilePath
+import System.IO.Error
 import System.Timeout
 import Test.Hspec qualified as Hspec
 import Test.Hspec.Core.Spec hiding (Node, Tree)
@@ -83,10 +84,11 @@ fileSpecM run fp = specify (takeFileName fp) do
   src <- readFile fp
 
   -- Give the action 2s to complete.
-  actual <-
-    failNothing "Test timed out." =<< timeout 2_000_000 do
-      s <- run src
-      evaluate $ force s
+  let runWithTimeout =
+        failNothing "Test timed out." =<< timeout 2_000_000 do
+          s <- run src
+          evaluate $ force s
+  actual <- runWithTimeout `onException` tryIOError (removeFile (fp <.> "actual"))
 
   -- Write the result to the ".actual" file.
   writeFile (fp <.> "actual") actual
