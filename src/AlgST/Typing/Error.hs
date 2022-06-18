@@ -399,6 +399,15 @@ wildcardNotAllowed wildLoc caseLoc =
     ]
 {-# NOINLINE wildcardNotAllowed #-}
 
+linearWildcard :: Pos -> TcType -> Diagnostic
+linearWildcard loc ty =
+  PosError
+    loc
+    [ Error "Wildcard ignores a linear value of type",
+      Error ty
+    ]
+{-# NOINLINE linearWildcard #-}
+
 protocolConAsValue :: Pos -> ProgVar TcStage -> TypeVar TcStage -> Diagnostic
 protocolConAsValue loc con parent =
   PosError

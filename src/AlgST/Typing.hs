@@ -1289,7 +1289,7 @@ withProgVarBinds !mUnArrLoc vtys action = etaTcM do
         let ki = typeKind ty
         usage <- case K.multiplicity ki of
           Just Lin
-            | isWild v -> undefined "add an error, then use UnUsage here"
+            | isWild v -> UnUsage <$ addError (Error.linearWildcard p ty)
             | otherwise -> pure LinUnunsed
           Just Un -> pure UnUsage
           Nothing -> UnUsage <$ addError (Error.unexpectedKind ty ki [K.TL])
