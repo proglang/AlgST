@@ -210,8 +210,9 @@ runOutput allowAnsi h actBuffer = bracket prepare id (const run)
       buf <- hGetBuffering h
       case buf of
         BlockBuffering _ ->
-          -- Handle is already block buffered.
-          pure (pure ())
+          -- Handle is already block buffered but make sure it is flushed at
+          -- the end.
+          pure (hFlush h)
         _ ->
           -- Make it block buffered, restore the previous buffering at the end.
           hSetBuffering h (BlockBuffering Nothing)

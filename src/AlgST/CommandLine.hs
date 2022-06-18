@@ -20,22 +20,28 @@ import Options.Applicative qualified as O
 
 data Source
   = SourceFile !FilePath
-  | SourceMain
   | SourceStdin
+  | SourceMain
   deriving (Eq, Show)
 
-sourceParser :: O.Parser Source
-sourceParser =
-  fmap decideInput . O.optional . O.strArgument . mconcat $
-    [ O.metavar "FILE",
-      O.help
-        "Read Main module from FILE. Use ‘-’ to read from standard input. \
-        \Omitting FILE searches for the Main module in the search path."
-    ]
+sourceParser :: O.Parser (Maybe Source)
+sourceParser = O.optional $ givePath <|> searchMain
   where
-    decideInput (Just "-") = SourceStdin
-    decideInput (Just fp) = SourceFile fp
-    decideInput Nothing = SourceMain
+    givePath =
+      fmap decideInput . O.strArgument . mconcat $
+        [ O.metavar "FILE",
+          O.help "Read Main module from FILE. Use ‘-’ to read from standard input."
+        ]
+
+    searchMain =
+      O.flag' SourceMain . mconcat $
+        [ O.long "main",
+          O.help "Look for module ‘Main’ in the search path.",
+          O.hidden
+        ]
+
+    decideInput "-" = SourceStdin
+    decideInput fp = SourceFile fp
 
 data Query
   = QueryTySynth !String
@@ -85,9 +91,10 @@ queryParser = tysynth <|> kisynth <|> nf
         ]
 
 data RunOpts = RunOpts
-  { optsSource :: !Source,
+  { optsSource :: !(Maybe Source),
     optsOutputMode :: !(Maybe OutputMode),
     optsQueries :: ![Query],
+    optsDoEval :: !Bool,
     optsDebugEval :: !Bool,
     optsBufferSize :: !Natural,
     optsDriverPaths :: !(Seq FilePath),
@@ -101,10 +108,11 @@ optsParser :: O.Parser RunOpts
 optsParser = do
   optsSource <- sourceParser
   optsDriverPaths <- driverSearchDirs
-  optsQueries <- many queryParser
-  optsOutputMode <- optional modeParser
+  optsDoEval <- evalFlagParser
   optsBufferSize <- evalBufSizeParser
   optsDebugEval <- evalVerboseParser
+  optsQueries <- many queryParser
+  optsOutputMode <- optional modeParser
   optsDriverSeq <- driverSeqParser
   optsDriverDeps <- driverDepsParser
   optsDriverModSearch <- driverModSearchParser
@@ -131,14 +139,20 @@ modeParser = plain <|> colorized
             O.hidden
           ]
 
+evalFlagParser :: O.Parser Bool
+evalFlagParser =
+  O.flag False True . mconcat $
+    [ O.long "run",
+      O.help "Look for a ‘main’ symbol visible from the Main module to run."
+    ]
+
 evalVerboseParser :: O.Parser Bool
 evalVerboseParser =
-  O.flag False True $
-    mconcat
-      [ O.long "eval-verbose",
-        O.help "Output verbose messages during evaluation.",
-        O.hidden
-      ]
+  O.flag False True . mconcat $
+    [ O.long "eval-verbose",
+      O.help "Output verbose messages during evaluation.",
+      O.hidden
+    ]
 
 evalBufSizeParser :: O.Parser Natural
 evalBufSizeParser =
@@ -148,8 +162,7 @@ evalBufSizeParser =
       O.metavar "N",
       O.help
         "The buffer size of channels when interpreted. ‘0’ specifies fully \
-        \synchronous communication.",
-      O.showDefault,
+        \synchronous communication, which is the default.",
       O.hidden
     ]
 

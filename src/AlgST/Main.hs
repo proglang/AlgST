@@ -5,7 +5,7 @@
 
 module AlgST.Main (main) where
 
-import AlgST.Builtins (builtinsModule)
+import AlgST.Builtins
 import AlgST.CommandLine
 import AlgST.Driver (Settings (..))
 import AlgST.Driver qualified as Driver
@@ -19,7 +19,7 @@ import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
 import AlgST.Syntax.Traversal
-import AlgST.Typing (CheckContext, TcModule, TcType)
+import AlgST.Typing (CheckContext, TcModule)
 import AlgST.Typing qualified as Tc
 import AlgST.Typing.Equality qualified as Eq
 import AlgST.Util qualified as Util
@@ -53,50 +53,16 @@ main = do
 
   let allowAnsi = stderrMode /= Plain
   withOutput allowAnsi stderr \outputHandle -> do
-    mainSource <- case optsSource runOpts of
-      SourceFile fp -> do
-        Just . (FP.normalise fp,) <$> readFile' fp
-      SourceStdin -> do
-        -- If the input comes from the terminal and either of the output
-        -- streams goes to the terminal we output a separating newline.
-        stdinTerm <- hIsTerminalDevice stdin
-        stdoutTerm <- hIsTerminalDevice stdout
-        stderrTerm <- hIsTerminalDevice stderr
-        let termOut
-              | stdinTerm && stdoutTerm = Just stdout
-              | stdinTerm && stderrTerm = Just stderr
-              | otherwise = Nothing
-        Just . ("«stdin»",)
-          <$> getContents'
-          <* for_ termOut \h -> hPutChar h '\n'
-      SourceMain ->
-        -- We expect the driver to find the Main module through its usual
-        -- module lookup mechanism.
-        pure Nothing
-
-    let driverSettings =
-          maybe id (uncurry (Driver.addModuleSource mainModule)) mainSource $
-            Driver.defaultSettings
-              { driverSequential = optsDriverSeq runOpts,
-                driverVerboseDeps = optsDriverDeps runOpts,
-                driverVerboseSearches = optsDriverModSearch runOpts,
-                driverSearchPaths = FP.normalise <$> optsDriverPaths runOpts,
-                driverOutputMode = stderrMode,
-                driverOutputHandle = outputHandle
-              }
-
-    mcheckResult <- Driver.runDriver driverSettings do
-      (pathsMap, parsed) <- Driver.parseAllModules mainModule
-      renamedEnv <- Driver.renameAll pathsMap parsed
-      checkedCtxt <- Driver.checkAll pathsMap (fmap fst <$> renamedEnv)
-      pure (renamedEnv, checkedCtxt)
-
-    (renameEnvs, checkedModules) <- maybe exitFailure pure do
-      (renamedEnv, checkGraph) <- mcheckResult
-      rnEnvs <- traverse (fmap snd) $ depsVertices renamedEnv
-      checkRes <- sequence $ depsVertices checkGraph
-      pure (rnEnvs, checkRes)
-    outputStrLn outputHandle "Success."
+    (renameEnvs, checkedModules) <- case optsSource runOpts of
+      Nothing ->
+        -- No custom source, only builtins.
+        pure
+          ( HM.singleton mainModule builtinsEnv,
+            HM.singleton mainModule (builtinsModule, builtinsModuleCtxt)
+          )
+      Just src ->
+        checkSources runOpts outputHandle stderrMode src
+          >>= maybe exitFailure pure
 
     allGood <-
       answerQueries
@@ -105,12 +71,70 @@ main = do
         (optsQueries runOpts)
         renameEnvs
         (snd <$> checkedModules)
-    runInterpret
-      outputHandle
-      (fst <$> checkedModules)
-
+    when (optsDoEval runOpts) do
+      runInterpret outputHandle (fst <$> checkedModules)
     when (not allGood) do
       exitFailure
+
+checkSources ::
+  RunOpts ->
+  OutputHandle ->
+  OutputMode ->
+  Source ->
+  IO
+    ( Maybe
+        ( HashMap ModuleName RenameEnv,
+          HashMap ModuleName (TcModule, CheckContext)
+        )
+    )
+checkSources runOpts outH outMode mainSource = do
+  mainSource <- case mainSource of
+    SourceFile fp -> do
+      Just . (FP.normalise fp,) <$> readFile' fp
+    SourceStdin -> do
+      -- If the input comes from the terminal and either of the output
+      -- streams goes to the terminal we output a separating newline.
+      stdinTerm <- hIsTerminalDevice stdin
+      stdoutTerm <- hIsTerminalDevice stdout
+      stderrTerm <- hIsTerminalDevice stderr
+      let termOut
+            | stdinTerm && stdoutTerm = Just stdout
+            | stdinTerm && stderrTerm = Just stderr
+            | otherwise = Nothing
+      Just . ("«stdin»",)
+        <$> getContents'
+        <* for_ termOut \h -> hPutChar h '\n'
+    SourceMain ->
+      -- We expect the driver to find the Main module through its usual
+      -- module lookup mechanism.
+      pure Nothing
+
+  let driverSettings =
+        maybe id (uncurry (Driver.addModuleSource mainModule)) mainSource $
+          Driver.defaultSettings
+            { driverSequential = optsDriverSeq runOpts,
+              driverVerboseDeps = optsDriverDeps runOpts,
+              driverVerboseSearches = optsDriverModSearch runOpts,
+              driverSearchPaths = FP.normalise <$> optsDriverPaths runOpts,
+              driverOutputMode = outMode,
+              driverOutputHandle = outH
+            }
+
+  mcheckResult <- Driver.runDriver driverSettings do
+    (pathsMap, parsed) <- Driver.parseAllModules mainModule
+    renamedEnv <- Driver.renameAll pathsMap parsed
+    checkedCtxt <- Driver.checkAll pathsMap (fmap fst <$> renamedEnv)
+    pure (renamedEnv, checkedCtxt)
+
+  let results = do
+        (renamedEnv, checkGraph) <- mcheckResult
+        rnEnvs <- traverse (fmap snd) $ depsVertices renamedEnv
+        checkRes <- sequence $ depsVertices checkGraph
+        pure (rnEnvs, checkRes)
+  outputLnS outH case results of
+    Just _ -> applyStyle outMode (styleBold . styleFG ANSI.Green) (showString "Success.")
+    Nothing -> applyStyle outMode (styleBold . styleFG ANSI.Red) (showString "Failed.")
+  pure results
 
 answerQueries ::
   OutputHandle ->
@@ -171,7 +195,7 @@ answerQueries out outMode queries renameEnvs checkEnvs = do
     printResult :: String -> String -> Either (NonEmpty Diagnostic) [String] -> IO Bool
     printResult heading src = \case
       Left errs -> do
-        outputS out $ prefix . renderErrors' (Just 5) outMode "" (toList errs)
+        outputLnS out $ prefix . renderErrors' (Just 5) outMode "" (toList errs)
         pure False
       Right lns -> do
         outputLnS out prefix
