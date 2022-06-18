@@ -7,6 +7,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskellQuotes #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# OPTIONS_GHC -fno-defer-type-errors #-}
 
 module AlgST.Builtins.TH2
   ( -- * Generating resolved top-level names.
@@ -14,22 +15,25 @@ module AlgST.Builtins.TH2
     runDefines,
     defineType,
     defineValue,
-    defineTypeU,
-    defineValueU,
+    defineOperator,
   )
 where
 
 import AlgST.Rename.Fresh
 import AlgST.Rename.Modules
 import AlgST.Syntax.Name as Syn
+import AlgST.Syntax.Operators
 import AlgST.Util.Lenses
+import Control.Monad
 import Control.Monad.Trans.Class qualified as T
 import Control.Monad.Trans.Writer.CPS
 import Data.Coerce
 import Data.DList qualified as DL
+import Data.Foldable
 import Data.Functor.Compose
 import Data.HashMap.Strict qualified as HM
 import Data.Singletons
+import Data.Traversable
 import Language.Haskell.TH
 import Language.Haskell.TH qualified as TH
 import Language.Haskell.TH.Syntax qualified as TH
@@ -42,6 +46,7 @@ newtype Defines a
       ( FreshT
           ( WriterT
               ( DL.DList Dec,
+                DL.DList (NameR Values, (Precedence, Associativity)),
                 ScopedVariants (Compose DL.DList BuiltinDef)
               )
               Q
@@ -57,36 +62,49 @@ deriving newtype instance Semigroup (f (g a)) => Semigroup (Compose f g a)
 deriving newtype instance Monoid (f (g a)) => Monoid (Compose f g a)
 #endif
 
-defineTypeU :: String -> String -> Defines ()
-defineTypeU = coerce defineType
-
-defineValueU :: String -> String -> Defines ()
-defineValueU = coerce defineValue
-
 defineType :: String -> Unqualified -> Defines ()
-defineType = define STypes [t|Syn.Name Resolved Types|]
+defineType = fmap void . define STypes [t|Syn.Name Resolved Types|] . Just
 
 defineValue :: String -> Unqualified -> Defines ()
-defineValue = define SValues [t|Syn.Name Resolved Values|]
+defineValue = fmap void . define SValues [t|Syn.Name Resolved Values|] . Just
 
-define :: Sing (scope :: Scope) -> Q TH.Type -> String -> Unqualified -> Defines ()
-define ss symType symName unq = Defines do
+defineOperator :: Maybe String -> Unqualified -> Associativity -> Precedence -> Defines ()
+defineOperator symName unq assoc prec = do
+  resolved <- define SValues [t|Syn.Name Resolved Values|] symName unq
+  Defines $ T.lift $ tell (mempty, DL.singleton (resolved, (prec, assoc)), mempty)
+
+define ::
+  Sing (scope :: Scope) ->
+  Q TH.Type ->
+  Maybe String ->
+  Unqualified ->
+  Defines (NameR scope)
+define ss symType mName unq = Defines do
   resolved <- freshResolved $ Name emptyModuleName unq
-  symSig <- T.lift . T.lift $ sigD (mkName symName) symType
-  symDef <- T.lift . T.lift $ simpleFunD (mkName symName) (TH.lift resolved)
+  symDecs <- for mName \symName -> do
+    symSig <- T.lift . T.lift $ sigD (mkName symName) symType
+    symDef <- T.lift . T.lift $ simpleFunD (mkName symName) (TH.lift resolved)
+    pure $ DL.fromList [symSig, symDef]
   let builtinDef = BuiltinDef (unq, resolved)
       registry =
         scopedVariants (Compose DL.empty)
           & scopeL' ss . coercedFrom Compose .~ DL.singleton builtinDef
-  T.lift $ tell (DL.fromList [symSig, symDef], registry)
+  T.lift $ tell (fold symDecs, mempty, registry)
+  pure resolved
 
-runDefines :: ModuleName -> String -> Defines () -> DecsQ
-runDefines modName mapSym (Defines defs) = do
-  (decs, defs) <- execWriterT (runFreshT modName defs)
+runDefines :: ModuleName -> String -> String -> Defines () -> DecsQ
+runDefines modName mapSym opsSym (Defines defs) = do
+  (symDecs, ops, defs) <- execWriterT (runFreshT modName defs)
   let moduleMap = builtinDefsToModuleMap defs
-  modMapSig <- sigD (mkName mapSym) [t|ModuleMap|]
-  modMapDef <- simpleFunD (mkName mapSym) (TH.lift moduleMap)
-  pure $ modMapSig : modMapDef : DL.toList decs
+  modMapDef <-
+    simpleFunD
+      (mkName mapSym)
+      (TH.lift moduleMap)
+  opsTableDef <-
+    simpleFunD
+      (mkName opsSym)
+      [|HM.fromList $(TH.lift (DL.toList ops)) :: OperatorTable|]
+  pure $ modMapDef : opsTableDef : DL.toList symDecs
 
 simpleFunD :: Quote m => TH.Name -> m Exp -> m Dec
 simpleFunD name body = funD name [clause [] (normalB body) []]

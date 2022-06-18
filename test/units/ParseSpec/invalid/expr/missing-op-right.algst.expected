@@ -1,5 +1,4 @@
 
 1:3: error:
-	 Operator + is missing its right operand.
-	 Write it as ‘(+)’ to use it as a function value.
-	 Wrap the whole expression in parentheses to partially apply the operator.
+	 Operator (+) is missing an argument.
+	 Wrap it in parentheses for an operator section.

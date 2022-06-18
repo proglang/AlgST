@@ -58,6 +58,7 @@ where
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
+import AlgST.Syntax.Operators
 import AlgST.Syntax.Phases
 import AlgST.Syntax.Type qualified as T
 import Control.Applicative
@@ -69,6 +70,7 @@ import Data.Foldable
 import Data.Functor.Classes
 import Data.Functor.Compose
 import Data.Functor.Identity
+import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as Map
 import Data.Maybe
 import Data.Monoid qualified as M
@@ -107,6 +109,9 @@ class Applicative f => SynTraversal f x y where
     (t (XName y s) -> f a) ->
     f a
 
+  exprExtension :: Pxy x y -> E.XExp x -> f (E.Exp y)
+  typeExtension :: Pxy x y -> T.XType x -> f (T.Type y)
+
 bindOne ::
   forall x s f a y.
   (SynTraversal f x y, SingI s) =>
@@ -133,7 +138,14 @@ instance Semigroup (CollectFree stage) where
 instance Monoid (CollectFree stage) where
   mempty = CollectFree (const id)
 
-instance (x ~ y, XStage x ~ stage) => SynTraversal (Const (CollectFree stage)) x y where
+instance
+  ( x ~ y,
+    XStage x ~ stage,
+    SynTraversable (E.XExp x) x (E.XExp x) x,
+    SynTraversable (T.XType x) x (T.XType x) x
+  ) =>
+  SynTraversal (Const (CollectFree stage)) x y
+  where
   typeVariable _ _ = varCollectFree
   valueVariable _ _ = varCollectFree
   useConstructor _ _ = pure
@@ -141,6 +153,9 @@ instance (x ~ y, XStage x ~ stage) => SynTraversal (Const (CollectFree stage)) x
   bind _ vs f = Const . CollectFree $ oneShot \bound -> oneShot \acc ->
     let !bound' = foldl' (flip $ Set.insert . liftName) bound vs
      in runCollect (getConst (f vs)) bound' acc
+
+  exprExtension pxy = fmap E.Exp . traverseSyntax pxy
+  typeExtension pxy = fmap T.Type . traverseSyntax pxy
 
 -- Inserts the given variable into the set of free variables.
 varCollectFree :: SingI scope => Name stage scope -> Const (CollectFree stage) b
@@ -151,7 +166,14 @@ varCollectFree (liftName -> v) = Const . CollectFree $ oneShot \bound -> oneShot
     else Set.insert v acc
 
 -- | Collects all free variables.
-collectFree :: forall s x. SynTraversable (s x) x (s x) x => s x -> ANameSetG (XStage x)
+collectFree ::
+  forall s x.
+  ( SynTraversable (s x) x (s x) x,
+    SynTraversable (E.XExp x) x (E.XExp x) x,
+    SynTraversable (T.XType x) x (T.XType x) x
+  ) =>
+  s x ->
+  ANameSetG (XStage x)
 collectFree a = runCollect (getConst (traverseSyntaxIn a a)) mempty mempty
 
 newtype Any stage = Any {runAny :: ANameSetG stage -> Bool}
@@ -161,7 +183,14 @@ instance Semigroup (Any stage) where
   fv1 <> fv2 = Any $ oneShot \intresting ->
     runAny fv1 intresting || runAny fv2 intresting
 
-instance (x ~ y, XStage x ~ stage) => SynTraversal (Const (Any stage)) x y where
+instance
+  ( x ~ y,
+    XStage x ~ stage,
+    SynTraversable (E.XExp x) x (E.XExp x) x,
+    SynTraversable (T.XType x) x (T.XType x) x
+  ) =>
+  SynTraversal (Const (Any stage)) x y
+  where
   valueVariable _ _ = anyVariable
   typeVariable _ _ = anyVariable
   useConstructor _ _ = pure
@@ -172,12 +201,23 @@ instance (x ~ y, XStage x ~ stage) => SynTraversal (Const (Any stage)) x y where
     let intresting' = foldl' (flip (Set.delete . liftName)) intresting vs
      in not (Set.null intresting') && runAny (getConst (f vs)) intresting'
 
+  exprExtension pxy = fmap E.Exp . traverseSyntax pxy
+  typeExtension pxy = fmap T.Type . traverseSyntax pxy
+
 anyVariable :: SingI scope => Name stage scope -> Const (Any stage) a
 anyVariable = Const . Any . Set.member . liftName
 
 -- | Checks if any of the variables in the given set are free in the given
 -- piece of syntax.
-anyFree :: forall s x. SynTraversable (s x) x (s x) x => ANameSetG (XStage x) -> s x -> Bool
+anyFree ::
+  forall s x.
+  ( SynTraversable (s x) x (s x) x,
+    SynTraversable (E.XExp x) x (E.XExp x) x,
+    SynTraversable (T.XType x) x (T.XType x) x
+  ) =>
+  ANameSetG (XStage x) ->
+  s x ->
+  Bool
 anyFree vars a
   | Set.null vars = False
   | otherwise = runAny (getConst (traverseSyntaxIn a a)) vars
@@ -188,9 +228,7 @@ data Substitutions x = Substitutions
   }
 
 instance
-  ( SynTraversable (E.XExp x) x (E.XExp y) y,
-    SynTraversable (T.XType x) x (T.XType y) y,
-    Position (E.XCon x),
+  ( Position (E.XCon x),
     Position (T.XCon x),
     E.SameX x y,
     T.SameX x y,
@@ -215,7 +253,14 @@ typeSubstitions s = emptySubstitutions {typeVarSubs = s}
 termSubstitions :: NameMapG (XStage x) Values (E.Exp x) -> Substitutions x
 termSubstitions s = emptySubstitutions {progVarSubs = s}
 
-instance (Monad m, x ~ y) => SynTraversal (ReaderT (Substitutions x) m) x y where
+instance
+  ( x ~ y,
+    SynTraversable (E.XExp x) x (E.XExp x) x,
+    SynTraversable (T.XType x) x (T.XType x) x,
+    Monad m
+  ) =>
+  SynTraversal (ReaderT (Substitutions x) m) x y
+  where
   valueVariable _ x = etaReaderT . asks . subVar (E.Var x) progVarSubs
   typeVariable _ x = etaReaderT . asks . subVar (T.Var x) typeVarSubs
   useConstructor _ _ = pure
@@ -229,6 +274,9 @@ instance (Monad m, x ~ y) => SynTraversal (ReaderT (Substitutions x) m) x y wher
     local (\s -> foldl' removeVar s vs) do
       f vs
 
+  exprExtension pxy = fmap E.Exp . traverseSyntax pxy
+  typeExtension pxy = fmap T.Type . traverseSyntax pxy
+
 subVar ::
   (Name stage scope -> a) ->
   (Substitutions x -> NameMapG stage scope a) ->
@@ -239,7 +287,10 @@ subVar def f v = fromMaybe (def v) . Map.lookup v . f
 
 applySubstitutions ::
   forall a x.
-  (SynTraversable a x a x) =>
+  ( SynTraversable a x a x,
+    SynTraversable (E.XExp x) x (E.XExp x) x,
+    SynTraversable (T.XType x) x (T.XType x) x
+  ) =>
   Substitutions x ->
   (a -> a)
 applySubstitutions s a
@@ -249,7 +300,10 @@ applySubstitutions s a
 -- | Substitute a single 'TypeVar'.
 substituteType ::
   forall x a.
-  (SynTraversable a x a x) =>
+  ( SynTraversable a x a x,
+    SynTraversable (E.XExp x) x (E.XExp x) x,
+    SynTraversable (T.XType x) x (T.XType x) x
+  ) =>
   NameMapG (XStage x) Types (T.Type x) ->
   (a -> a)
 substituteType = applySubstitutions . typeSubstitions
@@ -257,7 +311,10 @@ substituteType = applySubstitutions . typeSubstitions
 -- | Substitute a single 'ProgVar'.
 substituteTerm ::
   forall x a.
-  (SynTraversable a x a x) =>
+  ( SynTraversable a x a x,
+    SynTraversable (E.XExp x) x (E.XExp x) x,
+    SynTraversable (T.XType x) x (T.XType x) x
+  ) =>
   NameMapG (XStage x) Values (E.Exp x) ->
   (a -> a)
 substituteTerm = applySubstitutions . termSubstitions
@@ -292,8 +349,8 @@ traverseSyntaxBetween ::
   (p1 x -> p2 y -> a -> f b)
 traverseSyntaxBetween (_ :: p1 x) (_ :: p2 y) = traverseSyntax (mkPxy () @x @y)
 
-instance SynTraversable Void x Void y where
-  traverseSyntax _ = pure
+instance SynTraversable Void x a y where
+  traverseSyntax _ = absurd
 
 instance
   (SynTraversable a x a' y, SynTraversable b x b' y) =>
@@ -302,9 +359,7 @@ instance
   traverseSyntax pxy = bitraverse (traverseSyntax pxy) (traverseSyntax pxy)
 
 instance
-  ( SynTraversable (E.XExp x) x (E.XExp y) y,
-    SynTraversable (T.XType x) x (T.XType y) y,
-    Position (E.XCon x),
+  ( Position (E.XCon x),
     Position (T.XCon x),
     E.SameX x y,
     T.SameX x y
@@ -381,13 +436,10 @@ instance
       E.Fork_ x
         <$> traverseSyntax pxy e
     E.Exp x ->
-      E.Exp
-        <$> traverseSyntax pxy x
+      exprExtension pxy x
 
 instance
-  ( SynTraversable (E.XExp x) x (E.XExp y) y,
-    SynTraversable (T.XType x) x (T.XType y) y,
-    Position (E.XCon x),
+  ( Position (E.XCon x),
     Position (T.XCon x),
     E.SameX x y,
     T.SameX x y
@@ -399,9 +451,7 @@ instance
     E.RecTypeAbs x b -> E.RecTypeAbs x <$> traverseSyntax pxy b
 
 instance
-  ( SynTraversable (E.XExp x) x (E.XExp y) y,
-    SynTraversable (T.XType x) x (T.XType y) y,
-    Position (E.XCon x),
+  ( Position (E.XCon x),
     Position (T.XCon x),
     E.SameX x y,
     T.SameX x y,
@@ -416,9 +466,7 @@ instance
       <*> traverse (traverseSyntax pxy) (E.casesWildcard cm)
 
 instance
-  ( SynTraversable (E.XExp x) x (E.XExp y) y,
-    SynTraversable (T.XType x) x (T.XType y) y,
-    Position (E.XCon x),
+  ( Position (E.XCon x),
     Position (T.XCon x),
     E.SameX x y,
     T.SameX x y,
@@ -436,9 +484,7 @@ instance
           }
 
 instance
-  ( SynTraversable (E.XExp x) x (E.XExp y) y,
-    SynTraversable (T.XType x) x (T.XType y) y,
-    Position (E.XCon x),
+  ( Position (E.XCon x),
     Position (T.XCon x),
     E.SameX x y,
     T.SameX x y
@@ -453,8 +499,25 @@ instance
       <*> bindOne pxy v (\v' -> (v',) <$> traverseSyntax pxy e)
 
 instance
-  ( SynTraversable (T.XType x) x (T.XType y) y,
+  ( Position (E.XCon x),
     Position (T.XCon x),
+    E.SameX x y,
+    T.SameX x y
+  ) =>
+  SynTraversable (OperatorSequence x) x (OperatorSequence y) y
+  where
+  traverseSyntax pxy = \case
+    -- The `rs` should not be traversed because they are references to the
+    -- last element in `ne`.
+    OperandFirst rs ne -> do
+      ne' <- traverse (traverseSyntax pxy) ne
+      pure $ OperandFirst (NE.last ne' <$ rs) ne'
+    OperatorFirst rs ne -> do
+      ne' <- traverse (traverseSyntax pxy) ne
+      pure $ OperatorFirst (NE.last ne' <$ rs) ne'
+
+instance
+  ( Position (T.XCon x),
     T.SameX x y
   ) =>
   SynTraversable (T.Type x) x (T.Type y) y
@@ -495,8 +558,7 @@ instance
       T.Negate x
         <$> traverseSyntax pxy t
     T.Type x ->
-      T.Type
-        <$> traverseSyntax pxy x
+      typeExtension pxy x
 
 instance
   ( SynTraversable a x b y,

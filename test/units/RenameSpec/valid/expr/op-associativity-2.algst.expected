@@ -1,0 +1,38 @@
+Exp.Abs U a#M.0
+|
++- Type.Con Int#Builtin.1
+|
+`- Exp.Abs U b#M.1
+   |
+   +- Type.Con Int#Builtin.1
+   |
+   `- Exp.Abs U c#M.2
+      |
+      +- Type.Con Int#Builtin.1
+      |
+      `- Exp.App
+         |
+         +- Exp.App
+         |  |
+         |  +- Exp.Var (&&)#Builtin.10
+         |  |
+         |  `- Exp.App
+         |     |
+         |     +- Exp.App
+         |     |  |
+         |     |  +- Exp.Var (<=)#Builtin.13
+         |     |  |
+         |     |  `- Exp.Var a#M.0
+         |     |
+         |     `- Exp.Var b#M.1
+         |
+         `- Exp.App
+            |
+            +- Exp.App
+            |  |
+            |  +- Exp.Var (<=)#Builtin.13
+            |  |
+            |  `- Exp.Var b#M.1
+            |
+            `- Exp.Var c#M.2
+

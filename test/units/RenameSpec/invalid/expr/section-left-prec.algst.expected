@@ -1,0 +1,5 @@
+
+1:12: error:
+	 The operator (*) of a section must have lower precedence
+	         than (+) at 1:6
+	 Use parentheses to explicitly specify the associativity.

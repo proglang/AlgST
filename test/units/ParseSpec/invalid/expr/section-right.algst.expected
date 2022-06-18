@@ -1,5 +1,0 @@
-
-1:2: error:
-	 Operator + is missing its left operand.
-	 Write it as ‘(+)’ to use it as a function value.
-	 Right sections are not (yet) supported.

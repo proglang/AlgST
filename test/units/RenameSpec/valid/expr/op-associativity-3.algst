@@ -1,0 +1,10 @@
+-- Introduce some names, the definitions do not matter.
+let finally = () in
+let pipe    = () in
+let here    = () in
+let first   = () in
+finally <|
+  1 == 2
+    |> pipe
+    |> here
+    |> first

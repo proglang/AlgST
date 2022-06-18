@@ -1,0 +1,4 @@
+
+1:2: error:
+	 Operator (+) is missing its right operand.
+	 (Right sections are not yet supported.)

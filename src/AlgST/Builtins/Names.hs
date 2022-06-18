@@ -6,15 +6,19 @@
 module AlgST.Builtins.Names where
 
 import AlgST.Builtins.TH2
+import AlgST.Rename.Modules (ModuleMap)
 import AlgST.Syntax.Name
+import AlgST.Syntax.Operators
 import Data.Char qualified as C
 
-$( runDefines (ModuleName "Builtin") "builtinsPartialModuleMap" do
+$( runDefines (ModuleName "Builtin") "builtinsPartialModuleMap" "builtinOperators" do
      let prefix p s = p ++ C.toUpper (head s) : tail s
+     let parens x = Unqualified $ "(" ++ x ++ ")"
      let typ x = defineType (prefix "type" x) (Unqualified x)
      let con x = defineValue (prefix "con" x) (Unqualified x)
      let val x = defineValue (prefix "val" x) (Unqualified x)
-     let op n x = defineValue (prefix "op" n) $ Unqualified $ "(" ++ x ++ ")"
+     let op n = defineOperator (Just (prefix "op" n)) . parens
+     let op_ = defineOperator Nothing . parens
 
      defineValue "conPair" $ Unqualified "(,)"
 
@@ -26,16 +30,30 @@ $( runDefines (ModuleName "Builtin") "builtinsPartialModuleMap" do
      con "True"
      con "False"
 
-     op "add" "+"
-     op "sub" "-"
-     op "mul" "*"
-     op "div" "/"
-     op "mod" "%"
-     op "LEQ" "<="
-
      val "send"
      val "receive"
+
+{- ORMOLU_DISABLE -}
+     op_          "||" L  POr
+     op_          "&&" L  PAnd
+     op_          "<"  NA PCmp
+     op_          ">"  NA PCmp
+     op "LEQ"     "<=" NA PCmp
+     op_          ">=" NA PCmp
+     op_          "==" NA PCmp
+     op_          "/=" NA PCmp
+     op "add"     "+"  L  PAddSub
+     op "sub"     "-"  L  PAddSub
+     op "mul"     "*"  L  PMulDiv
+     op "div"     "/"  L  PMulDiv
+     op "mod"     "%"  L  PMulDiv
+     op "pipeFwd" "|>" L  PForward
+     op "pipeBwd" "<|" R  PBackward
+{- ORMOLU_ENABLE -}
  )
+
+builtinOperators :: OperatorTable
+builtinsPartialModuleMap :: ModuleMap
 
 pattern BuiltinsModule :: ModuleName
 pattern BuiltinsModule = ModuleName "Builtin"

@@ -1,0 +1,16 @@
+Exp.Exp
+|
+`- OperatorSequence
+   |
+   +- Exp.Var (+)
+   |
+   +- Exp.Lit
+   |  |
+   |  `- Lit.Int 20
+   |
+   +- Exp.Var (-)
+   |
+   `- Exp.Lit
+      |
+      `- Lit.Int 10
+

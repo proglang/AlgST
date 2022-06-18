@@ -30,10 +30,13 @@ module AlgST.Parse.Parser
   ) where
 
 import           Control.Category              ((>>>), (<<<))
+import           Control.Monad
 import           Control.Monad.State
 import           Control.Monad.Trans.Maybe
 import           Data.Bifunctor
 import qualified Data.DList                    as DL
+import qualified Data.DList.DNonEmpty          (DNonEmpty)
+import qualified Data.DList.DNonEmpty          as DNE
 import           Data.Foldable
 import           Data.Functor
 import           Data.Functor.Identity
@@ -47,7 +50,6 @@ import           Data.Sequence                 (Seq(..))
 import qualified Data.Sequence                 as Seq
 import           AlgST.Builtins.Names
 import           AlgST.Parse.Lexer
-import           AlgST.Parse.Operators
 import           AlgST.Parse.ParseUtils
 import           AlgST.Parse.Phase
 import           AlgST.Syntax.Decl
@@ -55,6 +57,7 @@ import           AlgST.Syntax.Expression       as E
 import qualified AlgST.Syntax.Kind             as K
 import           AlgST.Syntax.Module
 import           AlgST.Syntax.Name
+import           AlgST.Syntax.Operators
 import qualified AlgST.Syntax.Type             as T
 import           AlgST.Util
 import           AlgST.Util.Error
@@ -312,9 +315,9 @@ EAtom :: { PExp }
   | '(' ExpInner ')'               {% $2 InParens }
   | '(' Exp ',' Exp ')'            { E.Pair (pos $1) $2 $4 }
   | case Exp of Cases              { E.Case (pos $1) $2 $4 }
-  | new                            { E.Exp $ BuiltinNew (pos $1) }
-  | fork                           { E.Exp $ BuiltinFork (pos $1) }
-  | fork_                          { E.Exp $ BuiltinFork_ (pos $1) }
+  | new                            { E.Exp $ Left $ BuiltinNew (pos $1) }
+  | fork                           { E.Exp $ Left $ BuiltinFork (pos $1) }
+  | fork_                          { E.Exp $ Left $ BuiltinFork_ (pos $1) }
 
 ETail :: { PExp }
   : LamExp                         { $1 }
@@ -338,10 +341,22 @@ EAppTail :: { PExp }
   | EApp ETail                     { E.App (pos $1) $1 $2 }
 
 EOps :: { Parenthesized -> ParseM PExp }
-  : OpsExp                        { \ps -> resolveOpSeq ps $1 }
-  | OpTys                         { \ps -> resolveOpSeq ps $ Operator $1 Nil }
-  | OpTys EAppTail                { \ps -> resolveOpSeq ps $ Operator $1 (Operand $2 Nil) }
-  | OpTys OpsExp                  { \ps -> resolveOpSeq ps $ Operator $1 $2 }
+  : OpTys
+    { \p -> do
+        -- A single operator may be used as a function value if it is wrapped in
+        -- parentheses. Without parentheses we will complain.
+        when (p == TopLevel) $ void do
+          -- We know that this will produce a diagnostic. We are not interested
+          -- in the actual resutl.
+          sectionsParenthesized TopLevel $ OperatorFirst (Just $1) (pure $1) 
+        pure $1
+    }
+  | OpsExp
+    { \ps -> sectionsParenthesized ps $1 }
+  | OpTys EAppTail
+    { \ps -> sectionsParenthesized ps $ OperatorFirst Nothing ($1 :| [$2]) }
+  | OpTys OpsExp
+    { \ps -> sectionsParenthesized ps $ $1 `opSeqCons` $2 }
 
 ExpInner :: { Parenthesized -> ParseM PExp }
   : EOps                           { $1 }
@@ -449,22 +464,19 @@ ProgVarWildSeq :: { [Located (ProgVar PStage)] }
     }
 
 Op :: { Located (ProgVar PStage) }
-  : OPERATOR  { $1 @- UnqualifiedName (Unqualified (unL $1)) }
-  | '+'       { $1 @- UnqualifiedName (Unqualified "+") }
-  | '-'       { $1 @- UnqualifiedName (Unqualified "-") }
-  | '*'       { $1 @- UnqualifiedName (Unqualified "*") }
+  : OPERATOR  { $1 @- UnqualifiedName (Unqualified ("(" ++ unL $1 ++ ")")) }
+  | '+'       { $1 @- UnqualifiedName (Unqualified "(+)") }
+  | '-'       { $1 @- UnqualifiedName (Unqualified "(-)") }
+  | '*'       { $1 @- UnqualifiedName (Unqualified "(*)") }
 
-OpTys :: { (Located (ProgVar PStage), [PType]) }
-  : OpTys_                    { DL.toList `fmap` $1 }
+OpTys :: { PExp }
+  : Op                      { uncurryL E.Var $1 }
+  | OpTys '[' TypeApps ']'  { E.foldTypeApps (const pos) $1 $3 }
 
-OpTys_ :: { (Located (ProgVar PStage), DL.DList PType) }
-  : Op                        { ($1, DL.empty) }
-  | OpTys_ '[' TypeApps ']'   { let (op, tys) = $1 in (op, tys <> $3) }
-
-OpsExp :: { OpSeq OpsExp (Located (ProgVar PStage), [PType]) }
-  : EApp OpTys           { Operand $1 $ Operator $2 Nil }
-  | EApp OpTys EAppTail  { Operand $1 $ Operator $2 $ Operand $3 Nil }
-  | EApp OpTys OpsExp    { Operand $1 $ Operator $2 $3 }
+OpsExp :: { OperatorSequence Parse }
+  : EApp OpTys              { OperandFirst (Just $2) ($1 :| [$2]) }
+  | EApp OpTys EAppTail     { OperandFirst Nothing   ($1 :| [$2, $3]) }
+  | EApp OpTys OpsExp       { $1 `opSeqCons` $2 `opSeqCons` $3 }
 
 
 -------------------------------------------------------------------------------

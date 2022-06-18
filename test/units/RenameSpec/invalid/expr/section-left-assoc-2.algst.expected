@@ -1,0 +1,8 @@
+
+1:6: error:
+	 Non-associative operators
+	     (==) at 1:13
+	 and (==) at 1:6
+	 are used next to each other.
+	
+	 Use parentheses to explicitly specify the associativity.

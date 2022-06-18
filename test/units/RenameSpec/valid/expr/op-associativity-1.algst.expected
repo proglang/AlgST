@@ -1,0 +1,68 @@
+Exp.App
+|
++- Exp.App
+|  |
+|  +- Exp.Var (||)#Builtin.9
+|  |
+|  `- Exp.App
+|     |
+|     +- Exp.App
+|     |  |
+|     |  +- Exp.Var (||)#Builtin.9
+|     |  |
+|     |  `- Exp.Lit
+|     |     |
+|     |     `- Lit.Int 2
+|     |
+|     `- Exp.App
+|        |
+|        +- Exp.App
+|        |  |
+|        |  +- Exp.Var (+)#Builtin.17
+|        |  |
+|        |  `- Exp.App
+|        |     |
+|        |     +- Exp.App
+|        |     |  |
+|        |     |  +- Exp.Var (*)#Builtin.19
+|        |     |  |
+|        |     |  `- Exp.App
+|        |     |     |
+|        |     |     +- Exp.App
+|        |     |     |  |
+|        |     |     |  +- Exp.Var (*)#Builtin.19
+|        |     |     |  |
+|        |     |     |  `- Exp.Lit
+|        |     |     |     |
+|        |     |     |     `- Lit.Int 3
+|        |     |     |
+|        |     |     `- Exp.Lit
+|        |     |        |
+|        |     |        `- Lit.Int 4
+|        |     |
+|        |     `- Exp.App
+|        |        |
+|        |        +- Exp.Var negate#Builtin.25
+|        |        |
+|        |        `- Exp.Lit
+|        |           |
+|        |           `- Lit.Int 2
+|        |
+|        `- Exp.App
+|           |
+|           +- Exp.App
+|           |  |
+|           |  +- Exp.Var global#R.0
+|           |  |
+|           |  `- Exp.Lit
+|           |     |
+|           |     `- Lit.String "a"
+|           |
+|           `- Exp.Lit
+|              |
+|              `- Lit.Unit
+|
+`- Exp.Lit
+   |
+   `- Lit.Int 1
+

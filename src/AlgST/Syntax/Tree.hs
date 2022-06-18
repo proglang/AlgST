@@ -23,6 +23,7 @@ import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
+import AlgST.Syntax.Operators
 import AlgST.Syntax.Type qualified as T
 import Control.Category ((>>>))
 import Control.Monad
@@ -56,6 +57,9 @@ instance LabeledTree Void where
 
 instance LabeledTree a => LabeledTree (Maybe a) where
   labeledTree = concatMap labeledTree
+
+instance (LabeledTree a, LabeledTree b) => LabeledTree (Either a b) where
+  labeledTree = either labeledTree labeledTree
 
 instance LabeledTree a => LabeledTree [a] where
   labeledTree = pure . tree "" . map labeledTree
@@ -147,6 +151,17 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (E.Ex
         tree "Exp.Fork_" [labeledTree x, labeledTree e]
       E.Exp x ->
         tree "Exp.Exp" [labeledTree x]
+
+instance
+  (T.ForallX LabeledTree x, E.ForallX LabeledTree x) =>
+  LabeledTree (OperatorSequence x)
+  where
+  labeledTree =
+    pure
+      . tree "OperatorSequence"
+      . fmap labeledTree
+      . toList
+      . opSeqExpressions
 
 instance T.ForallX LabeledTree x => LabeledTree (T.Type x) where
   labeledTree =

@@ -12,6 +12,7 @@ import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
+import AlgST.Syntax.Operators
 import AlgST.Syntax.Phases
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
@@ -42,7 +43,7 @@ instance Unparse ParsedBuiltin where
         BuiltinFork_ _ -> "fork_"
 
 instance SynTraversable ParsedBuiltin Parse ParsedBuiltin y where
-  -- Builtin is a leaf type, there is nothing to traverse.
+  -- ParsedBuiltin is a leaf type, there is nothing to traverse.
   traverseSyntax _proxy = pure
 
 instance LabeledTree ParsedBuiltin where
@@ -78,7 +79,7 @@ type instance E.XNew    Parse = Void  -- BuiltinNew
 type instance E.XSelect Parse = Pos
 type instance E.XFork   Parse = Void  -- BuiltinFork
 type instance E.XFork_  Parse = Void  -- BuiltinFork_
-type instance E.XExp    Parse = ParsedBuiltin
+type instance E.XExp    Parse = Either ParsedBuiltin (OperatorSequence Parse)
 
 type instance E.XBind Parse = Pos
 

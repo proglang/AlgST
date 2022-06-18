@@ -1,0 +1,10 @@
+Exp.TypeApp
+|
++- Exp.TypeApp
+|  |
+|  +- Exp.Var (|>)
+|  |
+|  `- Type.Con Int
+|
+`- Type.Con String
+

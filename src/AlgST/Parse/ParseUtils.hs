@@ -37,7 +37,8 @@ module AlgST.Parse.ParseUtils
     errorDuplicateBind,
 
     -- * Operators
-    resolveOpSeq,
+    Parenthesized (..),
+    sectionsParenthesized,
 
     -- * Type declarations
     typeConstructors,
@@ -62,12 +63,12 @@ module AlgST.Parse.ParseUtils
   )
 where
 
-import AlgST.Parse.Operators
 import AlgST.Parse.Phase
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
+import AlgST.Syntax.Operators
 import AlgST.Syntax.Tree qualified as T
 import AlgST.Util.ErrorMessage
 import AlgST.Util.Lenses qualified as L
@@ -169,8 +170,24 @@ addErrors (e : es) = dispute $ DL.fromNonEmpty $ e :| es
 fatalError :: Diagnostic -> ParseM a
 fatalError = refute . DL.singleton
 
-resolveOpSeq :: Parenthesized -> OpSeq first (Located (ProgVar PStage), [PType]) -> ParseM PExp
-resolveOpSeq ps = mapErrors DL.fromList . parseOperators ps
+data Parenthesized
+  = TopLevel
+  | InParens
+  deriving (Eq)
+
+sectionsParenthesized :: Parenthesized -> OperatorSequence Parse -> ParseM PExp
+sectionsParenthesized TopLevel ops | Just op <- sectionOperator ops = do
+  addError
+    (pos op)
+    [ Error "Operator",
+      Error op,
+      Error "is missing an argument.",
+      ErrLine,
+      Error "Wrap it in parentheses for an operator section."
+    ]
+  pure $ E.Exp $ Right ops
+sectionsParenthesized _ ops = do
+  pure $ E.Exp $ Right ops
 
 typeConstructors ::
   TypeVar PStage ->

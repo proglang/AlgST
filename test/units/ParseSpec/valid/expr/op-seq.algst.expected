@@ -1,0 +1,54 @@
+Exp.UnLet x
+|
++- Exp.Exp
+|  |
+|  `- OperatorSequence
+|     |
+|     +- Exp.Lit
+|     |  |
+|     |  `- Lit.Int 1
+|     |
+|     +- Exp.Var (+)
+|     |
+|     +- Exp.Lit
+|     |  |
+|     |  `- Lit.Int 2
+|     |
+|     +- Exp.Var (|>)
+|     |
+|     `- Exp.Abs U n
+|        |
+|        +- Type.Con Int
+|        |
+|        `- Exp.Var n
+|
+`- Exp.Exp
+   |
+   `- OperatorSequence
+      |
+      +- Exp.Var x
+      |
+      +- Exp.TypeApp
+      |  |
+      |  +- Exp.TypeApp
+      |  |  |
+      |  |  +- Exp.Var (|>)
+      |  |  |
+      |  |  `- Type.Con Int
+      |  |
+      |  `- Type.Con Int
+      |
+      +- Exp.Var negate
+      |
+      +- Exp.TypeApp
+      |  |
+      |  +- Exp.TypeApp
+      |  |  |
+      |  |  +- Exp.Var (|>)
+      |  |  |
+      |  |  `- Type.Con Int
+      |  |
+      |  `- Type.Con Int
+      |
+      `- Exp.Var negate
+

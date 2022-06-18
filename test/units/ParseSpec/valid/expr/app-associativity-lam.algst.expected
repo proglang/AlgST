@@ -6,25 +6,25 @@ Exp.App
    |
    +- Type.Con Int
    |
-   `- Exp.App
+   `- Exp.Exp
       |
-      +- Exp.App
-      |  |
-      |  +- Exp.Var (*)
-      |  |
-      |  `- Exp.Var bar
-      |
-      `- Exp.Abs U x
+      `- OperatorSequence
          |
-         +- Type.Con Int
+         +- Exp.Var bar
          |
-         `- Exp.App
+         +- Exp.Var (*)
+         |
+         `- Exp.Abs U x
             |
-            +- Exp.App
-            |  |
-            |  +- Exp.Var (+)
-            |  |
-            |  `- Exp.Var x
+            +- Type.Con Int
             |
-            `- Exp.Var n
+            `- Exp.Exp
+               |
+               `- OperatorSequence
+                  |
+                  +- Exp.Var x
+                  |
+                  +- Exp.Var (+)
+                  |
+                  `- Exp.Var n
 

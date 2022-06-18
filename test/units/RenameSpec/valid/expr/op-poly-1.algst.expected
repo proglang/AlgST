@@ -1,0 +1,30 @@
+Exp.App
+|
++- Exp.App
+|  |
+|  +- Exp.TypeApp
+|  |  |
+|  |  +- Exp.TypeApp
+|  |  |  |
+|  |  |  +- Exp.Var (|>)#Builtin.22
+|  |  |  |
+|  |  |  `- Type.Con Int#Builtin.1
+|  |  |
+|  |  `- Type.Con Bool#Builtin.4
+|  |
+|  `- Exp.App
+|     |
+|     +- Exp.Var global#R.0
+|     |
+|     `- Exp.Lit
+|        |
+|        `- Lit.Int 1
+|
+`- Exp.App
+   |
+   +- Exp.Var global#R.0
+   |
+   `- Exp.Lit
+      |
+      `- Lit.Int 2
+

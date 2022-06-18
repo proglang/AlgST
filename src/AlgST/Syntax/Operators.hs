@@ -1,10 +1,21 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveLift #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module AlgST.Syntax.Operators where
 
+import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Name
-import Data.Function
-import Data.Map.Strict qualified as Map
+import AlgST.Syntax.Type qualified as T
+import Control.Applicative
+import Data.HashMap.Strict (HashMap)
+import Data.List.NonEmpty (NonEmpty (..), (<|))
+import Data.List.NonEmpty qualified as NE
+import Data.Maybe
+import Language.Haskell.TH.Syntax (Lift)
+import Syntax.Base
 
 data Precedence
   = -- | > (<|)
@@ -21,52 +32,54 @@ data Precedence
     PAddSub
   | -- | > (*), (/), (%)
     PMulDiv
-  deriving (Eq, Ord, Enum, Bounded, Show)
+  deriving (Eq, Ord, Enum, Bounded, Show, Lift)
 
 data Associativity = L | R | NA
-  deriving (Eq)
+  deriving (Eq, Lift)
 
-data Info s = Info
-  { opName :: !s,
-    opAssoc :: !Associativity,
-    opPrec :: !Precedence
-  }
-
--- | A map from operator names (parenthesized and unparenthesized) to operator
--- 'Info'. The 'opName' fields always contain the parenthesized version.
---
--- Note that since this uses the operators' unqualified names as keys we
--- currently are not able to support user defined operators.
-knownOperators :: Map.Map Unqualified (Info (ProgVar Written))
-knownOperators = Map.unions (opMap <$> ops)
-  where
-    ops =
-      [ Info "||" L POr,
-        Info "&&" L PAnd,
-        Info "<" NA PCmp,
-        Info ">" NA PCmp,
-        Info "<=" NA PCmp,
-        Info ">=" NA PCmp,
-        Info "==" NA PCmp,
-        Info "/=" NA PCmp,
-        Info "+" L PAddSub,
-        Info "-" L PAddSub,
-        Info "*" L PMulDiv,
-        Info "/" L PMulDiv,
-        Info "%" L PMulDiv,
-        Info "|>" L PForward,
-        Info "<|" R PBackward
-      ]
-
-    opMap :: Info String -> Map.Map Unqualified (Info (ProgVar Written))
-    opMap op =
-      let name1 = opName op
-          name2 = operatorValueName (opName op)
-          opNamed = op {opName = Name emptyModuleName (Unqualified name2)}
-       in Map.empty
-            & Map.insert (Unqualified name1) opNamed
-            & Map.insert (Unqualified name2) opNamed
+type OperatorTable = HashMap (NameR Values) (Precedence, Associativity)
 
 -- | Wraps a symbolic operator in parentheses.
 operatorValueName :: String -> String
 operatorValueName op = "(" ++ op ++ ")"
+
+-- | A sequence of un-associated operators interspersed with operands.
+data OperatorSequence x
+  = OperandFirst !(Maybe (E.Exp x)) (NonEmpty (E.Exp x))
+  | OperatorFirst !(Maybe (E.Exp x)) (NonEmpty (E.Exp x))
+
+deriving instance (E.ForallX Lift x, T.ForallX Lift x) => Lift (OperatorSequence x)
+
+instance E.ForallX Position x => Position (OperatorSequence x) where
+  pos = pos . NE.head . opSeqExpressions
+
+infixr 9 `opSeqCons`
+
+-- | Prepend a component to an 'OperatorSequence'. This will flip
+-- 'OperandFirst' to 'OperatorFirst' and vice versa but it is your job to
+-- verify that the prependend compoenent is actually an operand or operator.
+opSeqCons :: E.Exp x -> OperatorSequence x -> OperatorSequence x
+opSeqCons e = \case
+  OperatorFirst rs es -> OperandFirst rs (e <| es)
+  OperandFirst rs es -> OperatorFirst rs (e <| es)
+
+opSeqExpressions :: OperatorSequence x -> NonEmpty (E.Exp x)
+opSeqExpressions = \case
+  OperandFirst _ ne -> ne
+  OperatorFirst _ ne -> ne
+
+leftSection :: OperatorSequence x -> Maybe (E.Exp x)
+leftSection = \case
+  OperandFirst {} -> Nothing
+  OperatorFirst _ (e :| _) -> Just e
+
+rightSection :: OperatorSequence x -> Maybe (E.Exp x)
+rightSection = \case
+  OperandFirst r _ -> r
+  OperatorFirst r _ -> r
+
+sectionOperator :: OperatorSequence x -> Maybe (E.Exp x)
+sectionOperator ops = leftSection ops <|> rightSection ops
+
+isSection :: OperatorSequence x -> Bool
+isSection = isJust . sectionOperator

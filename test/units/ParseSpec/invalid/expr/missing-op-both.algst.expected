@@ -1,8 +1,4 @@
 
 1:1: error:
-	 Operator - is missing its left operand.
-	 Write it as ‘(-)’ to use it as a function value.
-
-1:5: error:
-	 Operator + is missing its right operand.
-	 Write it as ‘(+)’ to use it as a function value.
+	 Operator (-) is missing an argument.
+	 Wrap it in parentheses for an operator section.

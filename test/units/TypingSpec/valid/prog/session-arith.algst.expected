@@ -170,7 +170,7 @@ arithServer#M.3
                |        |  |  |
                |        |  |  +- Exp.TypeApp
                |        |  |  |  |
-               |        |  |  |  +- Exp.Var receive#Builtin.14
+               |        |  |  |  +- Exp.Var receive#Builtin.8
                |        |  |  |  |
                |        |  |  |  `- Type.Type
                |        |  |  |     |
@@ -212,7 +212,7 @@ arithServer#M.3
                |                 |  |  |
                |                 |  |  +- Exp.TypeApp
                |                 |  |  |  |
-               |                 |  |  |  +- Exp.Var receive#Builtin.14
+               |                 |  |  |  +- Exp.Var receive#Builtin.8
                |                 |  |  |  |
                |                 |  |  |  `- Type.Type
                |                 |  |  |     |
@@ -244,7 +244,7 @@ arithServer#M.3
                |                       |  |  |
                |                       |  |  +- Exp.TypeApp
                |                       |  |  |  |
-               |                       |  |  |  +- Exp.Var send#Builtin.13
+               |                       |  |  |  +- Exp.Var send#Builtin.7
                |                       |  |  |  |
                |                       |  |  |  `- Type.Type
                |                       |  |  |     |
@@ -260,7 +260,7 @@ arithServer#M.3
                |                       |     |
                |                       |     +- Exp.App
                |                       |     |  |
-               |                       |     |  +- Exp.Var (+)#Builtin.7
+               |                       |     |  +- Exp.Var (+)#Builtin.17
                |                       |     |  |
                |                       |     |  `- Exp.Var x#M.8
                |                       |     |
@@ -280,7 +280,7 @@ arithServer#M.3
                         |  |  |
                         |  |  +- Exp.TypeApp
                         |  |  |  |
-                        |  |  |  +- Exp.Var receive#Builtin.14
+                        |  |  |  +- Exp.Var receive#Builtin.8
                         |  |  |  |
                         |  |  |  `- Type.Type
                         |  |  |     |
@@ -312,7 +312,7 @@ arithServer#M.3
                               |  |  |
                               |  |  +- Exp.TypeApp
                               |  |  |  |
-                              |  |  |  +- Exp.Var send#Builtin.13
+                              |  |  |  +- Exp.Var send#Builtin.7
                               |  |  |  |
                               |  |  |  `- Type.Type
                               |  |  |     |
@@ -328,7 +328,7 @@ arithServer#M.3
                               |     |
                               |     +- Exp.App
                               |     |  |
-                              |     |  +- Exp.Var (-)#Builtin.8
+                              |     |  +- Exp.Var (-)#Builtin.18
                               |     |  |
                               |     |  `- Exp.Lit
                               |     |     |

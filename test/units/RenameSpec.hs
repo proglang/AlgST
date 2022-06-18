@@ -25,15 +25,22 @@ import Test.Hspec
 
 spec :: Spec
 spec = do
-  describe "expressions" do
-    goldenTests (dir "expr") parseRenameExpr
+  describe "valid" do
+    describe "expressions" do
+      goldenTests (dir "valid/expr") parseRenameExpr
 
-  describe "declarations" do
-    goldenTests (dir "prog") do
-      -- TODO: Verify the resulting module map as well.
-      runParserSimple parseDecls
-        >=> bimap plainErrors drawLabeledTree
-          . renameModule (ModuleName "M") renameEnv
+    describe "declarations" do
+      goldenTests (dir "valid/prog") do
+        -- TODO: Verify the resulting module map as well.
+        runParserSimple parseDecls
+          >=> bimap plainErrors drawLabeledTree
+            . renameModule (ModuleName "M") renameEnv
+
+  describe "invalid" do
+    describe "expressions" do
+      goldenTests
+        (dir "invalid/expr")
+        (swap . parseRenameExpr)
 
 parseRenameExpr :: String -> Either String String
 parseRenameExpr src = do

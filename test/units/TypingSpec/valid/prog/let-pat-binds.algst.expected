@@ -32,7 +32,7 @@ foo#M.0
                |
                +- Exp.App
                |  |
-               |  +- Exp.Var (+)#Builtin.7
+               |  +- Exp.Var (+)#Builtin.17
                |  |
                |  `- Exp.Var theInt#M.1
                |

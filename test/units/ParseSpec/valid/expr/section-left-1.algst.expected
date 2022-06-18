@@ -1,6 +1,0 @@
-Exp.App
-|
-+- Exp.Var (==)
-|
-`- Exp.Var x
-

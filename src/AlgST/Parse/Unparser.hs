@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Unparsing (turning expressions and types back to their parsable string
@@ -8,7 +9,14 @@
 -- Postfix Operators, Software—Practice and Experience, 1998.
 -- https://www.cs.tufts.edu/~nr/pubs/unparse.ps
 module AlgST.Parse.Unparser
-  ( Unparse (..),
+  ( -- * The @Unparse@ class
+    Unparse (..),
+    Precedence (..),
+    Op.Associativity (..),
+    Fragment,
+    Rator,
+
+    -- * High-level unparsing operations
     unparseApp,
     unparseCase,
     showCaseMap,
@@ -16,14 +24,17 @@ module AlgST.Parse.Unparser
   )
 where
 
+import AlgST.Builtins.Names (builtinOperators)
 import AlgST.Syntax.Expression as E
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
 import AlgST.Syntax.Operators qualified as Op
 import AlgST.Syntax.Phases
 import AlgST.Syntax.Type qualified as T
+import Data.Bifunctor
 import Data.Foldable
 import Data.Functor.Identity
+import Data.HashMap.Strict qualified as HM
 import Data.List (intercalate)
 import Data.Map.Strict qualified as Map
 import Data.Void
@@ -54,6 +65,7 @@ data Precedence
   = PMin
   | -- | @in@, @else@, @case@, @rec@ (expressions)
     PIn
+  | POpMin
   | POp Op.Precedence
   | -- | @λ … -> e@ in expressions,  @… -> …@ in types.
     PArrow
@@ -71,12 +83,17 @@ type Rator = (Precedence, Op.Associativity)
 type Fragment = (Rator, String)
 
 operatorRator :: ProgVar stage -> Maybe Rator
-operatorRator op =
-  ((,) <$> POp . Op.opPrec <*> Op.opAssoc)
-    <$> Map.lookup (nameUnqualified op) Op.knownOperators
+-- Before we have 'ResolvedName's we don't have the situation that we have to
+-- render operators with the correct precedence and associativity due to
+-- 'OperatorSequence' keeping information about how the user wrote it.
+operatorRator op@ResolvedName {} =
+  first POp <$> HM.lookup op builtinOperators
+operatorRator _ =
+  Nothing
 
-minRator, inRator, dotRator, arrowRator, dualofRator, appRator, maxRator :: Rator
+minRator, inRator, opMinRator, dotRator, arrowRator, dualofRator, appRator, maxRator :: Rator
 inRator = (PIn, Op.R)
+opMinRator = (POpMin, Op.NA)
 dotRator = (PDot, Op.R)
 arrowRator = (PArrow, Op.R)
 dualofRator = (PDualof, Op.R)
@@ -97,6 +114,9 @@ class Unparse t where
 
 instance Unparse Void where
   unparse = absurd
+
+instance (Unparse a, Unparse b) => Unparse (Either a b) where
+  unparse = either unparse unparse
 
 unparseApp :: Unparse a => String -> [a] -> Fragment
 unparseApp s = go (maxRator, s) . fmap unparse
@@ -218,6 +238,17 @@ instance Unparse E.Lit where
       E.Int x -> show x
       E.Char x -> show x
       E.String x -> show x
+
+instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Op.OperatorSequence x) where
+  unparse ops
+    | Op.isSection ops = (maxRator, "(" ++ inner ++ ")")
+    | otherwise = (opMinRator, inner)
+    where
+      inner = unwords . fmap bracketComponent . toList $ case ops of
+        Op.OperandFirst _ ne -> ne
+        Op.OperatorFirst _ ne -> ne
+      bracketComponent e =
+        bracket (unparse e) Op.NA arrowRator
 
 unparseCase ::
   (Unparse (E.XExp x), Unparse (T.XType x), Foldable f, Foldable g) =>

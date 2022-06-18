@@ -54,7 +54,7 @@ sendInt1#M.0
             |  |  |
             |  |  +- Exp.TypeApp
             |  |  |  |
-            |  |  |  +- Exp.Var send#Builtin.13
+            |  |  |  +- Exp.Var send#Builtin.7
             |  |  |  |
             |  |  |  `- Type.Type
             |  |  |     |

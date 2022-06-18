@@ -46,6 +46,7 @@ import AlgST.Rename.Error (MonadErrors, addError, fatalError)
 import AlgST.Rename.Error qualified as Error
 import AlgST.Rename.Fresh
 import AlgST.Rename.Modules
+import AlgST.Rename.Operators
 import AlgST.Rename.Phase
 import AlgST.Syntax.Decl qualified as D
 import AlgST.Syntax.Expression qualified as E
@@ -271,6 +272,15 @@ instance SynTraversal RnM Parse Rn where
     -- `conPair`.
     SValues | w == nameWritten Builtin.conPair -> pure Builtin.conPair
     _ -> lookupName Error.Con loc w
+
+  exprExtension pxy = \case
+    Left parsedBuiltin ->
+      E.Exp <$> traverseSyntax pxy parsedBuiltin
+    Right ops -> do
+      rnOps <- traverseSyntax pxy ops
+      rewriteOperatorSequence rnOps
+
+  typeExtension pxy = fmap T.Type . traverseSyntax pxy
 
 lookupName :: SingI scope => Error.NameKind -> Pos -> NameW scope -> RnM (NameR scope)
 lookupName kind loc w = do

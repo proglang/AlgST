@@ -6,13 +6,13 @@ Exp.PatLet (,) a b
    |
    +- Exp.Var x
    |
-   `- Exp.App
+   `- Exp.Exp
       |
-      +- Exp.App
-      |  |
-      |  +- Exp.Var (+)
-      |  |
-      |  `- Exp.Var a
-      |
-      `- Exp.Var b
+      `- OperatorSequence
+         |
+         +- Exp.Var a
+         |
+         +- Exp.Var (+)
+         |
+         `- Exp.Var b
 

@@ -468,7 +468,7 @@ sum#M.9
          |                 |                          |  |  |  |
          |                 |                          |  |  |  +- Exp.TypeApp
          |                 |                          |  |  |  |  |
-         |                 |                          |  |  |  |  +- Exp.Var send#Builtin.13
+         |                 |                          |  |  |  |  +- Exp.Var send#Builtin.7
          |                 |                          |  |  |  |  |
          |                 |                          |  |  |  |  `- Type.Type
          |                 |                          |  |  |  |     |
@@ -526,7 +526,7 @@ sum#M.9
          |                 |                                   |  |  |  |
          |                 |                                   |  |  |  +- Exp.TypeApp
          |                 |                                   |  |  |  |  |
-         |                 |                                   |  |  |  |  +- Exp.Var send#Builtin.13
+         |                 |                                   |  |  |  |  +- Exp.Var send#Builtin.7
          |                 |                                   |  |  |  |  |
          |                 |                                   |  |  |  |  `- Type.Type
          |                 |                                   |  |  |  |     |
@@ -574,7 +574,7 @@ sum#M.9
          |                 |                                            |  |  |
          |                 |                                            |  |  +- Exp.TypeApp
          |                 |                                            |  |  |  |
-         |                 |                                            |  |  |  +- Exp.Var receive#Builtin.14
+         |                 |                                            |  |  |  +- Exp.Var receive#Builtin.8
          |                 |                                            |  |  |  |
          |                 |                                            |  |  |  `- Type.Type
          |                 |                                            |  |  |     |
