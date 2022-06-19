@@ -1,9 +1,35 @@
 protocol Repeat (x:P) = More x (Repeat x) | Quit
 
-type Handler (p:P) = ∀(s:SL). ?p.s -> s
+type Service (p:P) = ∀(s:SL). ?p.s -> s
 
-repeater : ∀(p:P). Handler p -> Handler (Repeat p)
-repeater [p] serveP [s] c = case c of {
+repeater : ∀(p:P). Service p -> Service (Repeat p)
+repeater [p] serveP [s] c = match c with {
   Quit c -> c,
   More c -> serveP [?Repeat p.s] c |> repeater [p] serveP [s]
 }
+
+----------------------------------------------------------------------
+-- application to arith
+----------------------------------------------------------------------
+
+protocol Arith =
+  | Neg Int -Int
+  | Add Int Int -Int
+
+serve_arith : Service Arith
+serve_arith [s] c =
+  match c with {
+    Neg c -> let (x, c) = receive [Int, !Int.s] c in
+             send [Int] (0-x) [s] c,
+    Add c -> let (x, c) = receive [Int, ?Int.!Int.s] c in
+             let (y, c) = receive [Int, !Int.s] c in
+             send [Int] (x+y) [s] c }
+
+repeated_arith : Service (Repeat Arith)
+repeated_arith = repeater [Arith] serve_arith
+
+client1 : dual (?Repeat Arith.end) -> end
+client1 c = select Quit [Arith, end] c
+
+client2 : dual (?Repeat Arith.end) -> end
+client2 c = select More [Arith, end] c
