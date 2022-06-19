@@ -95,7 +95,7 @@ tokens :-
   fork                          { simpleToken TokenFork }
   fork_                         { simpleToken TokenFork_ }
   (case|match)                  { simpleToken TokenCase }
-  of                            { simpleToken TokenOf }
+  (of|with)                     { simpleToken TokenOf }
   (forall|∀)                    { simpleToken TokenForall }
   dual                          { simpleToken TokenDualof }
   end                           { simpleToken TokenEnd }

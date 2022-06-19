@@ -4,12 +4,12 @@ protocol Arith =
 
 serve_arith : forall (s:S). ?Arith.s -> s
 serve_arith [s] c =
-  match c of {
+  match c with {
     Neg c -> let (x, c) = receive [Int, !Int.s] c in
-             send [Int, s] (0-x) c,
+             send [Int] (0-x) [s] c,
     Add c -> let (x, c) = receive [Int, ?Int.!Int.s] c in
              let (y, c) = receive [Int, !Int.s] c in
-             send [Int, s] (x+y) c }
+             send [Int] (x+y) [s] c }
 
 client_neg : forall (s:S). Int -> !Arith.s -> (Int, s)
 client_neg [s] x c =
@@ -28,13 +28,13 @@ type Service (a:P) = forall (s:S). ?a.s -> s
 
 forever_arith : (forall (s:S). ?Arith.s -> s) -> ?Stream Arith.end -> end
 forever_arith serve c =
-  match c of {
+  match c with {
     Next c -> serve [?Stream Arith.end] c |> forever_arith serve
   }
 
 forever : forall (a:P). Service a -> ?Stream a.end -> end
 forever [a] serve c =
-  match c of {
+  match c with {
     Next c -> serve [?Stream a.end] c |> forever [a] serve
   }
 
