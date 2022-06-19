@@ -18,7 +18,7 @@ syn case match
 syn sync fromstart
 syn spell notoplevel
 
-syn keyword algstControl case match of if then else
+syn keyword algstControl case match of with if then else
 syn keyword algstKeyword dual dualof rec let in _
 syn keyword algstDecl type data protocol
   \ nextgroup=algstKindAnnot
