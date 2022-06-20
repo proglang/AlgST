@@ -60,3 +60,11 @@ forever_active_ints = forever_active [-Int]
 
 forever_active_ones : !Stream Int.end -> end
 forever_active_ones = forever_active [-Int] (send [Int] 1)
+
+----
+
+forever_active' : forall (a:P). Service a -> Service -(Stream -a)
+forever_active' [a] serve [s] c =
+  select Next [-a, s] c
+  |> serve [!Stream -a.s]
+  |> forever_active' [a] serve [s]
