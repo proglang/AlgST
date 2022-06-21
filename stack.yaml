@@ -46,8 +46,7 @@ extra-deps:
   - lens-family-core-2.1.0@sha256:124b4371ffc147a8f2fb59a7bda339ce20eec83f887a647a63497e1efc56f837,2290
 
   # Fix for monad-validate for GHC 9
-  - git: https://github.com/LeapYear/monad-validate.git
-    commit: 6123194b484c6fc002e5f491bae1054fac437c4b
+  - ./monad-validate
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
