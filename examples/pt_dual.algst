@@ -1,0 +1,11 @@
+protocol X = Mu T X
+type T = !X.end
+
+selectMu : T -> !T.T
+selectMu c = select Mu [end] c
+
+dualT : dual T -> ?X.end
+dualT c = c
+
+matchMu : dual T -> ?T.(dual T)
+matchMu c' = match c' with { Mu c' -> c' }
