@@ -3,17 +3,86 @@
 AlgST is an implementation of Algebraic Session Types by Bernardo Almeida et al. (unpublished).
 
 
-## Building & Running
+## Building
 
-Building is only officially supported through [stack]. AlgST can be run using
+Building is supported either in a Docker container or using the [stack]() build
+tool.
 
-```
-stack run -- <args...>
-```
 
-### Usage
+### Docker Container
 
-A file can be checked by giving its path as an argument; if omitted input will be read from the terminal.
+* **Prerequisits:** Docker, e.g. via [Docker Desktop]()
+
+* **Building:**
+
+    ```sh
+    ; docker build -t proglang/algst -f utils/Dockerfile .
+    ```
+
+    Building takes about 10 minutes on my machine.
+
+* **Testing:**
+
+    ```sh
+    ; docker run --rm -it proglang/algst stack test
+    ```
+
+    This will run the test suite covering the parser, type checker and
+    interpreter.
+
+* **Running:** To run `algst` prefix the invocations given below with
+
+    ```sh
+    ; docker run --rm -it jaspa/algst  # command follows here...
+    ```
+
+    To verify that running `algst` works execute
+
+    ```sh
+    ; docker run --rm -it jaspa/algst algst --help
+    ```
+
+
+### Stack
+
+* **Prerequisits:** [stack](), installation instrunctions are provided on the
+  linked page.
+
+* **Building:**
+
+    ```sh
+    ; stack build
+    ```
+
+    This command will download and install the required version of GHC, build
+    the dependencies and finally the `algst` executable.
+
+* **Testing:**
+
+    ```sh
+    ; stack test
+    ```
+
+    The command will compile and execute the test suite covering the parser,
+    type checker and interpreter.
+
+* **Running:** To run `algst` prefix the invocations given below with
+
+    ```sh
+    ; stack exec --  # command follows here...
+    ```
+
+    To verify that running `algst` works execute
+
+    ```sh
+    ; stack exec -- algst --help
+    ```
+
+
+## Usage
+
+A file can be checked by giving its path as an argument; to read input from the
+terminal give `-` as the path.
 
 Querying the typechecker is possible with the flags
 
@@ -29,7 +98,7 @@ Full usage info is available with `--help`.
 ### Example
 
 ```bash
-$ stack run -- -T 'fork number' --nf 'dual ?-Int.end' <<EOF
+; algst - -T 'fork number' --nf 'dual ?-Int.end' <<EOF
 number : Int
 number = 42
 EOF
@@ -38,25 +107,13 @@ EOF
 outputs
 
 ```
-Parsing ... ok
-Checking ... ok
+Success.
 
-[1] type synthesis ... ok
-fork number
-  => ?Int.end
+--type fork number
+  ?Int.end
 
-[2] normal form ... ok
-dual (?-Int.end)
-  => ?Int.end
+--nf dual ?-Int.end
+  ?Int.end
 ```
 
 [stack]: https://docs.haskellstack.org/en/stable/README/
-
-
-## Tests
-
-The test suite can be run with
-
-```
-stack test
-```
