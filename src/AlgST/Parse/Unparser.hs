@@ -52,14 +52,14 @@ showSortedVar :: Show a => Name stage scope -> a -> String
 showSortedVar x t = "(" ++ pprName x ++ ":" ++ show t ++ ")"
 
 showKind :: (Show a, Show b) => Name stage scope -> a -> String -> b -> String
-showKind var sort arrow term =
-  showSortedVar var sort ++ arrow ++ show term
+showKind var sort arrow term = showSortedVar var sort ++ arrow ++ show term
 
 showBindType :: Unparse (T.XType x) => K.Bind (XStage x) (T.Type x) -> String
 showBindType (K.Bind _ a k t) = showKind a k ". " t -- ∀ a:k . t
 
 instance (Unparse (E.XExp x), Unparse (T.XType x)) => Show (E.Bind x) where
-  show (E.Bind _ m x t e) = showKind x t (showArrow m) e
+  show (E.Bind _ m x Nothing e) = pprName x ++ showArrow m ++ show e
+  show (E.Bind _ m x (Just t) e) = showKind x t (showArrow m) e
 
 data Precedence
   = PMin

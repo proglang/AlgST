@@ -443,7 +443,7 @@ checkAlignedBinds fullTy allVs e = go fullTy fullTy allVs
     go _ t [] = tycheck e t
     go _ (T.Arrow k mul t u) (p :@ Right pv : vs) = do
       withProgVarBind (unrestrictedLoc k mul) p pv t do
-        E.Abs defaultPos . E.Bind defaultPos mul pv t <$> go u u vs
+        E.Abs defaultPos . E.Bind defaultPos mul pv (Just t) <$> go u u vs
     go _ t0@(T.Forall _ (K.Bind _ sigVar k t)) vs0@(p :@ v : vs) = do
       let subBind tv = substituteType @Tc (Map.singleton sigVar (T.Var (p @- k) tv))
       let wrapAbs tv = E.TypeAbs @Tc defaultPos . K.Bind p tv k
@@ -1237,13 +1237,15 @@ litType p = \case
 -- | Synthesizes the 'T.Arrow' type of a @"AlgST.Syntax.Expression".'Bind'@
 -- (/E-LinAbs/ or /E-UnAbs/).
 tysynthBind :: Pos -> E.Bind Rn -> TypeM (E.Bind Tc, TcType)
-tysynthBind absLoc (E.Bind p m v ty e) = do
+tysynthBind absLoc (E.Bind p _ v Nothing _) = do
+  addFatalError $ Error.synthUntypedLambda absLoc p v
+tysynthBind absLoc (E.Bind p m v (Just ty) e) = do
   ty' <- kicheck ty K.TL
   (e', eTy) <- withProgVarBind (unrestrictedLoc absLoc m) p v ty' (tysynth e)
 
   -- Construct the resulting type.
   let funTy = T.Arrow absLoc m ty' eTy
-  pure (E.Bind p m v ty' e', funTy)
+  pure (E.Bind p m v (Just ty') e', funTy)
 
 -- | Synthesizes the 'T.Forall' type of a @"AlgST.Syntax.Kind".'K.Bind' a@. The
 -- type of @a@ is synthesized with the provided function.

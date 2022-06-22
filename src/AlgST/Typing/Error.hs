@@ -454,6 +454,18 @@ undeclaredCon loc v =
 {-# SPECIALIZE undeclaredCon :: Pos -> ProgVar TcStage -> Diagnostic #-}
 {-# SPECIALIZE undeclaredCon :: Pos -> TypeVar TcStage -> Diagnostic #-}
 
+synthUntypedLambda :: Pos -> Pos -> ProgVar TcStage -> Diagnostic
+synthUntypedLambda lamLoc varLoc var =
+  PosError
+    varLoc
+    [ Error "Parameter",
+      Error var,
+      Error "in lambda abstraction at",
+      Error lamLoc,
+      Error "must have a type annotation."
+    ]
+{-# NOINLINE synthUntypedLambda #-}
+
 showType :: TcType -> Maybe TcType -> [ErrorMessage]
 showType t mNF
   | Just tNF <- mNF,

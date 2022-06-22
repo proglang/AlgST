@@ -495,7 +495,7 @@ instance
     let mkBind t' (v', e') =
           E.Bind x m v' t' e'
     mkBind
-      <$> traverseSyntax pxy t
+      <$> traverse (traverseSyntax pxy) t
       <*> bindOne pxy v (\v' -> (v',) <$> traverseSyntax pxy e)
 
 instance

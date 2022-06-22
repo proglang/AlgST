@@ -269,7 +269,8 @@ instance ForallX Position x => Position (Exp x) where
 
 type family XBind x
 
-data Bind x = Bind (XBind x) !Multiplicity !(XProgVar x) (T.Type x) (Exp x)
+data Bind x
+  = Bind (XBind x) !Multiplicity !(XProgVar x) (Maybe (T.Type x)) (Exp x)
 
 deriving stock instance (ForallX Lift x, T.ForallX Lift x) => Lift (Bind x)
 

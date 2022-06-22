@@ -177,8 +177,7 @@ type instance E.XSelect Tc = Pos
 type instance E.XFork   Tc = Pos      -- TODO: Could be desugared to 'New' + 'Fork_' + ...
 type instance E.XFork_  Tc = Pos
 type instance E.XExp    Tc = TcExpX
-
-type instance E.XBind Tc = Pos
+type instance E.XBind   Tc = Pos
 
 type instance T.XUnit    Tc = Pos
 type instance T.XArrow   Tc = Pos

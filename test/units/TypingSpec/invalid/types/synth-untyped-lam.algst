@@ -1,0 +1,1 @@
+let x = \y -> y in x 10

@@ -408,8 +408,10 @@ Abs :: { (Multiplicity -> Endo PExp, Any) }
       pure $ foldMap (uncurryL build) binds
     }
 
-Abs1 :: { Located (Either (ProgVar PStage, PType) (TypeVar PStage, K.Kind)) } 
-  : '(' wildcard(ProgVar) ':' Type ')' { $2 @- Left (unL $2, $4) }
+Abs1 :: { Located (Either (ProgVar PStage, Maybe PType) (TypeVar PStage, K.Kind)) } 
+  : wildcard(ProgVar)                  { $1 @- Left (unL $1, Nothing) }
+  | '(' wildcard(ProgVar) ')'          { $2 @- Left (unL $2, Nothing) }
+  | '(' wildcard(ProgVar) ':' Type ')' { $2 @- Left (unL $2, Just $4) }
   | '[' wildcard(TypeVar) ':' Kind ']' { $2 @- Right (unL $2, unL $4) }
 
 Cases :: { PCaseMap }
