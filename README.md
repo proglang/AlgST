@@ -1,6 +1,6 @@
 # AlgST
 
-AlgST is an implementation of Algebraic Session Types by Bernardo Almeida et al. (unpublished).
+AlgST is an implementation of Algebraic Session Types by Andreia Mordido et al. (unpublished).
 
 
 ## Building
