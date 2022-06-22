@@ -27,7 +27,7 @@ packages:
     hackage: lens-family-core-2.1.0@sha256:124b4371ffc147a8f2fb59a7bda339ce20eec83f887a647a63497e1efc56f837,2290
 snapshots:
 - completed:
-    size: 617368
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/2.yaml
-    sha256: e7e57649a12f6178d1158e4b6f1f1885ed56d210ae6174385271cecc9b1ea974
-  original: lts-19.2
+    size: 619158
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/12.yaml
+    sha256: d4d7a4ac80485f3c21d0c6bfe5e7a21c3f71ca4fdfea022f98574047ebb58ebb
+  original: lts-19.12
