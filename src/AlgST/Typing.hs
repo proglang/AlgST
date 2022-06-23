@@ -1365,6 +1365,29 @@ tycheck e u = case (e, u) of
     e2' <- tycheck e2 t2
     pure (E.Pair p e1' e2')
 
+  -- 
+  (E.UnLet p v mty e body, bodyTy) -> do
+    (e', ty') <- case mty of
+                   Nothing -> tysynth e
+                   Just ty -> do
+                     ty' <- kicheck ty K.TL
+                     e'  <- tycheck e ty'
+                     pure (e', ty')
+    withProgVarBind Nothing p v ty' do
+      body' <- tycheck body bodyTy
+      let branch =
+            E.CaseBranch
+              { branchPos = p,
+                branchBinds = Identity (p :@ v),
+                branchExp = body'
+              }
+      let caseMap =
+            E.CaseMap
+              { E.casesWildcard = Just branch,
+                E.casesPatterns = Map.empty
+              }
+      pure (E.Exp $ ValueCase p e' caseMap)
+
   -- fallback
   (e, _) -> do
     (e', t) <- tysynth e
