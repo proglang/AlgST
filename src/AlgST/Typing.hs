@@ -1248,6 +1248,17 @@ tysynthBind absLoc (E.Bind p m v (Just ty) e) = do
   let funTy = T.Arrow absLoc m ty' eTy
   pure (E.Bind p m v (Just ty') e', funTy)
 
+tycheckBind :: Pos -> E.Bind Rn -> TcType -> TypeM (E.Bind Tc)
+tycheckBind absLoc bind@(E.Bind p m v mTy e) t@(T.Arrow p' m' u1 u2) = do
+  -- when (not (m <= m')) do error: multiplicity mismatch
+  whenJust mTy \ty -> do
+    ty' <- kicheck ty K.TL
+    requireSubtype (E.Abs p bind) (T.Arrow p m ty' u2) t
+  e' <- withProgVarBind (unrestrictedLoc absLoc m') p' v u1 (tycheck e u2)
+  pure (E.Bind p m v (Just u2) e')
+tycheckBind _ bind@(E.Bind p _ _ _ _) t = do
+  addFatalError $ Error.noArrowType (E.Abs p bind) t
+
 -- | Synthesizes the 'T.Forall' type of a @"AlgST.Syntax.Kind".'K.Bind' a@. The
 -- type of @a@ is synthesized with the provided function.
 tysynthTyBind ::
@@ -1335,8 +1346,17 @@ withProgVarBind ::
   Maybe Pos -> Pos -> ProgVar TcStage -> TcType -> TypeM a -> TypeM a
 withProgVarBind mp varLoc pv ty = withProgVarBinds mp [(varLoc :@ pv, ty)]
 
+isArrowType :: TcType -> Bool
+isArrowType (T.Arrow _ _ _ _) = True
+isArrowType _ = False
+
 tycheck :: RnExp -> TcType -> TypeM TcExp
 tycheck e u = case e of
+  --
+  E.Abs p bnd | isArrowType u -> do
+    bnd' <- tycheckBind p bnd u
+    pure (E.Abs p bnd')
+
   --
   E.App p e1 e2 -> do
     (e2', t2) <- tysynth e2
