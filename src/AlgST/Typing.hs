@@ -1346,25 +1346,27 @@ withProgVarBind ::
   Maybe Pos -> Pos -> ProgVar TcStage -> TcType -> TypeM a -> TypeM a
 withProgVarBind mp varLoc pv ty = withProgVarBinds mp [(varLoc :@ pv, ty)]
 
-isArrowType :: TcType -> Bool
-isArrowType (T.Arrow _ _ _ _) = True
-isArrowType _ = False
-
 tycheck :: RnExp -> TcType -> TypeM TcExp
-tycheck e u = case e of
+tycheck e u = case (e, u) of
   --
-  E.Abs p bnd | isArrowType u -> do
+  (E.Abs p bnd, T.Arrow _ _ _ _) -> do
     bnd' <- tycheckBind p bnd u
     pure (E.Abs p bnd')
 
   --
-  E.App p e1 e2 -> do
+  (E.App p e1 e2, _) -> do
     (e2', t2) <- tysynth e2
     e1' <- tycheck e1 (T.Arrow p Lin t2 u)
     pure (E.App p e1' e2')
 
+  --
+  (E.Pair p e1 e2, T.Pair _ t1 t2) -> do
+    e1' <- tycheck e1 t1
+    e2' <- tycheck e2 t2
+    pure (E.Pair p e1' e2')
+
   -- fallback
-  e -> do
+  (e, _) -> do
     (e', t) <- tysynth e
     requireSubtype e t u
     pure e'
