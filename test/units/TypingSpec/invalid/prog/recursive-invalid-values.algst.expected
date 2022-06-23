@@ -1,32 +1,16 @@
 
 9:9: error:
 	 Expression
-	     bar x
+	     bar
 	 has type
-	     D2
-	 but it should have type
-	     D1
-
-9:13: error:
-	 Expression
-	     x
-	 has type
-	     D1
-	 but it should have type
-	     D2
+	     D2 -> D2
+	 but context demands a subtype of
+	     D1 -o D1
 
 12:9: error:
 	 Expression
-	     foo x
+	     foo
 	 has type
-	     D1
-	 but it should have type
-	     D2
-
-12:13: error:
-	 Expression
-	     x
-	 has type
-	     D2
-	 but it should have type
-	     D1
+	     D1 -> D1
+	 but context demands a subtype of
+	     D2 -o D2

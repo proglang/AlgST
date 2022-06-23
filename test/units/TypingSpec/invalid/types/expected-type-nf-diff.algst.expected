@@ -4,6 +4,6 @@
 	     ()
 	 has type
 	     ()
-	 but it should have type
+	 but context demands a subtype of
 	  [NF] end
 	 [LIT] dual dual end

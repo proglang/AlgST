@@ -73,7 +73,7 @@ typeMismatch expr tyActual tyActualNF tyExpected tyExpectedNF =
         [indent, Error expr],
         [Error "has type"],
         showType tyActual (Just tyActualNF),
-        [Error "but it should have type"],
+        [Error "but context demands a subtype of"],
         showType tyExpected (Just tyExpectedNF)
       ]
 {-# NOINLINE typeMismatch #-}
