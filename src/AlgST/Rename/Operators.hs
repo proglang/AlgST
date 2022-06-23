@@ -216,6 +216,23 @@ buildOpApplication op lhs mrhs
     pure
       . E.PatLet loc (op @- B.conPair) [op @- a, op @- c] lhs
       $ E.Pair loc (E.App loc rhs (E.Var loc a)) (E.Var loc c)
+  | -- (<*>)
+    opName op == B.opAppComb && noTypeArgs op,
+    Just rhs <- mrhs = lift . lift $ do
+    -- Desugar to:
+    -- \c1 -> let (f, c2) = lhs c1 in let (x, c3) = rhs c2 in (f x, c3)
+    let po = pos op
+    c1 <- freshResolvedU $ Unqualified "c1"
+    c2 <- freshResolvedU $ Unqualified "c2"
+    c3 <- freshResolvedU $ Unqualified "c3"
+    f  <- freshResolvedU $ Unqualified "f"
+    x  <- freshResolvedU $ Unqualified "x"
+    pure $
+        E.Abs po $
+        E.Bind po Lin c1 Nothing $
+        E.PatLet po (op @- B.conPair) [op @- f, op @- c2] (E.App po lhs (E.Var po c1)) $
+        E.PatLet po (op @- B.conPair) [op @- x, op @- c3] (E.App po rhs (E.Var po c2)) $
+        E.Pair po (E.App po (E.Var po f) (E.Var po x)) (E.Var po c3)
   | otherwise = do
     let appLhs = E.App (pos lhs) (opExpr op) lhs
     pure $ maybe appLhs (E.App <$> pos <*> pure appLhs <*> id) mrhs

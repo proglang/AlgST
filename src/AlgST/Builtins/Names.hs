@@ -50,6 +50,7 @@ $( runDefines (ModuleName "Builtin") "builtinsPartialModuleMap" "builtinOperator
      op "pipeFwd"  "|>"  L  PForward
      op "pipeBwd"  "<|"  R  PBackward
      op "mapAfter" "<&>" NA PBackward
+     op "appComb"  "<*>" NA PBackward
 {- ORMOLU_ENABLE -}
  )
 
