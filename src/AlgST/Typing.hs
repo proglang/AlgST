@@ -81,6 +81,7 @@ import AlgST.Typing.Error qualified as Error
 import AlgST.Typing.Monad
 import AlgST.Typing.NormalForm
 import AlgST.Typing.Phase
+import AlgST.Typing.Subtyping qualified as Sub
 import AlgST.Util
 import AlgST.Util.ErrorMessage
 import Control.Applicative
@@ -1335,16 +1336,31 @@ withProgVarBind ::
 withProgVarBind mp varLoc pv ty = withProgVarBinds mp [(varLoc :@ pv, ty)]
 
 tycheck :: RnExp -> TcType -> TypeM TcExp
-tycheck e u = do
-  (e', t) <- tysynth e
-  requireEqual e t u
-  pure e'
+tycheck e u = case e of
+  --
+  E.App p e1 e2 -> do
+    (e2', t2) <- tysynth e2
+    e1' <- tycheck e1 (T.Arrow p Lin t2 u)
+    pure (E.App p e1' e2')
+
+  -- fallback
+  e -> do
+    (e', t) <- tysynth e
+    requireSubtype e t u
+    pure e'
 
 requireEqual :: RnExp -> TcType -> TcType -> TypeM ()
 requireEqual e t1 t2 = do
   nf1 <- normalize t1
   nf2 <- normalize t2
   when (Eq.Alpha nf1 /= Eq.Alpha nf2) do
+    addError (Error.typeMismatch e t1 nf1 t2 nf2)
+
+requireSubtype :: RnExp -> TcType -> TcType -> TypeM ()
+requireSubtype e t1 t2 = do
+  nf1 <- normalize t1
+  nf2 <- normalize t2
+  when (not (Sub.Alpha nf1 <= Sub.Alpha nf2)) do
     addError (Error.typeMismatch e t1 nf1 t2 nf2)
 
 requireBoolType :: RnExp -> TcType -> TypeM ()
