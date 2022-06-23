@@ -24,6 +24,7 @@ import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty, nonEmpty)
 import Data.List.NonEmpty qualified as NE
 import Data.Singletons
+import Data.Void
 import Syntax.Base
 import Prelude hiding (truncate)
 
@@ -315,6 +316,9 @@ instance Position PatternBranch where
 
 class Position a => BranchSpec a where
   displayBranchError :: a -> [ErrorMessage]
+
+instance BranchSpec Void where
+  displayBranchError = absurd
 
 instance BranchSpec PatternBranch where
   displayBranchError (PatternBranch _ p) = [Error "branch", Error p]

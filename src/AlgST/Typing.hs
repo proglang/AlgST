@@ -780,37 +780,17 @@ tysynth =
               { casesPatterns = Map.singleton (unL c) branch,
                 casesWildcard = Nothing
               }
-      tysynthPatternExpression p e' cases pat Nothing
+      checkPatternExpr p e' cases pat Nothing
 
     --
     E.Cond p e eThen eElse -> do
-      (e', eTy) <- tysynth e
-      requireBoolType e eTy
-
-      (mty, (eThen', eElse')) <- runBranchT p do
-        (,)
-          <$> liftBranchT (Error.CondThen (pos eThen)) (checkOrSynth eThen)
-          <*> liftBranchT (Error.CondElse (pos eElse)) (checkOrSynth eElse)
-      let ty = error "impossible: branches have no type" `fromMaybe` mty
-
-      let branches =
-            Map.fromList
-              [ (conTrue, E.CaseBranch (pos eThen) [] eThen'),
-                (conFalse, E.CaseBranch (pos eElse) [] eElse')
-              ]
-      let eCase =
-            E.Exp . ValueCase p e' $
-              E.CaseMap
-                { casesPatterns = branches,
-                  casesWildcard = Nothing
-                }
-      pure (eCase, ty)
+      checkIfExpr p e eThen eElse Nothing
 
     --
     E.Case p e cases -> do
       (e', eTy) <- tysynth e
       pat <- extractMatchableType "Case expression scrutinee" (pos e) eTy
-      tysynthPatternExpression p e' cases pat Nothing
+      checkPatternExpr p e' cases pat Nothing
 
     --
     E.Select p lcon@(_ :@ con) | con == conPair -> do
@@ -976,21 +956,50 @@ appTArrow = go id
       _ ->
         Nothing
 
-tysynthPatternExpression ::
+checkIfExpr :: Pos -> RnExp -> RnExp -> RnExp -> Maybe TcType -> TypeM (TcExp, TcType)
+checkIfExpr loc eCond eThen eElse mExpectedTy = do
+  let boolRef =
+        TypeRef
+          { typeRefPos = defaultPos,
+            typeRefName = typeBool,
+            typeRefArgs = [],
+            typeRefKind = K.TU
+          }
+  eCond' <- tycheck eCond (T.Type boolRef)
+  (mresTy, (eThen', eElse')) <- runBranched loc mExpectedTy do
+    (,)
+      <$> checkBranch (Error.CondThen (pos eThen)) (checkOrSynth eThen)
+      <*> checkBranch (Error.CondElse (pos eElse)) (checkOrSynth eElse)
+  let resTy = error "checkIfExpr: no result type" `fromMaybe` mresTy
+
+  let branches =
+        Map.fromList
+          [ (conTrue, E.CaseBranch (pos eThen) [] eThen'),
+            (conFalse, E.CaseBranch (pos eElse) [] eElse')
+          ]
+  let eCase =
+        E.Exp . ValueCase loc eCond' $
+          E.CaseMap
+            { casesPatterns = branches,
+              casesWildcard = Nothing
+            }
+  pure (eCase, resTy)
+
+checkPatternExpr ::
   Pos -> TcExp -> RnCaseMap -> MatchableType -> Maybe TcType -> TypeM (TcExp, TcType)
-tysynthPatternExpression loc scrut cases pat mExpectedTy = do
+checkPatternExpr loc scrut cases pat mExpectedTy = do
   case pat of
     MatchSession pat s -> do
-      (cases', ty) <- tysynthSessionCase loc cases pat s mExpectedTy
+      (cases', ty) <- checkSessionCase loc cases pat s mExpectedTy
       pure (E.Exp $ RecvCase loc scrut cases', ty)
     MatchValue pat -> do
-      (cases', ty) <- tysynthStandardCase loc cases pat mExpectedTy
+      (cases', ty) <- checkDataCase loc cases pat mExpectedTy
       pure (E.Exp $ ValueCase loc scrut cases', ty)
 
-tysynthStandardCase ::
+checkDataCase ::
   Pos -> RnCaseMap -> PatternType -> Maybe TcType -> TypeM (TcCaseMap [] Maybe, TcType)
-tysynthStandardCase loc cases patTy mExpectedTy =
-  tysynthCaseExpr loc True cases patTy mExpectedTy \con fields b -> etaTcM do
+checkDataCase loc cases patTy mExpectedTy =
+  checkCaseExpr loc True cases patTy mExpectedTy \con fields b -> etaTcM do
     -- Check that the number of binds matches the number of fields.
     let nGiven = length (E.branchBinds b)
         nExpected = length fields
@@ -1023,15 +1032,15 @@ buildDataConType p name decl mul items = do
 buildSessionType :: Pos -> T.Polarity -> [TcType] -> TcType -> TcType
 buildSessionType loc pol fields s = foldr (T.Session loc pol) s fields
 
-tysynthSessionCase ::
+checkSessionCase ::
   Pos ->
   RnCaseMap ->
   PatternType ->
   TcType ->
   Maybe TcType ->
   TypeM (TcCaseMap Identity (Const ()), TcType)
-tysynthSessionCase loc cases patTy s mExpectedTy = do
-  (cmap, ty) <- tysynthCaseExpr loc False cases patTy mExpectedTy \_con fields b -> etaTcM do
+checkSessionCase loc cases patTy s mExpectedTy = do
+  (cmap, ty) <- checkCaseExpr loc False cases patTy mExpectedTy \_con fields b -> etaTcM do
     -- Get the variable to bind and its type.
     let vTy = buildSessionType (pos b) T.In fields s
     v <- maybeError (Error.invalidSessionCaseBranch b) $ case E.branchBinds b of
@@ -1041,7 +1050,7 @@ tysynthSessionCase loc cases patTy s mExpectedTy = do
   -- A potential wildcard is already diagnosed by 'tysynthCaseExpr'.
   pure (cmap {E.casesWildcard = Const ()}, ty)
 
-tysynthCaseExpr ::
+checkCaseExpr ::
   forall f.
   Traversable f =>
   Pos ->
@@ -1055,7 +1064,7 @@ tysynthCaseExpr ::
     TypeM (f (Located (ProgVar TcStage), TcType))
   ) ->
   TypeM (TcCaseMap f Maybe, TcType)
-tysynthCaseExpr loc allowWild cmap patTy mExpectedTy typedBinds = etaTcM do
+checkCaseExpr loc allowWild cmap patTy mExpectedTy typedBinds = etaTcM do
   allBranches <- patternBranches patTy
 
   -- Diagnose missing branches / superfluous wildcards.
@@ -1069,8 +1078,8 @@ tysynthCaseExpr loc allowWild cmap patTy mExpectedTy typedBinds = etaTcM do
   let go ::
         ProgVar TcStage ->
         E.CaseBranch [] Rn ->
-        BranchT TcType TypeM (E.CaseBranch f Tc)
-      go con branch = liftBranchT (Error.PatternBranch (pos branch) con) \mty -> do
+        Branched TcType (E.CaseBranch f Tc)
+      go con branch = checkBranch (Error.PatternBranch (pos branch) con) \mty -> do
         let branchError =
               Error.mismatchedCaseConstructor
                 (pos branch)
@@ -1088,8 +1097,8 @@ tysynthCaseExpr loc allowWild cmap patTy mExpectedTy typedBinds = etaTcM do
 
   let goWild ::
         E.CaseBranch Identity Rn ->
-        BranchT TcType TypeM (E.CaseBranch Identity Tc)
-      goWild branch = liftBranchT (Error.WildcardBranch $ pos branch) \mty -> do
+        Branched TcType (E.CaseBranch Identity Tc)
+      goWild branch = checkBranch (Error.WildcardBranch $ pos branch) \mty -> do
         errorIf (not hasMissingBranches) $ Error.unnecessaryWildcard (pos branch)
         errorIf (not allowWild) $ Error.wildcardNotAllowed (pos branch) loc
         let binds = (,originalPatternType patTy) <$> E.branchBinds branch
@@ -1099,12 +1108,7 @@ tysynthCaseExpr loc allowWild cmap patTy mExpectedTy typedBinds = etaTcM do
 
   -- Traverse over all written branches.
   (mty, checkedCases) <-
-    runBranchT loc $ do
-      -- initialize branch result with expected type, if any
-      _ <- case mExpectedTy of
-             Nothing -> pure ()
-             Just expectedTy ->
-               liftBranchT  (Error.CondThen loc) (const $ pure (error "impossible: just init", expectedTy))
+    runBranched loc mExpectedTy $
       E.CaseMap
         <$> Map.traverseWithKey go (E.casesPatterns cmap)
         <*> traverse goWild (E.casesWildcard cmap)
@@ -1113,13 +1117,14 @@ tysynthCaseExpr loc allowWild cmap patTy mExpectedTy typedBinds = etaTcM do
     Nothing -> addFatalError $ Error.emptyCaseExpr loc
     Just ty -> pure (checkedCases, ty)
 
--- | A monad transformer (usually applied on top of 'TypeM') to typecheck
--- multiple branches of an expression.
+-- | The @Branched@ monad builds on top of 'TypeM'. It keeps track of the
+-- necessary state to verify that multiple branches have the same type and
+-- consume the same set of linear variables. See 'checkBranch' for more
+-- information.
 --
--- This transformer, together with 'liftBranchT' and 'runBranchT' does the
--- heavy lifting to ensure the branches agree in which variables are consumed.
-newtype BranchT r m a
-  = BranchT (ValidateT Errors (StateT (Maybe (BranchSt r)) (ReaderT TypeEnv m)) a)
+-- You should refrain from lifting arbitrary 'TypeM' or 'TcM' operations.
+newtype Branched r a
+  = Branched (ValidateT Errors (StateT (BranchSt r) (ReaderT TypeEnv TypeM)) a)
   deriving newtype (Functor, Applicative, Monad)
 
 data BranchSt r = forall b.
@@ -1131,9 +1136,9 @@ data BranchSt r = forall b.
     -- | A previously encountered branch.
     --
     -- Used in error messages in the likes of /… variable is consumed there
-    branchesPrevious :: b,
+    branchesPrevious :: Maybe b,
     -- | Additional payload the branches have to agree upon.
-    branchesResult :: r
+    branchesResult :: Maybe r
   }
 
 -- | A variable consumed in a branch.
@@ -1143,37 +1148,65 @@ checkOrSynth :: RnExp -> Maybe TcType -> TypeM (TcExp, TcType)
 checkOrSynth e Nothing = tysynth e
 checkOrSynth e (Just t) = (,t) <$> tycheck e t
 
-liftBranchT ::
-  (Error.BranchSpec b, MonadState TySt m) => b -> (Maybe r -> m (a, r)) -> BranchT r m a
-liftBranchT p m = BranchT do
-  initR <- gets (fmap branchesResult)
+-- | Typecheck a single branch.
+--
+-- Multiple calls to @checkBranch@ have to agree in the set of consumed linear
+-- variables else an error is emitted.
+checkBranch ::
+  Error.BranchSpec b => b -> (Maybe r -> TypeM (a, r)) -> Branched r a
+checkBranch thisBranch m = Branched do
   initEnv <- ask
+  branchSt <- get
   ((a, r), resultEnv) <- lift . lift . lift $ do
     tcTypeEnvL .= initEnv
-    (,) <$> m initR <*> use tcTypeEnvL
-  let consumed = uncurry (BranchConsumed p) <$> filterAdditionalConsumed initEnv resultEnv
-  get >>= \case
-    Nothing -> do
-      put . Just $
+    (,) <$> m (branchesResult branchSt) <*> use tcTypeEnvL
+
+  -- Extract the set of consuemd variables relative to before branching and
+  -- check that the current branch agrees with any previous branches in which
+  -- variables are being consumed.
+  let consumed =
+        uncurry (BranchConsumed thisBranch)
+          <$> filterAdditionalConsumed initEnv resultEnv
+  case branchSt of
+    BranchSt {branchesPrevious = Nothing} -> do
+      -- This is the first branch we check. This sets the precedent which
+      -- variables we expected to be consumed.
+      pure ()
+    BranchSt {branchesPrevious = Just prevBranch} -> do
+      -- This is not the first branch we check. Verify that the same set of
+      -- variables was consumed as in previous branches.
+      checkConsumedOverlap
+        (branchesConsumed branchSt)
+        prevBranch
+        consumed
+        thisBranch
+
+  let newBranchSt =
         BranchSt
-          { branchesConsumed = consumed,
-            branchesPrevious = p,
-            branchesResult = r
+          { branchesConsumed = branchesConsumed branchSt <> consumed,
+            branchesPrevious = Just thisBranch,
+            branchesResult = Just r
           }
-    Just bst@BranchSt {branchesPrevious = p1} -> do
-      checkConsumedOverlap (branchesConsumed bst) p1 consumed p
-      put $ Just bst {branchesConsumed = branchesConsumed bst <> consumed, branchesResult = r}
+  put $! newBranchSt
   pure a
 
-runBranchT ::
-  (MonadState TySt m, MonadValidate Errors m) =>
-  (Pos -> BranchT r m a -> m (Maybe r, a))
-runBranchT p (BranchT m) = do
+runBranched :: Pos -> Maybe r -> Branched r a -> TypeM (Maybe r, a)
+runBranched p mr (Branched m) = do
   initEnv <- gets tcTypeEnv
-  (a, mResultEnv) <- runReaderT (runStateT (embedValidateT m) Nothing) initEnv
-  whenJust mResultEnv \BranchSt {branchesConsumed = consumed} ->
-    tcTypeEnvL .= markConsumed p initEnv consumed
-  pure (branchesResult <$> mResultEnv, a)
+  (a, resultSt) <-
+    m
+      & embedValidateT
+      & flip runStateT initialSt
+      & flip runReaderT initEnv
+  tcTypeEnvL .= markConsumed p initEnv (branchesConsumed resultSt)
+  pure (branchesResult resultSt, a)
+  where
+    initialSt =
+      BranchSt
+        { branchesConsumed = mempty,
+          branchesPrevious = Nothing @Void,
+          branchesResult = mr
+        }
 
 -- | @filterAdditionalConsumed env1 env2@ filters @env2@ down to the variables
 -- which were not already consumed in @env1@ but are in @env2@.
@@ -1372,7 +1405,7 @@ tycheck e u = case (e, u) of
     e2' <- tycheck e2 t2
     pure (E.Pair p e1' e2')
 
-  -- 
+  --
   (E.UnLet p v mty e body, bodyTy) -> do
     mty' <- maybe (pure Nothing) (\ty -> Just <$> kicheck ty K.TL) mty
     (e', ty') <- checkOrSynth e mty'
@@ -1406,40 +1439,19 @@ tycheck e u = case (e, u) of
             { casesPatterns = Map.singleton (unL c) branch,
               casesWildcard = Nothing
             }
-    fst <$> tysynthPatternExpression p e' cases pat (Just bodyTy)
+    fst <$> checkPatternExpr p e' cases pat (Just bodyTy)
 
   --
   (E.Case p e cases, branchTy) -> do
     (e', eTy) <- tysynth e
     pat <- extractMatchableType "Case expression scrutinee" (pos e) eTy
-    fst <$> tysynthPatternExpression p e' cases pat (Just branchTy)
+    fst <$> checkPatternExpr p e' cases pat (Just branchTy)
 
-    --
+  --
   (E.Cond p e eThen eElse, u) -> do
-    (e', eTy) <- tysynth e
-    requireBoolType e eTy
+    fst <$> checkIfExpr p e eThen eElse (Just u)
 
-    (_, (eThen', eElse')) <- runBranchT p do
-      -- initialize the branch result to type u so that all branches are checked against u
-      _ <- liftBranchT  (Error.CondThen p) (const $ pure (error "impossible: just init", u))
-      (,)
-        <$> liftBranchT (Error.CondThen (pos eThen)) (checkOrSynth eThen)
-        <*> liftBranchT (Error.CondElse (pos eElse)) (checkOrSynth eElse)
-
-    let branches =
-          Map.fromList
-            [ (conTrue, E.CaseBranch (pos eThen) [] eThen'),
-              (conFalse, E.CaseBranch (pos eElse) [] eElse')
-            ]
-    let eCase =
-          E.Exp . ValueCase p e' $
-            E.CaseMap
-              { casesPatterns = branches,
-                casesWildcard = Nothing
-              }
-    pure (eCase)
-
--- fallback
+  -- fallback
   (e, _) -> do
     (e', t) <- tysynth e
     requireSubtype e t u
@@ -1458,16 +1470,6 @@ requireSubtype e t1 t2 = do
   nf2 <- normalize t2
   when (not (Eq.Alpha nf1 <= Eq.Alpha nf2)) do
     addError (Error.typeMismatch e t1 nf1 t2 nf2)
-
-requireBoolType :: RnExp -> TcType -> TypeM ()
-requireBoolType e t =
-  requireEqual e t . T.Type $
-    TypeRef
-      { typeRefPos = defaultPos,
-        typeRefName = typeBool,
-        typeRefArgs = [],
-        typeRefKind = K.TU
-      }
 
 -- | Returns the normalform of the given type or throws an error at the given
 -- position.
