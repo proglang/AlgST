@@ -780,7 +780,7 @@ tysynth =
               { casesPatterns = Map.singleton (unL c) branch,
                 casesWildcard = Nothing
               }
-      tysynthPatternExpression p e' cases pat
+      tysynthPatternExpression p e' cases pat Nothing
 
     --
     E.Cond p e eThen eElse -> do
@@ -810,7 +810,7 @@ tysynth =
     E.Case p e cases -> do
       (e', eTy) <- tysynth e
       pat <- extractMatchableType "Case expression scrutinee" (pos e) eTy
-      tysynthPatternExpression p e' cases pat
+      tysynthPatternExpression p e' cases pat Nothing
 
     --
     E.Select p lcon@(_ :@ con) | con == conPair -> do
@@ -977,20 +977,20 @@ appTArrow = go id
         Nothing
 
 tysynthPatternExpression ::
-  Pos -> TcExp -> RnCaseMap -> MatchableType -> TypeM (TcExp, TcType)
-tysynthPatternExpression loc scrut cases pat = do
+  Pos -> TcExp -> RnCaseMap -> MatchableType -> Maybe TcType -> TypeM (TcExp, TcType)
+tysynthPatternExpression loc scrut cases pat mExpectedTy = do
   case pat of
     MatchSession pat s -> do
-      (cases', ty) <- tysynthSessionCase loc cases pat s
+      (cases', ty) <- tysynthSessionCase loc cases pat s mExpectedTy
       pure (E.Exp $ RecvCase loc scrut cases', ty)
     MatchValue pat -> do
-      (cases', ty) <- tysynthStandardCase loc cases pat
+      (cases', ty) <- tysynthStandardCase loc cases pat mExpectedTy
       pure (E.Exp $ ValueCase loc scrut cases', ty)
 
 tysynthStandardCase ::
-  Pos -> RnCaseMap -> PatternType -> TypeM (TcCaseMap [] Maybe, TcType)
-tysynthStandardCase loc cases patTy =
-  tysynthCaseExpr loc True cases patTy \con fields b -> etaTcM do
+  Pos -> RnCaseMap -> PatternType -> Maybe TcType -> TypeM (TcCaseMap [] Maybe, TcType)
+tysynthStandardCase loc cases patTy mExpectedTy =
+  tysynthCaseExpr loc True cases patTy mExpectedTy \con fields b -> etaTcM do
     -- Check that the number of binds matches the number of fields.
     let nGiven = length (E.branchBinds b)
         nExpected = length fields
@@ -1028,9 +1028,10 @@ tysynthSessionCase ::
   RnCaseMap ->
   PatternType ->
   TcType ->
+  Maybe TcType ->
   TypeM (TcCaseMap Identity (Const ()), TcType)
-tysynthSessionCase loc cases patTy s = do
-  (cmap, ty) <- tysynthCaseExpr loc False cases patTy \_con fields b -> etaTcM do
+tysynthSessionCase loc cases patTy s mExpectedTy = do
+  (cmap, ty) <- tysynthCaseExpr loc False cases patTy mExpectedTy \_con fields b -> etaTcM do
     -- Get the variable to bind and its type.
     let vTy = buildSessionType (pos b) T.In fields s
     v <- maybeError (Error.invalidSessionCaseBranch b) $ case E.branchBinds b of
@@ -1047,13 +1048,14 @@ tysynthCaseExpr ::
   Bool ->
   RnCaseMap ->
   PatternType ->
+  Maybe TcType ->
   ( ProgVar TcStage ->
     [TcType] ->
     E.CaseBranch [] Rn ->
     TypeM (f (Located (ProgVar TcStage), TcType))
   ) ->
   TypeM (TcCaseMap f Maybe, TcType)
-tysynthCaseExpr loc allowWild cmap patTy typedBinds = etaTcM do
+tysynthCaseExpr loc allowWild cmap patTy mExpectedTy typedBinds = etaTcM do
   allBranches <- patternBranches patTy
 
   -- Diagnose missing branches / superfluous wildcards.
@@ -1097,7 +1099,12 @@ tysynthCaseExpr loc allowWild cmap patTy typedBinds = etaTcM do
 
   -- Traverse over all written branches.
   (mty, checkedCases) <-
-    runBranchT loc $
+    runBranchT loc $ do
+      -- initialize branch result with expected type, if any
+      _ <- case mExpectedTy of
+             Nothing -> pure ()
+             Just expectedTy ->
+               liftBranchT  (Error.CondThen loc) (const $ pure (error "impossible: just init", expectedTy))
       E.CaseMap
         <$> Map.traverseWithKey go (E.casesPatterns cmap)
         <*> traverse goWild (E.casesWildcard cmap)
