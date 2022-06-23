@@ -78,21 +78,6 @@ typeMismatch expr tyActual tyActualNF tyExpected tyExpectedNF =
       ]
 {-# NOINLINE typeMismatch #-}
 
-expectedBool :: Pos -> TcType -> Diagnostic
-expectedBool p ty =
-  PosError
-    p
-    [ Error "Cannot match type of expression",
-      ErrLine,
-      Error "  ",
-      Error ty,
-      ErrLine,
-      Error "with expected type Bool.",
-      ErrLine,
-      Error "A suitable ‘Bool’ type must have exactly two nullary constructors named ‘True’ and ‘False’."
-    ]
-{-# NOINLINE expectedBool #-}
-
 -- It is unlikely that this error can be triggered. But I feel that it is
 -- better to have an error message at hand should it be needed than crashing
 -- the compiler.
