@@ -195,7 +195,7 @@ the set of imported symbols.
     the `single` function is made available under the name `singleton`.
 
     The second statement (note the leading `*`) applies the same renamings but
-    Additionally imports the remaining symbols under their given name.
+    additionally imports the remaining symbols under their given name.
 
     Type names have to be prefied with the `type` keyword.
 
