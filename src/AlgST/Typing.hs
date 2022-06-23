@@ -981,16 +981,16 @@ tysynthPatternExpression ::
 tysynthPatternExpression loc scrut cases pat = do
   case pat of
     MatchSession pat s -> do
-      (cases', ty) <- checkSessionCase loc cases pat s
+      (cases', ty) <- tysynthSessionCase loc cases pat s
       pure (E.Exp $ RecvCase loc scrut cases', ty)
     MatchValue pat -> do
-      (cases', ty) <- checkStandardCase loc cases pat
+      (cases', ty) <- tysynthStandardCase loc cases pat
       pure (E.Exp $ ValueCase loc scrut cases', ty)
 
-checkStandardCase ::
+tysynthStandardCase ::
   Pos -> RnCaseMap -> PatternType -> TypeM (TcCaseMap [] Maybe, TcType)
-checkStandardCase loc cases patTy =
-  checkCaseExpr loc True cases patTy \con fields b -> etaTcM do
+tysynthStandardCase loc cases patTy =
+  tysynthCaseExpr loc True cases patTy \con fields b -> etaTcM do
     -- Check that the number of binds matches the number of fields.
     let nGiven = length (E.branchBinds b)
         nExpected = length fields
@@ -1023,24 +1023,24 @@ buildDataConType p name decl mul items = do
 buildSessionType :: Pos -> T.Polarity -> [TcType] -> TcType -> TcType
 buildSessionType loc pol fields s = foldr (T.Session loc pol) s fields
 
-checkSessionCase ::
+tysynthSessionCase ::
   Pos ->
   RnCaseMap ->
   PatternType ->
   TcType ->
   TypeM (TcCaseMap Identity (Const ()), TcType)
-checkSessionCase loc cases patTy s = do
-  (cmap, ty) <- checkCaseExpr loc False cases patTy \_con fields b -> etaTcM do
+tysynthSessionCase loc cases patTy s = do
+  (cmap, ty) <- tysynthCaseExpr loc False cases patTy \_con fields b -> etaTcM do
     -- Get the variable to bind and its type.
     let vTy = buildSessionType (pos b) T.In fields s
     v <- maybeError (Error.invalidSessionCaseBranch b) $ case E.branchBinds b of
       [v] -> Just v
       _ -> Nothing
     pure $ Identity (v, vTy)
-  -- A potential wildcard is already diagnosed by 'checkCaseExpr'.
+  -- A potential wildcard is already diagnosed by 'tysynthCaseExpr'.
   pure (cmap {E.casesWildcard = Const ()}, ty)
 
-checkCaseExpr ::
+tysynthCaseExpr ::
   forall f.
   Traversable f =>
   Pos ->
@@ -1053,7 +1053,7 @@ checkCaseExpr ::
     TypeM (f (Located (ProgVar TcStage), TcType))
   ) ->
   TypeM (TcCaseMap f Maybe, TcType)
-checkCaseExpr loc allowWild cmap patTy typedBinds = etaTcM do
+tysynthCaseExpr loc allowWild cmap patTy typedBinds = etaTcM do
   allBranches <- patternBranches patTy
 
   -- Diagnose missing branches / superfluous wildcards.
