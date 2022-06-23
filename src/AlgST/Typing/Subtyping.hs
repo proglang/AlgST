@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module AlgST.Typing.Subtyping (Alpha(..)) where
+module AlgST.Typing.Subtyping where
 
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name

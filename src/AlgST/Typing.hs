@@ -81,7 +81,7 @@ import AlgST.Typing.Error qualified as Error
 import AlgST.Typing.Monad
 import AlgST.Typing.NormalForm
 import AlgST.Typing.Phase
-import AlgST.Typing.Subtyping qualified as Sub
+import AlgST.Typing.Subtyping ()
 import AlgST.Util
 import AlgST.Util.ErrorMessage
 import Control.Applicative
@@ -1360,7 +1360,7 @@ requireSubtype :: RnExp -> TcType -> TcType -> TypeM ()
 requireSubtype e t1 t2 = do
   nf1 <- normalize t1
   nf2 <- normalize t2
-  when (not (Sub.Alpha nf1 <= Sub.Alpha nf2)) do
+  when (not (Eq.Alpha nf1 <= Eq.Alpha nf2)) do
     addError (Error.typeMismatch e t1 nf1 t2 nf2)
 
 requireBoolType :: RnExp -> TcType -> TypeM ()
