@@ -3,6 +3,10 @@ FROM haskell:9.0.2
 WORKDIR /opt/algst
 
 # Copy only files necessary to derive dependencies.
+#
+# monad-validate has to be copied separately because we want to copy it as a
+# directory instead of spilling all of the contained files into /opt/algst/.
+COPY monad-validate /opt/algst/monad-validate
 COPY package.yaml stack.yaml stack.yaml.lock /opt/algst/
 
 # We could request to build the dependecies required for the executable only
