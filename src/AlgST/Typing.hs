@@ -1367,12 +1367,8 @@ tycheck e u = case (e, u) of
 
   -- 
   (E.UnLet p v mty e body, bodyTy) -> do
-    (e', ty') <- case mty of
-                   Nothing -> tysynth e
-                   Just ty -> do
-                     ty' <- kicheck ty K.TL
-                     e'  <- tycheck e ty'
-                     pure (e', ty')
+    mty' <- maybe (pure Nothing) (\ty -> Just <$> kicheck ty K.TL) mty
+    (e', ty') <- checkOrSynth e mty'
     withProgVarBind Nothing p v ty' do
       body' <- tycheck body bodyTy
       let branch =
@@ -1388,7 +1384,32 @@ tycheck e u = case (e, u) of
               }
       pure (E.Exp $ ValueCase p e' caseMap)
 
-  -- fallback
+  --
+  (E.Cond p e eThen eElse, u) -> do
+    (e', eTy) <- tysynth e
+    requireBoolType e eTy
+
+    (_, (eThen', eElse')) <- runBranchT p do
+      -- initialize the branch result to type u so that all branches are checked against u
+      _ <- liftBranchT  (Error.CondThen p) (const $ pure (error "impossible: just init", u))
+      (,)
+        <$> liftBranchT (Error.CondThen (pos eThen)) (checkOrSynth eThen)
+        <*> liftBranchT (Error.CondElse (pos eElse)) (checkOrSynth eElse)
+
+    let branches =
+          Map.fromList
+            [ (conTrue, E.CaseBranch (pos eThen) [] eThen'),
+              (conFalse, E.CaseBranch (pos eElse) [] eElse')
+            ]
+    let eCase =
+          E.Exp . ValueCase p e' $
+            E.CaseMap
+              { casesPatterns = branches,
+                casesWildcard = Nothing
+              }
+    pure (eCase)
+
+-- fallback
   (e, _) -> do
     (e', t) <- tysynth e
     requireSubtype e t u
