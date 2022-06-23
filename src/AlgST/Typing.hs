@@ -1392,6 +1392,29 @@ tycheck e u = case (e, u) of
       pure (E.Exp $ ValueCase p e' caseMap)
 
   --
+  (E.PatLet p c vs e body, bodyTy) -> do
+    (e', eTy) <- tysynth e
+    pat <- extractMatchableType "Pattern let expression" (pos e) eTy
+    let branch =
+          E.CaseBranch
+            { branchPos = pos c,
+              branchExp = body,
+              branchBinds = vs
+            }
+    let cases =
+          E.CaseMap
+            { casesPatterns = Map.singleton (unL c) branch,
+              casesWildcard = Nothing
+            }
+    fst <$> tysynthPatternExpression p e' cases pat (Just bodyTy)
+
+  --
+  (E.Case p e cases, branchTy) -> do
+    (e', eTy) <- tysynth e
+    pat <- extractMatchableType "Case expression scrutinee" (pos e) eTy
+    fst <$> tysynthPatternExpression p e' cases pat (Just branchTy)
+
+    --
   (E.Cond p e eThen eElse, u) -> do
     (e', eTy) <- tysynth e
     requireBoolType e eTy
