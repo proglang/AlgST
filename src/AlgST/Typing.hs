@@ -780,7 +780,7 @@ tysynth =
               { casesPatterns = Map.singleton (unL c) branch,
                 casesWildcard = Nothing
               }
-      checkPatternExpression p e' cases pat
+      tysynthPatternExpression p e' cases pat
 
     --
     E.Cond p e eThen eElse -> do
@@ -810,7 +810,7 @@ tysynth =
     E.Case p e cases -> do
       (e', eTy) <- tysynth e
       pat <- extractMatchableType "Case expression scrutinee" (pos e) eTy
-      checkPatternExpression p e' cases pat
+      tysynthPatternExpression p e' cases pat
 
     --
     E.Select p lcon@(_ :@ con) | con == conPair -> do
@@ -976,9 +976,9 @@ appTArrow = go id
       _ ->
         Nothing
 
-checkPatternExpression ::
+tysynthPatternExpression ::
   Pos -> TcExp -> RnCaseMap -> MatchableType -> TypeM (TcExp, TcType)
-checkPatternExpression loc scrut cases pat = do
+tysynthPatternExpression loc scrut cases pat = do
   case pat of
     MatchSession pat s -> do
       (cases', ty) <- checkSessionCase loc cases pat s
