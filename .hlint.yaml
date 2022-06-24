@@ -62,11 +62,15 @@
 # Ignore some builtin hints
 # - ignore: {name: Use let}
 # - ignore: {name: Use const, within: SpecialModule} # Only within certain modules
-- ignore: {name: "Use ?~"}
+- ignore: {name: "Avoid lambda using `infix`"}
 - ignore: {name: "Use &&"}
 - ignore: {name: "Use <$>"}
+- ignore: {name: "Use ?~"}
 - ignore: {name: "Use unless"}
-- ignore: {name: "Avoid lambda using `infix`"}
+
+# `T <= U` checks if `T` is a subtype `U`. Changing `not (T <= U)` might be
+# possible but is very idiomatic in this context.
+- ignore: {name: "Use >", within: AlgST.Typing}
 
 # Define some custom infix operators
 # - fixity: infixr 3 ~^#^~

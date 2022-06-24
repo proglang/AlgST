@@ -20,7 +20,7 @@ module AlgST.Parse.Unparser
     unparseApp,
     unparseCase,
     showCaseMap,
-    showBindType,
+    showForall,
   )
 where
 
@@ -48,18 +48,27 @@ showArrow :: Multiplicity -> String
 showArrow Lin = " -o "
 showArrow Un = " -> "
 
-showSortedVar :: Show a => Name stage scope -> a -> String
-showSortedVar x t = "(" ++ pprName x ++ ":" ++ show t ++ ")"
+type Brackets = (Char, Char)
 
-showKind :: (Show a, Show b) => Name stage scope -> a -> String -> b -> String
-showKind var sort arrow term = showSortedVar var sort ++ arrow ++ show term
+bracketsRound, bracketsSquare :: Brackets
+bracketsRound = ('(', ')')
+bracketsSquare = ('[', ']')
 
-showBindType :: Unparse (T.XType x) => K.Bind (XStage x) (T.Type x) -> String
-showBindType (K.Bind _ a k t) = showKind a k ". " t -- ∀ a:k . t
+showSortedVar :: Show a => Brackets -> Name stage scope -> a -> String
+showSortedVar (l, r) x t = [l] ++ pprName x ++ ":" ++ show t ++ [r]
+
+showKind ::
+  (Show a, Show b) =>
+  (Brackets -> Name stage scope -> a -> String -> b -> String)
+showKind brackets var sort arrow term =
+  showSortedVar brackets var sort ++ arrow ++ show term
+
+showForall :: Unparse (T.XType x) => K.Bind (XStage x) (T.Type x) -> String
+showForall (K.Bind _ a k t) = "∀" ++ showKind bracketsRound a k ". " t
 
 instance (Unparse (E.XExp x), Unparse (T.XType x)) => Show (E.Bind x) where
   show (E.Bind _ m x Nothing e) = pprName x ++ showArrow m ++ show e
-  show (E.Bind _ m x (Just t) e) = showKind x t (showArrow m) e
+  show (E.Bind _ m x (Just t) e) = showKind bracketsRound x t (showArrow m) e
 
 data Precedence
   = PMin
@@ -147,7 +156,7 @@ instance Unparse (T.XType x) => Unparse (T.Type x) where
     where
       l = bracket (unparse t) Op.L minRator
       r = bracket (unparse u) Op.R minRator
-  unparse (T.Forall _ b) = (arrowRator, "∀" ++ showBindType b) -- ++ "=>" ++ s)
+  unparse (T.Forall _ b) = (arrowRator, showForall b) -- ++ "=>" ++ s)
   unparse (T.Negate _ t) = (dualofRator, "-" ++ s)
     where
       s = bracket (unparse t) Op.R dualofRator
@@ -187,8 +196,10 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Exp x) where
   -- Datatype elim
   unparse (E.Case _ e m) = unparseCase e m
   -- Type Abstraction intro and elim
-  unparse (E.TypeApp _ x t) = (appRator, show x ++ " [" ++ show t ++ "]")
-  unparse (E.TypeAbs _ (K.Bind _ a k e)) = (arrowRator, "λ[" ++ showSortedVar a k ++ "] -> " ++ show e)
+  unparse (E.TypeApp _ x t) =
+    (appRator, show x ++ " [" ++ show t ++ "]")
+  unparse (E.TypeAbs _ (K.Bind _ a k e)) =
+    (arrowRator, "λ" ++ showKind bracketsSquare a k "->" e)
   -- Boolean elim
   unparse (E.Cond _ e1 e2 e3) =
     (inRator, "if " ++ s1 ++ " then " ++ s2 ++ " else " ++ s3)

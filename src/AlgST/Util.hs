@@ -26,7 +26,7 @@ joinAnd :: NonEmpty String -> String
 joinAnd xs = joinConnector "and" xs ""
 
 whenJust :: Applicative f => Maybe a -> (a -> f ()) -> f ()
-whenJust = flip $ maybe (pure ())
+whenJust = for_
 
 -- Like @take n xs@ but adds an extra item in case some elements were
 -- discarded.
