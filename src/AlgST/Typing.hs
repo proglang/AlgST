@@ -1295,7 +1295,7 @@ tycheckBind absLoc bind@(E.Bind p m v mTy e) t@(T.Arrow p' m' u1 u2) = do
     ty' <- kicheck ty K.TL
     requireSubtype (E.Abs p bind) (T.Arrow p m ty' u2) t
   e' <- withProgVarBind (unrestrictedLoc absLoc m') p' v u1 (tycheck e u2)
-  pure (E.Bind p m v (Just u2) e')
+  pure (E.Bind p m v (Just u1) e')
 tycheckBind _ bind@(E.Bind p _ _ _ _) t = do
   addFatalError $ Error.noArrowType (E.Abs p bind) t
 
