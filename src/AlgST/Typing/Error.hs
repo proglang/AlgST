@@ -458,11 +458,12 @@ synthUntypedLambda :: Pos -> Pos -> ProgVar TcStage -> Diagnostic
 synthUntypedLambda lamLoc varLoc var =
   PosError
     varLoc
-    [ Error "Parameter",
+    [ Error "Cannot deduce type of parameter",
       Error var,
       Error "in lambda abstraction at",
       Error lamLoc,
-      Error "must have a type annotation."
+      ErrLine,
+      Error "Please provide a type annotation."
     ]
 {-# NOINLINE synthUntypedLambda #-}
 

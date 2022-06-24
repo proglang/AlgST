@@ -1,3 +1,4 @@
 
 1:10: error:
-	 Parameter y in lambda abstraction at 1:10 must have a type annotation.
+	 Cannot deduce type of parameter y in lambda abstraction at 1:9
+	 Please provide a type annotation.

@@ -386,21 +386,21 @@ LamExp :: { PExp }
       let (arrPos, arrMul) = $3
       when (arrMul == Lin && not anyTermAbs) do
         addErrors [errorNoTermLinLambda (pos $1) arrPos]
-      pure $ appEndo (build arrMul) $4
+      pure $ appEndo (build (pos $1) arrMul) $4
     }
 
-Abs :: { (Multiplicity -> Endo PExp, Any) }
+Abs :: { (Pos -> Multiplicity -> Endo PExp, Any) }
   : bindings1(Abs1) {% do
       binds <- $1 $ \case
             p :@ Left (v, _)  | not (isWild v) -> Just (p @- Left v)
             p :@ Right (v, _) | not (isWild v) -> Just (p @- Right v)
             _ -> Nothing
-      let termAbs loc (v, t) =
-            ( \m -> Endo $ E.Abs @Parse loc . E.Bind loc m v t
+      let termAbs argLoc (v, t) =
+            ( \lamLoc m -> Endo $ E.Abs @Parse lamLoc . E.Bind argLoc m v t
             , Any True
             )
-      let typeAbs loc (v, k) =
-            ( \_ -> Endo $ E.TypeAbs @Parse loc . K.Bind loc v k
+      let typeAbs argLoc (v, k) =
+            ( \lamLoc _ -> Endo $ E.TypeAbs @Parse lamLoc . K.Bind argLoc v k
             , Any False
             )
       let build loc abs =
