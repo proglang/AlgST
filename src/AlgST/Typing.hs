@@ -724,8 +724,7 @@ tysynth =
       -- be well behaved.
       ty' <- kicheck ty K.TU
       withProgVarBind Nothing p v ty' do
-        (r', rTy) <- tysynthRecLam r
-        requireEqual (E.RecAbs r) ty' rTy
+        r' <- checkRecLam r ty'
         pure (E.Rec p v ty' r', ty')
 
     -- 'let' __without__ a type signature.
@@ -1311,15 +1310,30 @@ tysynthTyBind synth p (K.Bind p' v k a) = do
   let allT = T.Forall p (K.Bind p' v k t)
   pure (K.Bind p' v k a', allT)
 
-tysynthRecLam :: E.RecLam Rn -> TypeM (E.RecLam Tc, TcType)
-tysynthRecLam =
-  etaTcM . \case
-    E.RecTermAbs p b -> do
-      (b', t) <- tysynthBind p b
-      pure (E.RecTermAbs p b', t)
-    E.RecTypeAbs p b -> do
-      (b', t) <- tysynthTyBind tysynthRecLam p b
-      pure (E.RecTypeAbs p b', t)
+tycheckTyBind ::
+  HasKiEnv env =>
+  (a -> TcType -> TcM env st b) ->
+  RnExp ->
+  K.Bind TcStage a ->
+  TcType ->
+  TcM env st (K.Bind TcStage b)
+tycheckTyBind check bindExpr b@(K.Bind p v k a) t =
+  case appTArrow t of
+    Just (K.Bind p' v' k' t') | k == k' -> do
+      let substMap = Map.singleton v' $ T.Var (p' @- k') v
+      let tSubst = substituteType @Tc substMap t'
+      local (bindTyVar v k) do
+        K.Bind p v k <$> check a tSubst
+    _ -> do
+      addFatalError $ Error.typeMismatchBind b t bindExpr
+
+checkRecLam :: E.RecLam Rn -> TcType -> TypeM (E.RecLam Tc)
+checkRecLam = go
+  where
+    go (E.RecTermAbs p b) =
+      fmap (E.RecTermAbs p) . tycheckBind p b
+    go abs@(E.RecTypeAbs p b) =
+      fmap (E.RecTypeAbs p) . tycheckTyBind go (E.RecAbs abs) b
 
 unrestrictedLoc :: Position a => a -> Multiplicity -> Maybe Pos
 unrestrictedLoc p Un = Just $! pos p
@@ -1457,14 +1471,7 @@ tycheck e u = case (e, u) of
     requireSubtype e t u
     pure e'
 
-requireEqual :: RnExp -> TcType -> TcType -> TypeM ()
-requireEqual e t1 t2 = do
-  nf1 <- normalize t1
-  nf2 <- normalize t2
-  when (Eq.Alpha nf1 /= Eq.Alpha nf2) do
-    addError (Error.typeMismatch e t1 nf1 t2 nf2)
-
-requireSubtype :: RnExp -> TcType -> TcType -> TypeM ()
+requireSubtype :: MonadValidate Errors m => RnExp -> TcType -> TcType -> m ()
 requireSubtype e t1 t2 = do
   nf1 <- normalize t1
   nf2 <- normalize t2

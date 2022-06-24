@@ -78,6 +78,17 @@ typeMismatch expr tyActual tyActualNF tyExpected tyExpectedNF =
       ]
 {-# NOINLINE typeMismatch #-}
 
+typeMismatchBind :: K.Bind stage a -> TcType -> RnExp -> Diagnostic
+typeMismatchBind (K.Bind p v _ _) t e =
+  PosError p $
+    errUnline
+      [ [Error "Binding of type variable", Error v, Error "in expression"],
+        [indent, Error e],
+        [Error "does not align with type"],
+        showType t Nothing
+      ]
+{-# NOINLINE typeMismatchBind #-}
+
 -- It is unlikely that this error can be triggered. But I feel that it is
 -- better to have an error message at hand should it be needed than crashing
 -- the compiler.
