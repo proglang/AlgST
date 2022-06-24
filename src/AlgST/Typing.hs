@@ -1288,15 +1288,27 @@ tysynthBind absLoc (E.Bind p m v (Just ty) e) = do
   pure (E.Bind p m v (Just ty') e', funTy)
 
 tycheckBind :: Pos -> E.Bind Rn -> TcType -> TypeM (E.Bind Tc)
-tycheckBind absLoc bind@(E.Bind p m v mTy e) t@(T.Arrow p' m' u1 u2) = do
-  -- when (not (m <= m')) do error: multiplicity mismatch
-  whenJust mTy \ty -> do
-    ty' <- kicheck ty K.TL
-    requireSubtype (E.Abs p bind) (T.Arrow p m ty' u2) t
-  e' <- withProgVarBind (unrestrictedLoc absLoc m') p' v u1 (tycheck e u2)
-  pure (E.Bind p m v (Just u1) e')
-tycheckBind _ bind@(E.Bind p _ _ _ _) t = do
-  addFatalError $ Error.noArrowType (E.Abs p bind) t
+tycheckBind absLoc bind@(E.Bind p m v mVarTy e) bindTy =
+  case appArrow bindTy of
+    Just (t, u) -> do
+      -- Check the type annotation's kind.
+      mVarTy' <- traverse (`kicheck` K.TL) mVarTy
+      -- Give the bound variable the type from the annoation if available and
+      -- fall back to the arrows domain.
+      let varTy = t `fromMaybe` mVarTy'
+      -- Check that the arrow type constructed from `varTy` and the context
+      -- type's codomain is a subtype of the context type.
+      --
+      -- This checkes that the linearities of the arrows are well behaved
+      -- relative to each other.
+      requireSubtype absExpr (T.Arrow p m varTy u) bindTy
+      -- Check the binding's body.
+      e' <- withProgVarBind (unrestrictedLoc absLoc m) p v varTy (tycheck e u)
+      pure $ E.Bind p m v (Just varTy) e'
+    Nothing -> do
+      addFatalError $ Error.noArrowType absExpr bindTy
+  where
+    absExpr = E.Abs p bind
 
 -- | Synthesizes the 'T.Forall' type of a @"AlgST.Syntax.Kind".'K.Bind' a@. The
 -- type of @a@ is synthesized with the provided function.
@@ -1401,26 +1413,31 @@ withProgVarBind ::
 withProgVarBind mp varLoc pv ty = withProgVarBinds mp [(varLoc :@ pv, ty)]
 
 tycheck :: RnExp -> TcType -> TypeM TcExp
-tycheck e u = case (e, u) of
+tycheck e u = case e of
   --
-  (E.Abs p bnd, T.Arrow _ _ _ _) -> do
+  E.Abs p bnd -> do
     bnd' <- tycheckBind p bnd u
     pure (E.Abs p bnd')
 
   --
-  (E.App p e1 e2, _) -> do
+  E.TypeAbs p bnd -> do
+    bnd' <- tycheckTyBind tycheck e bnd u
+    pure (E.TypeAbs p bnd')
+
+  --
+  E.App p e1 e2 -> do
     (e2', t2) <- tysynth e2
     e1' <- tycheck e1 (T.Arrow p Lin t2 u)
     pure (E.App p e1' e2')
 
   --
-  (E.Pair p e1 e2, T.Pair _ t1 t2) -> do
+  E.Pair p e1 e2 | T.Pair _ t1 t2 <- u -> do
     e1' <- tycheck e1 t1
     e2' <- tycheck e2 t2
     pure (E.Pair p e1' e2')
 
   --
-  (E.UnLet p v mty e body, bodyTy) -> do
+  E.UnLet p v mty e body | bodyTy <- u -> do
     mty' <- maybe (pure Nothing) (\ty -> Just <$> kicheck ty K.TL) mty
     (e', ty') <- checkOrSynth e mty'
     withProgVarBind Nothing p v ty' do
@@ -1439,7 +1456,7 @@ tycheck e u = case (e, u) of
       pure (E.Exp $ ValueCase p e' caseMap)
 
   --
-  (E.PatLet p c vs e body, bodyTy) -> do
+  E.PatLet p c vs e body | bodyTy <- u -> do
     (e', eTy) <- tysynth e
     pat <- extractMatchableType "Pattern let expression" (pos e) eTy
     let branch =
@@ -1456,17 +1473,17 @@ tycheck e u = case (e, u) of
     fst <$> checkPatternExpr p e' cases pat (Just bodyTy)
 
   --
-  (E.Case p e cases, branchTy) -> do
+  E.Case p e cases | branchTy <- u -> do
     (e', eTy) <- tysynth e
     pat <- extractMatchableType "Case expression scrutinee" (pos e) eTy
     fst <$> checkPatternExpr p e' cases pat (Just branchTy)
 
   --
-  (E.Cond p e eThen eElse, u) -> do
+  E.Cond p e eThen eElse -> do
     fst <$> checkIfExpr p e eThen eElse (Just u)
 
   -- fallback
-  (e, _) -> do
+  _ -> do
     (e', t) <- tysynth e
     requireSubtype e t u
     pure e'

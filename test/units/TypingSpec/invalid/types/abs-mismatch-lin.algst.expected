@@ -1,0 +1,8 @@
+
+1:23: error:
+	 Expression
+	     λi -o i
+	 has type
+	     Int -o Int
+	 but context demands a subtype of
+	     Int -> Int

@@ -1,0 +1,8 @@
+
+1:23: error:
+	 Expression
+	     λ(i:Int) -> i
+	 has type
+	     Int -> Int
+	 but context demands a subtype of
+	     () -> Int

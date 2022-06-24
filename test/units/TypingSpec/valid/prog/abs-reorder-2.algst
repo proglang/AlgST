@@ -1,0 +1,2 @@
+const_int : Int -> ∀(a:TU). a -> Int
+const_int = \[_:TU] i _ -> i
