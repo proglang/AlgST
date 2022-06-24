@@ -33,13 +33,13 @@ tool.
 * **Running:** To run `algst` prefix the invocations given below with
 
     ```sh
-    ; docker run --rm -it jaspa/algst  # command follows here...
+    ; docker run --rm -it proglang/algst  # command follows here...
     ```
 
     To verify that running `algst` works execute
 
     ```sh
-    ; docker run --rm -it jaspa/algst algst --help
+    ; docker run --rm -it proglang/algst algst --help
     ```
 
 
