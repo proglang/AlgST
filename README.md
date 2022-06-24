@@ -5,13 +5,13 @@ AlgST is an implementation of Algebraic Session Types by Andreia Mordido et al. 
 
 ## Building
 
-Building is supported either in a Docker container or using the [stack]() build
+Building is supported either in a Docker container or using the [stack] build
 tool.
 
 
 ### Docker Container
 
-* **Prerequisits:** Docker, e.g. via [Docker Desktop]()
+* **Prerequisits:** Docker, e.g. via [Docker Desktop][docker-desktop]
 
 * **Building:**
 
@@ -45,7 +45,7 @@ tool.
 
 ### Stack
 
-* **Prerequisits:** [stack](), installation instrunctions are provided on the
+* **Prerequisits:** [stack], installation instructions are provided on the
   linked page.
 
 * **Building:**
@@ -79,7 +79,7 @@ tool.
     ```
 
 [stack]: https://docs.haskellstack.org/en/stable/README/
-
+[docker-desktop]: https://www.docker.com/products/docker-desktop/
 
 ## Usage
 
