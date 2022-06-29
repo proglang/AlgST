@@ -12,13 +12,8 @@ COPY package.yaml stack.yaml stack.yaml.lock /opt/algst/
 RUN stack build --test --no-run-tests --dependencies-only
 
 # Copy all the other files and build `algst`.
-#
-# Most of the time building only the executable will suffice. However,
-# executing a `stack test` afterwards will rebuild the library. Therefore we
-# just build everything. The increase in build time is small compared to
-# building everything when running the tests.
 COPY . /opt/algst/
-RUN stack build --test --no-run-tests --copy-bins
+RUN stack build --test --copy-bins
 
 # Haskell 9.0.2 uses debian:buster.
 FROM debian:buster-slim
