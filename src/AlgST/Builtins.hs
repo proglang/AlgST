@@ -42,9 +42,13 @@ builtinsModuleCtxt :: Tc.CheckContext
               --
               "(<&>) : ∀(a:TU). ∀(b:TL). ∀(c:SL). (a, c) -> (a -> b) -o (b, c)",
               "(<&>) x f = let (a, c) = x in (f a, c)",
-              -- PT: below type is shady; the type checker does not understand one-branch cases
-              "(<*>) : ∀(a:TL). ∀(b:TL). ∀(c1:SL). ∀(c2:SL). ∀(c3:SL). (c1 -o (a -> b, c2)) -> (c2 -> (a, c3)) -o (c1 -o (b, c3))",
-              "(<*>) lhs rhs c1 = let (f, c2) = lhs c1 in let (x, c3) = rhs c2 in (f x, c3)",
+              --
+              "(<*>) : ∀(a:TL). ∀(b:TL). ∀(c1:SL). ∀(c2:SL). ∀(c3:SL).",
+              "  (c1 -o (a -o b, c2)) -> (c2 -o (a, c3)) -o (c1 -o (b, c3))",
+              "(<*>) lhs rhs c1 =",
+              "  let (f, c2) = lhs c1 in",
+              "  let (x, c3) = rhs c2 in",
+              "  (f x, c3)",
               --
               "not : Bool -> Bool",
               "not b = if b then False else True",
