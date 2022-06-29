@@ -13,6 +13,7 @@ module AlgST.Util.Error
   )
 where
 
+import AlgST.Syntax.Pos
 import AlgST.Util
 import AlgST.Util.ErrorMessage
 import AlgST.Util.Output
@@ -22,7 +23,6 @@ import Data.Function
 import Data.List qualified as List
 import Data.Maybe
 import Data.Monoid (Endo (..))
-import Syntax.Base
 import Prelude hiding (truncate)
 
 -- | Renders a single error as 'Plain'. Multiple errors are rendered
@@ -80,12 +80,12 @@ styleHeader mode kind f p =
     start
       | null f = showChar '\n'
       | otherwise = bold $ showChar '\n' . showString f . showChar ':'
-    location
-      | p == defaultPos = id
-      | otherwise = bold $ shows p . showChar ':'
-    endSpace
-      | null f && p == defaultPos = id
-      | otherwise = showChar ' '
+    location = case p of
+      ZeroPos -> id
+      _ -> bold $ shows p . showChar ':'
+    endSpace = case p of
+      ZeroPos | null f -> id
+      _ -> showChar ' '
     diagKind =
       styledMessagePart mode kind . bold (showChar ':') . linebreak
     bold =
@@ -95,7 +95,7 @@ linebreak :: ShowS
 linebreak = showString "\n\t"
 
 -- | Internal errors
-internalError :: (HasCallStack, Show a, Position a) => String -> a -> b
+internalError :: (HasCallStack, Show a, HasPos a) => String -> a -> b
 internalError fun syntax =
   error $
     show (pos syntax)

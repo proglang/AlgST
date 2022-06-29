@@ -25,11 +25,10 @@ import Data.List.NonEmpty (NonEmpty, nonEmpty)
 import Data.List.NonEmpty qualified as NE
 import Data.Singletons
 import Data.Void
-import Syntax.Base
 import Prelude hiding (truncate)
 
 unexpectedKind ::
-  (T.ForallX Position x, Unparse (T.XType x)) =>
+  (T.ForallX HasPos x, Unparse (T.XType x)) =>
   T.Type x ->
   K.Kind ->
   [K.Kind] ->
@@ -307,10 +306,10 @@ emptyCaseExpr loc = PosError loc [Error "Empty case expression."]
 
 data PatternBranch = PatternBranch Pos (ProgVar TcStage)
 
-instance Position PatternBranch where
+instance HasPos PatternBranch where
   pos (PatternBranch p _) = p
 
-class Position a => BranchSpec a where
+class HasPos a => BranchSpec a where
   displayBranchError :: a -> [ErrorMessage]
 
 instance BranchSpec Void where
@@ -322,7 +321,7 @@ instance BranchSpec PatternBranch where
 
 newtype WildcardBranch = WildcardBranch Pos
 
-instance Position WildcardBranch where
+instance HasPos WildcardBranch where
   pos (WildcardBranch p) = p
   {-# INLINE pos #-}
 
@@ -332,7 +331,7 @@ instance BranchSpec WildcardBranch where
 
 data CondBranch = CondThen Pos | CondElse Pos
 
-instance Position CondBranch where
+instance HasPos CondBranch where
   pos = \case
     CondThen p -> p
     CondElse p -> p

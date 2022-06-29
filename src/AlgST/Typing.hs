@@ -111,7 +111,6 @@ import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2
 import Lens.Family2.State.Strict
 import Lens.Family2.Stock (at')
-import Syntax.Base
 
 -- | Translates the typechecker specific error set representation into a simple
 -- list.
@@ -444,10 +443,10 @@ checkAlignedBinds fullTy allVs e = go fullTy fullTy allVs
     go _ t [] = tycheck e t
     go _ (T.Arrow k mul t u) (p :@ Right pv : vs) = do
       withProgVarBind (unrestrictedLoc k mul) p pv t do
-        E.Abs defaultPos . E.Bind defaultPos mul pv (Just t) <$> go u u vs
+        E.Abs ZeroPos . E.Bind ZeroPos mul pv (Just t) <$> go u u vs
     go _ t0@(T.Forall _ (K.Bind _ sigVar k t)) vs0@(p :@ v : vs) = do
       let subBind tv = substituteType @Tc (Map.singleton sigVar (T.Var (p @- k) tv))
-      let wrapAbs tv = E.TypeAbs @Tc defaultPos . K.Bind p tv k
+      let wrapAbs tv = E.TypeAbs @Tc ZeroPos . K.Bind p tv k
       case v of
         Left tv -> do
           local (bindTyVar tv k) do
@@ -798,7 +797,7 @@ tysynth =
       let tyX = T.Var @Tc (p @- kiX)
           kiX = K.TL
       let params = [(p :@ v1, kiX), (p :@ v2, kiX)]
-          pairTy = T.Pair defaultPos (tyX v1) (tyX v2)
+          pairTy = T.Pair ZeroPos (tyX v1) (tyX v2)
       ty <- buildSelectType p params pairTy [tyX v1, tyX v2]
       pure (E.Select p lcon, ty)
 
@@ -809,7 +808,7 @@ tysynth =
             parentDecl <- MaybeT $ asks $ tcCheckedTypes >>> Map.lookup (conParent conDecl)
             pure (conDecl, parentDecl)
       (conDecl, parentDecl) <- maybeError (uncurryL Error.undeclaredCon lcon) =<< findConDecl
-      (params, ref) <- instantiateDeclRef defaultPos (conParent conDecl) parentDecl
+      (params, ref) <- instantiateDeclRef ZeroPos (conParent conDecl) parentDecl
       let sub = applySubstitutions (typeRefSubstitutions parentDecl ref)
       ty <- buildSelectType p params (T.Type ref) (sub <$> conItems conDecl)
       pure (E.Select p lcon, ty)
@@ -838,9 +837,9 @@ buildSelectType p params t us = do
   let tyS = T.Var @Tc (p @- kiS) varS
       kiS = K.SL
   let foralls = buildForallType params . buildForallType [(p :@ varS, kiS)]
-  let arrLhs = buildSessionType defaultPos T.Out [t]
-      arrRhs = buildSessionType defaultPos T.Out us
-  let ty = foralls $ T.Arrow p Un (arrLhs tyS) (arrRhs tyS)
+  let arrLhs = buildSessionType ZeroPos T.Out [t]
+      arrRhs = buildSessionType ZeroPos T.Out us
+  let ty = foralls $ T.Arrow p K.Un (arrLhs tyS) (arrRhs tyS)
   pure ty
 
 data PatternType
@@ -959,7 +958,7 @@ checkIfExpr :: Pos -> RnExp -> RnExp -> RnExp -> Maybe TcType -> TypeM (TcExp, T
 checkIfExpr loc eCond eThen eElse mExpectedTy = do
   let boolRef =
         TypeRef
-          { typeRefPos = defaultPos,
+          { typeRefPos = ZeroPos,
             typeRefName = typeBool,
             typeRefArgs = [],
             typeRefKind = K.TU
@@ -1013,19 +1012,19 @@ buildForallType :: Params TcStage -> TcType -> TcType
 buildForallType = foldMap (Endo . mkForall) >>> appEndo
   where
     mkForall :: (Located (TypeVar TcStage), K.Kind) -> TcType -> TcType
-    mkForall (p :@ tv, k) = T.Forall defaultPos . K.Bind p tv k
+    mkForall (p :@ tv, k) = T.Forall ZeroPos . K.Bind p tv k
 
 buildDataConType ::
   Pos ->
   TypeVar TcStage ->
   TypeDecl Tc ->
-  Multiplicity ->
+  K.Multiplicity ->
   [TcType] ->
   TcM env st TcType
 buildDataConType p name decl mul items = do
   (params, ref) <- instantiateDeclRef p name decl
   let subs = typeRefSubstitutions decl ref
-  let conArrow = foldr (T.Arrow defaultPos mul) (T.Type ref) (applySubstitutions subs <$> items)
+  let conArrow = foldr (T.Arrow ZeroPos mul) (T.Type ref) (applySubstitutions subs <$> items)
   pure $ buildForallType params conArrow
 
 buildSessionType :: Pos -> T.Polarity -> [TcType] -> TcType -> TcType
@@ -1347,9 +1346,9 @@ checkRecLam = go
     go abs@(E.RecTypeAbs p b) =
       fmap (E.RecTypeAbs p) . tycheckTyBind go (E.RecAbs abs) b
 
-unrestrictedLoc :: Position a => a -> Multiplicity -> Maybe Pos
-unrestrictedLoc p Un = Just $! pos p
-unrestrictedLoc _ Lin = Nothing
+unrestrictedLoc :: HasPos a => a -> K.Multiplicity -> Maybe Pos
+unrestrictedLoc p K.Un = Just $! pos p
+unrestrictedLoc _ K.Lin = Nothing
 
 freshLocal :: String -> TcM env st (TcName scope)
 freshLocal = liftFresh . freshResolved . Name (ModuleName "") . Unqualified
@@ -1368,10 +1367,10 @@ withProgVarBinds !mUnArrLoc vtys action = etaTcM do
   let mkVar (p :@ v, ty) = etaTcM do
         let ki = typeKind ty
         usage <- case K.multiplicity ki of
-          Just Lin
+          Just K.Lin
             | isWild v -> UnUsage <$ addError (Error.linearWildcard p ty)
             | otherwise -> pure LinUnunsed
-          Just Un -> pure UnUsage
+          Just K.Un -> pure UnUsage
           Nothing -> UnUsage <$ addError (Error.unexpectedKind ty ki [K.TL])
         let var =
               Var
@@ -1427,7 +1426,7 @@ tycheck e u = case e of
   --
   E.App p e1 e2 -> do
     (e2', t2) <- tysynth e2
-    e1' <- tycheck e1 (T.Arrow p Lin t2 u)
+    e1' <- tycheck e1 (T.Arrow p K.Lin t2 u)
     pure (E.App p e1' e2')
 
   --

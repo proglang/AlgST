@@ -9,12 +9,17 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module AlgST.Rename.Monad where
+module AlgST.Rename.Monad
+  ( module AlgST.Rename.Monad,
+    module AlgST.Rename.Fresh,
+  )
+where
 
 import AlgST.Rename.Error qualified as Error
 import AlgST.Rename.Fresh
 import AlgST.Rename.Modules
 import AlgST.Syntax.Name
+import AlgST.Syntax.Pos
 import AlgST.Util.ErrorMessage
 import AlgST.Util.Lenses
 import Control.Monad.Reader
@@ -25,7 +30,6 @@ import Data.Semigroup
 import GHC.Generics (Generic)
 import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2
-import Syntax.Base
 
 -- | A partial resolve keeps track of a set of identifiers imported under the
 -- same name.

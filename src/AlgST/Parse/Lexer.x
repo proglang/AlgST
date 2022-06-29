@@ -9,7 +9,7 @@ module AlgST.Parse.Lexer
 
 import AlgST.Util.ErrorMessage
 import AlgST.Util.Output
-import Syntax.Base
+import AlgST.Syntax.Pos
 }
 
 %wrapper "posn"
@@ -243,7 +243,7 @@ dropNewlines = filter \case
 internalPos :: AlexPosn -> Pos
 internalPos (AlexPn _ l c) = Pos l c
 
-instance Position Token where
+instance HasPos Token where
   pos (TokenNL p) = p
   pos (TokenUnit p) = p
   pos (TokenLambda p) = p

@@ -38,15 +38,14 @@ import Data.HashMap.Strict qualified as HM
 import Data.List (intercalate)
 import Data.Map.Strict qualified as Map
 import Data.Void
-import Syntax.Base
 
-instance Show Multiplicity where
-  show Un = "U"
-  show Lin = "L"
+instance Show K.Multiplicity where
+  show K.Un = "U"
+  show K.Lin = "L"
 
-showArrow :: Multiplicity -> String
-showArrow Lin = " -o "
-showArrow Un = " -> "
+showArrow :: K.Multiplicity -> String
+showArrow K.Lin = " -o "
+showArrow K.Un = " -> "
 
 type Brackets = (Char, Char)
 
@@ -281,7 +280,7 @@ showCaseMap m =
       ++ [showWild b | b <- toList (casesWildcard m)]
   where
     showAssoc (c, CaseBranch {branchBinds = binds, branchExp = e}) =
-      unwords (pprName . unL <$> defaultPos :@ c : toList binds)
+      unwords (pprName . unL <$> ZeroPos :@ c : toList binds)
         ++ " -> "
         ++ show e
     showWild CaseBranch {branchBinds = Identity (_ :@ a), branchExp = e} =

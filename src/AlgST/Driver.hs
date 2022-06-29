@@ -38,6 +38,7 @@ import AlgST.Rename qualified as Rn
 import AlgST.Rename.Fresh (runFresh)
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
+import AlgST.Syntax.Pos
 import AlgST.Typing qualified as Tc
 import AlgST.Typing.Phase
 import AlgST.Util (plural)
@@ -67,7 +68,6 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.Sequence (Seq (..))
 import Data.Sequence qualified as Seq
 import Lens.Family2 ((+~), (.~))
-import Syntax.Base
 import System.FilePath
 import System.IO
 import System.IO.Error
@@ -317,7 +317,7 @@ renameAll paths dg = do
           Right (rnMod, env) -> do
             let thisEnv =
                   Rn.importAllEnv
-                    defaultPos
+                    ZeroPos
                     name
                     (prGlobals parseRes)
                     emptyModuleName

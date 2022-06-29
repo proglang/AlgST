@@ -33,6 +33,7 @@ module AlgST.Driver.Dependencies
 where
 
 import AlgST.Syntax.Name
+import AlgST.Syntax.Pos
 import Algebra.Graph.AdjacencyMap qualified as G
 import Algebra.Graph.AdjacencyMap.Algorithm qualified as G
 import Control.Category ((>>>))
@@ -52,7 +53,6 @@ import Data.Ord
 import Data.Semigroup
 import Data.Set qualified as Set
 import Data.Traversable
-import Syntax.Base
 
 newtype ImportLocation = ImportLocation (Located FilePath)
 
@@ -61,7 +61,7 @@ instance Show ImportLocation where
     | null fp = "???:" ++ show p
     | otherwise = fp ++ ':' : show p
 
-instance Position ImportLocation where
+instance HasPos ImportLocation where
   pos (ImportLocation iloc) = pos iloc
 
 -- | Two 'ImportLocation' values are considered equal if their contained 'Pos'
@@ -83,7 +83,7 @@ instance Semigroup ImportLocation where
   stimes = stimesIdempotentMonoid
 
 instance Monoid ImportLocation where
-  mempty = ImportLocation $ defaultPos @- ""
+  mempty = ImportLocation $ ZeroPos @- ""
   mconcat = filter (/= mempty) >>> nonEmpty >>> foldMap minimum
 
 importLocPath :: ImportLocation -> FilePath

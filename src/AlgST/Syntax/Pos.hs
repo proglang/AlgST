@@ -1,42 +1,61 @@
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE PatternSynonyms #-}
 
--- |
--- Module      :  Syntax.Base
--- Description :  The Base module.
--- Copyright   :  (c) Bernardo Almeida, LASIGE, Faculty of Sciences, University of Lisbon
---                    Andreia Mordido, LASIGE, Faculty of Sciences, University of Lisbon
---                    Vasco Vasconcelos, LASIGE, Faculty of Sciences, University of Lisbon
---                    Janek Spaderna
---
--- This module defines the basic structures (classes and datatypes) such as Positions and
--- Multiplicity, that will be used the remaining Compiler.
-module Syntax.Base
-  ( Pos (..),
+module AlgST.Syntax.Pos
+  ( -- * Positions
+    Pos (ZeroPos, ..),
+
+    -- * Located things
+    HasPos (..),
     Located (..),
     (@-),
     unL,
     foldL,
     uncurryL,
     onUnL,
-    Position (..),
+
+    -- * Algorithms on located things
     earlier,
-    defaultPos,
-    Multiplicity (..),
   )
 where
 
 import Data.Void
 import Language.Haskell.TH.Syntax (Lift)
 
--- Position
-
 data Pos = Pos !Int !Int
   deriving stock (Eq, Ord, Lift)
 
 instance Show Pos where
-  show (Pos l c) = show l ++ ":" ++ show c
+  showsPrec _ = \case
+    ZeroPos -> showString "«unknown location»"
+    p -> shows (posLn p) . showChar ':' . shows (posCol p)
+
+posLn :: Pos -> Int
+posLn (Pos l _) = l
+
+posCol :: Pos -> Int
+posCol (Pos _ c) = c
+
+class HasPos t where
+  pos :: t -> Pos
+
+instance HasPos Pos where
+  pos = id
+
+instance HasPos Void where
+  pos = absurd
+
+instance HasPos (Located a) where
+  pos (p :@ _) = p
+
+instance (HasPos a, HasPos b) => HasPos (Either a b) where
+  pos = either pos pos
+
+-- | An unknown/unspecified location.
+pattern ZeroPos :: Pos
+pattern ZeroPos = Pos 0 0
 
 -- | Attaches a position to a value of type @a@.
 --
@@ -62,26 +81,8 @@ uncurryL f (p :@ a) = f p a
 onUnL :: (a -> a -> b) -> Located a -> Located a -> b
 onUnL f (_ :@ x) (_ :@ y) = f x y
 
-(@-) :: Position p => p -> a -> Located a
+(@-) :: HasPos p => p -> a -> Located a
 p @- a = pos p :@ a
-
-class Position t where
-  pos :: t -> Pos
-
-instance Position Pos where
-  pos = id
-
-instance Position Void where
-  pos = absurd
-
-instance Position (Located a) where
-  pos (p :@ _) = p
-
-instance (Position a, Position b) => Position (Either a b) where
-  pos = either pos pos
-
-defaultPos :: Pos
-defaultPos = Pos 0 0
 
 -- | Return the element located earlier. An equal location gives precedence to
 -- the first argument.
@@ -89,12 +90,7 @@ defaultPos = Pos 0 0
 -- 'defaultPos' does not get special treatement and is considered the earliest
 -- valid location. (If required this behaviour could be changed to give
 -- precedence to properly located arguments first.)
-earlier :: Position a => a -> a -> a
+earlier :: HasPos a => a -> a -> a
 earlier x y
   | pos x <= pos y = x
   | otherwise = y
-
--- Multiplicity for types and expressions
-
-data Multiplicity = Un | Lin
-  deriving (Eq, Lift, Ord)

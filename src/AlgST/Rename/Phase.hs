@@ -1,7 +1,11 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module AlgST.Rename.Phase where
+module AlgST.Rename.Phase
+  ( module AlgST.Rename.Phase,
+    module AlgST.Syntax.Pos,
+  )
+where
 
 import AlgST.Parse.Phase (ParsedBuiltin)
 import AlgST.Syntax.Decl qualified as D
@@ -9,9 +13,9 @@ import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Module (Module)
 import AlgST.Syntax.Name
 import AlgST.Syntax.Phases
+import AlgST.Syntax.Pos
 import AlgST.Syntax.Type qualified as T
 import Data.Void
-import Syntax.Base
 
 -- | Type level tag for renamed syntax elements.
 data Rn

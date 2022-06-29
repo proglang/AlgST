@@ -12,6 +12,7 @@
 module AlgST.Rename.Error where
 
 import AlgST.Syntax.Name
+import AlgST.Syntax.Pos
 import AlgST.Util
 import AlgST.Util.ErrorMessage
 import Control.Monad.Validate
@@ -19,7 +20,6 @@ import Data.DList.DNonEmpty qualified as DNE
 import Data.List qualified as List
 import Data.Singletons
 import Language.Haskell.TH.Syntax (Lift)
-import Syntax.Base
 
 type MonadErrors = MonadValidate DErrors
 
@@ -34,7 +34,7 @@ data AmbiguousOrigin
   | AmbiguousDefine !Pos
   deriving stock (Lift)
 
-instance Position AmbiguousOrigin where
+instance HasPos AmbiguousOrigin where
   pos = \case
     AmbiguousImport p _ -> p
     AmbiguousDefine p -> p

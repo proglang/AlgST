@@ -61,7 +61,6 @@ import Data.Foldable
 import Data.Functor.Identity
 import Instances.TH.Lift ()
 import Language.Haskell.TH.Syntax (Lift)
-import Syntax.Base
 
 {- ORMOLU_DISABLE -}
 type family XLit x
@@ -242,10 +241,10 @@ deriving stock instance
   (ForallX Lift x, T.ForallX Lift x, forall a. Lift a => Lift (f a)) =>
   Lift (CaseBranch f x)
 
-instance Position (CaseBranch f x) where
+instance HasPos (CaseBranch f x) where
   pos = branchPos
 
-instance ForallX Position x => Position (Exp x) where
+instance ForallX HasPos x => HasPos (Exp x) where
   pos (Lit x _) = pos x
   pos (Var x _) = pos x
   pos (Con x _) = pos x
@@ -270,9 +269,9 @@ instance ForallX Position x => Position (Exp x) where
 type family XBind x
 
 data Bind x
-  = Bind (XBind x) !Multiplicity !(XProgVar x) (Maybe (T.Type x)) (Exp x)
+  = Bind (XBind x) !K.Multiplicity !(XProgVar x) (Maybe (T.Type x)) (Exp x)
 
 deriving stock instance (ForallX Lift x, T.ForallX Lift x) => Lift (Bind x)
 
-instance Position (XBind x) => Position (Bind x) where
+instance HasPos (XBind x) => HasPos (Bind x) where
   pos (Bind x _ _ _ _) = pos x

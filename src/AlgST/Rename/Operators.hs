@@ -13,10 +13,10 @@
 module AlgST.Rename.Operators (rewriteOperatorSequence) where
 
 import AlgST.Builtins.Names qualified as B
-import AlgST.Rename.Fresh
 import AlgST.Rename.Monad
 import AlgST.Rename.Phase
 import AlgST.Syntax.Expression qualified as E
+import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
 import AlgST.Syntax.Operators
 import AlgST.Util.ErrorMessage
@@ -28,7 +28,6 @@ import Data.DList.DNonEmpty qualified as DNE
 import Data.Foldable
 import Data.HashMap.Strict qualified as HM
 import Data.List.NonEmpty (NonEmpty (..))
-import Syntax.Base
 
 data OpGrouping op = OpGrouping
   { leadingExpr :: Maybe RnExp,
@@ -45,7 +44,7 @@ data ResolvedOp = ResolvedOp
     opAssoc :: Associativity
   }
 
-instance Position ResolvedOp where
+instance HasPos ResolvedOp where
   pos = opLoc
 
 instance ErrorMsg ResolvedOp where
@@ -225,14 +224,14 @@ buildOpApplication op lhs mrhs
     c1 <- freshResolvedU $ Unqualified "c1"
     c2 <- freshResolvedU $ Unqualified "c2"
     c3 <- freshResolvedU $ Unqualified "c3"
-    f  <- freshResolvedU $ Unqualified "f"
-    x  <- freshResolvedU $ Unqualified "x"
-    pure $
-        E.Abs po $
-        E.Bind po Lin c1 Nothing $
-        E.PatLet po (op @- B.conPair) [op @- f, op @- c2] (E.App po lhs (E.Var po c1)) $
-        E.PatLet po (op @- B.conPair) [op @- x, op @- c3] (E.App po rhs (E.Var po c2)) $
-        E.Pair po (E.App po (E.Var po f) (E.Var po x)) (E.Var po c3)
+    f <- freshResolvedU $ Unqualified "f"
+    x <- freshResolvedU $ Unqualified "x"
+    pure
+      . E.Abs po
+      . E.Bind po K.Lin c1 Nothing
+      . E.PatLet po (op @- B.conPair) [op @- f, op @- c2] (E.App po lhs (E.Var po c1))
+      . E.PatLet po (op @- B.conPair) [op @- x, op @- c3] (E.App po rhs (E.Var po c2))
+      $ E.Pair po (E.App po (E.Var po f) (E.Var po x)) (E.Var po c3)
   | otherwise = do
     let appLhs = E.App (pos lhs) (opExpr op) lhs
     pure $ maybe appLhs (E.App <$> pos <*> pure appLhs <*> id) mrhs

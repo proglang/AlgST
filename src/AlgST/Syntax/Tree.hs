@@ -24,6 +24,7 @@ import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
 import AlgST.Syntax.Operators
+import AlgST.Syntax.Pos
 import AlgST.Syntax.Type qualified as T
 import Control.Category ((>>>))
 import Control.Monad
@@ -36,7 +37,6 @@ import Data.Maybe
 import Data.Ord
 import Data.Tree
 import Data.Void
-import Syntax.Base
 
 type LabTree = Tree String
 
@@ -369,7 +369,7 @@ fieldMapTree m = conCases ++ wildCases
   where
     conCases =
       labeledMapTree
-        (\v b -> unwords [describeName x | _ :@ x <- defaultPos :@ v : toList (E.branchBinds b)])
+        (\v b -> unwords [describeName x | _ :@ x <- ZeroPos :@ v : toList (E.branchBinds b)])
         (\_ b -> labeledTree $ E.branchExp b)
         (E.casesPatterns m)
     wildCases =

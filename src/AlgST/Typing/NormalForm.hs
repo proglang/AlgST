@@ -7,6 +7,7 @@ module AlgST.Typing.NormalForm (nf) where
 
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
+import AlgST.Syntax.Pos
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Type
 import AlgST.Typing.Phase
@@ -15,7 +16,6 @@ import Data.Functor.Compose
 import Data.Set qualified as Set
 import Data.Tuple
 import Data.Void
-import Syntax.Base (Position (..))
 
 -- | Calcuates the positive normal form.
 nf :: TcType -> Maybe TcType

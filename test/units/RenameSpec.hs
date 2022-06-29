@@ -18,7 +18,6 @@ import Data.Bifunctor
 import Data.Function
 import Data.Map.Strict qualified as Map
 import Data.Traversable
-import Syntax.Base
 import System.FilePath
 import Test.Golden
 import Test.Hspec
@@ -75,7 +74,7 @@ renameEnv =
             PartialResolve $
               Map.singleton
                 (ResolvedName n (ModuleName "R") rid)
-                (AmbiguousDefine defaultPos)
+                (AmbiguousDefine ZeroPos)
       (nextResolvedId rid, Bindings (Map.singleton n resolved))
 
 dir :: FilePath -> FilePath

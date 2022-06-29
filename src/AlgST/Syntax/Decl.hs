@@ -27,7 +27,6 @@ import Data.Void
 import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2
 import Lens.Family2.Unchecked (lens)
-import Syntax.Base
 
 {- ORMOLU_DISABLE -}
 type family XAliasDecl x
@@ -92,10 +91,10 @@ data Origin
   | OriginBuiltin
   deriving (Lift)
 
-instance Position Origin where
+instance HasPos Origin where
   pos = \case
     OriginUser p -> p
-    _ -> defaultPos
+    _ -> ZeroPos
 
 class Originated a where
   originL :: Lens' a Origin
@@ -159,14 +158,14 @@ declConstructors xData xProto name d = case d of
     -- formed data declaration the kind *must* have multiplicity information.
     -- So the only way to get 'Nothing' here is when the user annotated the
     -- declaration to have kind 'P' which will lead to an erorr diagnosis.
-    let mul = Un `fromMaybe` K.multiplicity (nominalKind decl)
+    let mul = K.Un `fromMaybe` K.multiplicity (nominalKind decl)
     let con (p, items) = DataCon @x (xData x p) name (declParams d) mul items
     Map.map con (nominalConstructors decl)
   ProtoDecl x decl -> do
     let con (p, items) = ProtocolCon @x (xProto x p) name (declParams d) items
     Map.map con (nominalConstructors decl)
 
-instance ForallDeclX Position x => Position (TypeDecl x) where
+instance ForallDeclX HasPos x => HasPos (TypeDecl x) where
   pos = \case
     AliasDecl x _ -> pos x
     DataDecl x _ -> pos x
@@ -185,7 +184,7 @@ instance Originated (SignatureDecl x) where
       (\(SignatureDecl origin _) -> origin)
       (\(SignatureDecl _ ty) origin -> SignatureDecl origin ty)
 
-instance Position (SignatureDecl x) where
+instance HasPos (SignatureDecl x) where
   pos = pos . view originL
 
 data ValueDecl x = ValueDecl
@@ -202,7 +201,7 @@ instance Originated (ValueDecl x) where
     d {valueOrigin = origin}
   {-# INLINE originL #-}
 
-instance Position (ValueDecl x) where
+instance HasPos (ValueDecl x) where
   pos = pos . valueOrigin
 
 valueSignatureDecl :: ValueDecl x -> SignatureDecl x
@@ -215,7 +214,7 @@ data ConstructorDecl x
     -- * the parent type's parameters
     -- * the parent type's 'Multiplicity'
     -- * the constructor's items
-    DataCon (XDataCon x) !(XTypeVar x) (XParams x) !Multiplicity [T.Type x]
+    DataCon (XDataCon x) !(XTypeVar x) (XParams x) !K.Multiplicity [T.Type x]
   | -- | A protocol (non-data) constructor is annotated with
     --
     -- * the parent type's name
@@ -250,7 +249,7 @@ conItems = \case
   DataCon _ _ _ _ ts -> ts
   ProtocolCon _ _ _ ts -> ts
 
-instance ForallConX Position x => Position (ConstructorDecl x) where
+instance ForallConX HasPos x => HasPos (ConstructorDecl x) where
   pos = \case
     DataCon x _ _ _ _ -> pos x
     ProtocolCon x _ _ _ -> pos x

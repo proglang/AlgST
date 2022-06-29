@@ -31,7 +31,6 @@ import Data.Foldable
 import Data.Function
 import Data.List.NonEmpty (NonEmpty)
 import Language.Haskell.TH.CodeDo qualified as Code
-import Syntax.Base
 import System.FilePath
 import Test.Golden
 import Test.Hspec
@@ -259,7 +258,7 @@ declCtxt :: CheckContext
                   renamed
                   \runTypeM _ -> runTypeM extractCheckContext
         ctxt <- either (fail . plainErrors) pure checkRes
-        let checkEnv = importAllEnv defaultPos name declMM emptyModuleName
+        let checkEnv = importAllEnv ZeroPos name declMM emptyModuleName
         [||(checkEnv, ctxt)||]
     )
 

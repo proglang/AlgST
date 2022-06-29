@@ -20,10 +20,14 @@ module AlgST.Syntax.Kind
 where
 
 import AlgST.Syntax.Name
+import AlgST.Syntax.Pos
 import Control.Applicative
 import Language.Haskell.TH.Syntax (Lift)
-import Syntax.Base
 import Text.Read
+
+data Multiplicity = Un | Lin
+  -- Ordering is important for correctness of the subkind check (<=?)!
+  deriving (Eq, Lift, Ord)
 
 data Basic = Session | Message | Top
   -- Ordering is important for correctness of the subkind check (<=?)!
@@ -109,5 +113,5 @@ leastUpperBound (Kind b m) (Kind b' m') = Kind (max b b') (max m m')
 data Bind stage a = Bind Pos !(TypeVar stage) !Kind a
   deriving (Lift)
 
-instance Position (Bind x a) where
+instance HasPos (Bind x a) where
   pos (Bind p _ _ _) = p

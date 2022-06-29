@@ -37,7 +37,6 @@ where
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Phases
 import Language.Haskell.TH.Syntax (Lift)
-import Syntax.Base
 
 data Polarity
   = -- | @?@
@@ -105,7 +104,7 @@ data Type x
     Unit (XUnit x)
   | -- | > Arrow _ Un  t₁ t₂          ~ t₁ -> t₂
     --   > Arrow _ Lin t₁ t₂          ~ t₁ -o t₂
-    Arrow (XArrow x) !Multiplicity (Type x) (Type x)
+    Arrow (XArrow x) !K.Multiplicity (Type x) (Type x)
   | -- | > Pair _ t₁ t₂               ~ (t₁, t₂)
     Pair (XPair x) (Type x) (Type x)
   | -- | > Session _ In  t s          ~ ?t.s
@@ -131,7 +130,7 @@ data Type x
 
 deriving stock instance ForallX Lift x => Lift (Type x)
 
-instance ForallX Position x => Position (Type x) where
+instance ForallX HasPos x => HasPos (Type x) where
   pos (Unit x) = pos x
   pos (Arrow x _ _ _) = pos x
   pos (Pair x _ _) = pos x

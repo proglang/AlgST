@@ -48,6 +48,7 @@ import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
+import AlgST.Syntax.Pos
 import AlgST.Typing.Phase (Tc, TcBind, TcExp, TcExpX (..), TcModule, TcStage)
 import AlgST.Util.Lenses
 import AlgST.Util.Output
@@ -69,7 +70,6 @@ import Data.Void
 import GHC.Stack
 import Lens.Family2
 import Numeric.Natural (Natural)
-import Syntax.Base
 import System.Console.ANSI
 import System.IO
 import Prelude hiding (log)
@@ -131,7 +131,7 @@ instance Show InterpretError where
 instance Exception InterpretError where
   displayException (InterpretError cs p e) =
     concat
-      [ if p == defaultPos then "" else shows p ":",
+      [ if p == ZeroPos then "" else shows p ":",
         "interpret error: ",
         e,
         "\n\n",
@@ -501,7 +501,7 @@ eval =
     E.Exp (RecvCase p e cases) -> do
       chanVal <- eval e
       channel <- unwrap (pos e) TChannel chanVal
-      l <- unwrap defaultPos TLabel =<< readChannel channel
+      l <- unwrap ZeroPos TLabel =<< readChannel channel
       b <-
         E.casesPatterns cases
           & Map.lookup l

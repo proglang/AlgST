@@ -70,6 +70,7 @@ import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
 import AlgST.Syntax.Operators
+import AlgST.Syntax.Pos
 import AlgST.Syntax.Tree qualified as T
 import AlgST.Util.ErrorMessage
 import AlgST.Util.Lenses qualified as L
@@ -92,7 +93,6 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe
 import Data.Singletons
 import Lens.Family2 hiding ((&))
-import Syntax.Base
 
 data ParsedModule = ParsedModule
   { parsedImports :: [Located (Import ModuleName)],
@@ -386,14 +386,14 @@ mergeImportAll stmtLoc allLoc =
       -- Add the implicitly hidden set to the explicitly hidden set. If an
       -- identifier is hidden explicitly we prefer that entry.
       --
-      -- At the moment implicit hides are associated with 'defaultPos'.
+      -- At the moment implicit hides are associated with 'ZeroPos'.
       -- TODO: When we have error messages of the form “identifier was
       -- (implicitly) hidden at …” we might want to keep the location of the
       -- implicit hide including a differntiation between implicit and explicit
       -- hides.
       let allHidden =
             HM.foldlWithKey'
-              (\hm (scope, _) (_ :@ u) -> HM.insertWith const (scope, u) defaultPos hm)
+              (\hm (scope, _) (_ :@ u) -> HM.insertWith const (scope, u) ZeroPos hm)
               (imsHidden ims)
               (imsRenamed ims)
       ImportAll allLoc allHidden (imsRenamed ims)
@@ -468,7 +468,7 @@ instance ErrorMsg a => DuplicateError a Pos where
   duplicateError = errorDuplicateBind
 
 errorMultipleDeclarations ::
-  (ErrorMsg a, Position p1, Position p2) => a -> p1 -> p2 -> Diagnostic
+  (ErrorMsg a, HasPos p1, HasPos p2) => a -> p1 -> p2 -> Diagnostic
 errorMultipleDeclarations a (pos -> p1) (pos -> p2) =
   PosError
     (max p1 p2)

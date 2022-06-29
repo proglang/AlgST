@@ -17,9 +17,9 @@ import AlgST.Rename (ModuleMap, RenameEnv, ResolvedImport)
 import AlgST.Rename qualified as Rn
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
+import AlgST.Syntax.Pos
 import AlgST.Typing qualified as Tc
 import AlgST.Typing.Phase (TcModule)
-import Syntax.Base
 
 builtinsModule :: TcModule
 builtinsModuleMap :: ModuleMap
@@ -96,9 +96,9 @@ builtinsImport =
   Import
     { importTarget = (BuiltinsModule, builtinsModuleMap),
       importQualifier = emptyModuleName,
-      importSelection = ImportAll defaultPos mempty mempty
+      importSelection = ImportAll ZeroPos mempty mempty
     }
 
 builtinsEnv :: RenameEnv
 builtinsEnv =
-  Rn.importAllEnv defaultPos BuiltinsModule builtinsModuleMap emptyModuleName
+  Rn.importAllEnv ZeroPos BuiltinsModule builtinsModuleMap emptyModuleName

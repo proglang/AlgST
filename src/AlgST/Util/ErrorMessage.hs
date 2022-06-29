@@ -23,13 +23,13 @@ import AlgST.Parse.Unparser
 import AlgST.Syntax.Expression as E
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
+import AlgST.Syntax.Pos
 import AlgST.Syntax.Type qualified as T
 import AlgST.Util.Output
 import Data.Coerce
 import Data.DList qualified as DL
 import Data.DList.DNonEmpty (DNonEmpty)
 import Data.List (intercalate)
-import Syntax.Base
 import System.Console.ANSI
 
 -- | Error class and instances
@@ -76,7 +76,7 @@ pattern PosError p errs =
 {-# COMPLETE PosError #-}
 
 unlocatedError :: [ErrorMessage] -> Diagnostic
-unlocatedError = PosError defaultPos
+unlocatedError = PosError ZeroPos
 
 instance ErrorMsg DiagKind where
   msg = \case
@@ -84,7 +84,7 @@ instance ErrorMsg DiagKind where
   msgStyling = \case
     DiagError -> redFGStyling
 
-instance Position Diagnostic where
+instance HasPos Diagnostic where
   pos = diagnosticPos
 
 instance ErrorMsg a => ErrorMsg (Located a) where

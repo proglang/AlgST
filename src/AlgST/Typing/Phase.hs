@@ -24,7 +24,6 @@ import Data.Functor.Const
 import Data.Functor.Identity
 import Data.Void
 import Language.Haskell.TH.Syntax (Lift)
-import Syntax.Base
 
 -- | Typing phase token.
 --
@@ -55,7 +54,7 @@ instance LabeledTree TcExpX where
           "TcExpX.ValueCase"
           [labeledTree exp, fieldMapTree map]
 
-instance Position TcExpX where
+instance HasPos TcExpX where
   pos = \case
     ValueCase p _ _ -> p
     RecvCase p _ _ -> p
@@ -82,7 +81,7 @@ data TypeRef = TypeRef
   }
   deriving stock (Lift)
 
-instance Position TypeRef where
+instance HasPos TypeRef where
   pos = typeRefPos
 
 instance Equivalence TcStage TypeRef where

@@ -19,7 +19,6 @@ import AlgST.Syntax.Tree
 import AlgST.Syntax.Type qualified as T
 import Data.Void
 import Language.Haskell.TH.Syntax (Lift)
-import Syntax.Base
 
 data Parse
 
@@ -29,7 +28,7 @@ data ParsedBuiltin
   | BuiltinFork_ Pos
   deriving (Lift)
 
-instance Position ParsedBuiltin where
+instance HasPos ParsedBuiltin where
   pos (BuiltinNew p) = p
   pos (BuiltinFork p) = p
   pos (BuiltinFork_ p) = p

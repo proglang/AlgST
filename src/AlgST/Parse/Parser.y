@@ -27,6 +27,7 @@ module AlgST.Parse.Parser
   , emptyParsedModule
   , resolveImports
   , partitionImports
+  , module AlgST.Syntax.Pos
   ) where
 
 import           Control.Category              ((>>>), (<<<))
@@ -58,12 +59,11 @@ import qualified AlgST.Syntax.Kind             as K
 import           AlgST.Syntax.Module
 import           AlgST.Syntax.Name
 import           AlgST.Syntax.Operators
+import           AlgST.Syntax.Pos
 import qualified AlgST.Syntax.Type             as T
 import           AlgST.Util
 import           AlgST.Util.Error
 import           AlgST.Util.ErrorMessage
-import           Syntax.Base
-
 }
 
 %name parseModule_  Module
@@ -384,12 +384,12 @@ LamExp :: { PExp }
   : lambda Abs Arrow Exp {% do
       let (build, Any anyTermAbs) = $2
       let (arrPos, arrMul) = $3
-      when (arrMul == Lin && not anyTermAbs) do
+      when (arrMul == K.Lin && not anyTermAbs) do
         addErrors [errorNoTermLinLambda (pos $1) arrPos]
       pure $ appEndo (build (pos $1) arrMul) $4
     }
 
-Abs :: { (Pos -> Multiplicity -> Endo PExp, Any) }
+Abs :: { (Pos -> K.Multiplicity -> Endo PExp, Any) }
   : bindings1(Abs1) {% do
       binds <- $1 $ \case
             p :@ Left (v, _)  | not (isWild v) -> Just (p @- Left v)
@@ -533,9 +533,9 @@ TupleType :: { PType }
   : Type               { $1 }
   | Type ',' TupleType { T.Pair (pos $1) $1 $3 }
 
-Arrow :: { (Pos, Multiplicity) }
-  : '->' { (pos $1, Un) }
-  | '-o' { (pos $1, Lin) }
+Arrow :: { (Pos, K.Multiplicity) }
+  : '->' { (pos $1, K.Un) }
+  | '-o' { (pos $1, K.Lin) }
 
 Polarity :: { (Pos, T.Polarity) }
   : '!' { (pos $1, T.Out) }
@@ -715,6 +715,6 @@ lexer str (Parser f) = either fatalError f $ scanTokens str
 
 parseError :: [Token] -> ParseM a
 parseError = fatalError <<< \case
-  [] -> PosError defaultPos [Error "Unexpected end of file."]
+  [] -> unlocatedError [Error "Unexpected end of file."]
   t:_ -> PosError (pos t) [Error "Unexpected token", Error t]
 }

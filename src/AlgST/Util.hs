@@ -3,12 +3,12 @@
 module AlgST.Util where
 
 import Data.Foldable
+import AlgST.Syntax.Pos
 import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe
 import Data.Ord
 import Data.Sequence (Seq)
-import Syntax.Base (Pos, Position (..))
 import Prelude hiding (truncate)
 
 joinConnector :: String -> NonEmpty String -> ShowS
@@ -60,15 +60,15 @@ instance Counted (Seq a) where
 plural :: (Counted a, one ~ b, many ~ b) => a -> one -> many -> b
 plural a one many = pluralZ a many one many
 
-sortPos :: Position a => [a] -> [a]
+sortPos :: HasPos a => [a] -> [a]
 sortPos =
-  -- The @Position@ is usually very easy to access, there is no need for the
+  -- The @HasPos@ is usually very easy to access, there is no need for the
   -- decorate-sort-undecorate paradigm used by 'sortOn'.
   List.sortBy (comparing pos)
 
 sortPos' :: [(Pos, a)] -> [(Pos, a)]
 sortPos' =
-  -- The @Position@ is usually very easy to access, there is no need for the
+  -- The @HasPos@ is usually very easy to access, there is no need for the
   -- decorate-sort-undecorate paradigm used by 'sortOn'.
   List.sortBy (comparing fst)
 

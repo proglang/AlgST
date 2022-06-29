@@ -24,7 +24,6 @@ import Data.DList.DNonEmpty qualified as DNE
 import Data.List.NonEmpty (NonEmpty)
 import Data.Maybe
 import Lens.Family2
-import Syntax.Base
 import System.FilePath
 import Test.Golden
 import Test.Hspec
@@ -64,7 +63,7 @@ runProgram :: NameR Values -> TcModule -> IO Value
 runProgram mainName p = runEval env (eval mainExpr)
   where
     env = programEnvironment $ merge p builtinsModule
-    mainExpr = E.Var defaultPos mainName
+    mainExpr = E.Var ZeroPos mainName
     merge a b =
       Module
         { moduleTypes = moduleTypes a <> moduleTypes b,

@@ -25,7 +25,6 @@ import Data.Sequence (Seq)
 import Data.These
 import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2
-import Syntax.Base
 
 -- | A @Var@ tracks a 'ProgVar's type, declaration location and usage
 -- information.

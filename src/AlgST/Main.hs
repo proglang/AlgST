@@ -37,7 +37,6 @@ import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.Strict qualified as Map
 import Data.Traversable
-import Syntax.Base
 import System.Console.ANSI qualified as ANSI
 import System.Exit
 import System.FilePath qualified as FP
@@ -237,6 +236,6 @@ runInterpret out checkedModules = do
       outputSticky out "Running ‘main’"
       result <-
         I.runEval (I.programEnvironment bigModule) $
-          I.eval $ E.Var defaultPos mainName
+          I.eval $ E.Var ZeroPos mainName
       clearSticky out
       outputStrLn out $ "Result: " ++ show result

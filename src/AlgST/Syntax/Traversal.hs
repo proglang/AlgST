@@ -78,7 +78,6 @@ import Data.Set qualified as Set
 import Data.Singletons
 import Data.Void
 import GHC.Exts (Proxy#, proxy#)
-import Syntax.Base
 
 type Pxy x y = Proxy# (x, y)
 
@@ -228,8 +227,8 @@ data Substitutions x = Substitutions
   }
 
 instance
-  ( Position (E.XCon x),
-    Position (T.XCon x),
+  ( HasPos (E.XCon x),
+    HasPos (T.XCon x),
     E.SameX x y,
     T.SameX x y,
     XStage x ~ XStage y
@@ -359,8 +358,8 @@ instance
   traverseSyntax pxy = bitraverse (traverseSyntax pxy) (traverseSyntax pxy)
 
 instance
-  ( Position (E.XCon x),
-    Position (T.XCon x),
+  ( HasPos (E.XCon x),
+    HasPos (T.XCon x),
     E.SameX x y,
     T.SameX x y
   ) =>
@@ -439,8 +438,8 @@ instance
       exprExtension pxy x
 
 instance
-  ( Position (E.XCon x),
-    Position (T.XCon x),
+  ( HasPos (E.XCon x),
+    HasPos (T.XCon x),
     E.SameX x y,
     T.SameX x y
   ) =>
@@ -451,8 +450,8 @@ instance
     E.RecTypeAbs x b -> E.RecTypeAbs x <$> traverseSyntax pxy b
 
 instance
-  ( Position (E.XCon x),
-    Position (T.XCon x),
+  ( HasPos (E.XCon x),
+    HasPos (T.XCon x),
     E.SameX x y,
     T.SameX x y,
     Traversable f,
@@ -466,8 +465,8 @@ instance
       <*> traverse (traverseSyntax pxy) (E.casesWildcard cm)
 
 instance
-  ( Position (E.XCon x),
-    Position (T.XCon x),
+  ( HasPos (E.XCon x),
+    HasPos (T.XCon x),
     E.SameX x y,
     T.SameX x y,
     Traversable f
@@ -484,8 +483,8 @@ instance
           }
 
 instance
-  ( Position (E.XCon x),
-    Position (T.XCon x),
+  ( HasPos (E.XCon x),
+    HasPos (T.XCon x),
     E.SameX x y,
     T.SameX x y
   ) =>
@@ -499,8 +498,8 @@ instance
       <*> bindOne pxy v (\v' -> (v',) <$> traverseSyntax pxy e)
 
 instance
-  ( Position (E.XCon x),
-    Position (T.XCon x),
+  ( HasPos (E.XCon x),
+    HasPos (T.XCon x),
     E.SameX x y,
     T.SameX x y
   ) =>
@@ -517,7 +516,7 @@ instance
       pure $ OperatorFirst (NE.last ne' <$ rs) ne'
 
 instance
-  ( Position (T.XCon x),
+  ( HasPos (T.XCon x),
     T.SameX x y
   ) =>
   SynTraversable (T.Type x) x (T.Type y) y
@@ -572,7 +571,7 @@ instance
       K.Bind p v' k <$> traverseSyntax pxy t
 
 traverseNameMap ::
-  (SynTraversal f x y, SingI scope, Position a) =>
+  (SynTraversal f x y, SingI scope, HasPos a) =>
   Pxy x y ->
   (a -> f b) ->
   NameMapG (XStage x) scope a ->

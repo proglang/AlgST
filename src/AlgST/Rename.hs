@@ -72,7 +72,6 @@ import Instances.TH.Lift ()
 import Lens.Family2
 import Lens.Family2.State.Strict ((%=))
 import Lens.Family2.Stock
-import Syntax.Base
 
 -- | For a @ResolvedImport@ the 'importTarget' has to point to the imported
 -- module's name (used for error messages) and the imported module's
@@ -282,7 +281,7 @@ continueRename baseMap moduleName m =
 moduleTopLevels :: ModuleMap -> PModule -> Fresh (ModuleMap, RenameEnv)
 moduleTopLevels baseMap m = do
   let entry ::
-        (SingI scope, Position a) =>
+        (SingI scope, HasPos a) =>
         NameW scope ->
         a ->
         Fresh ((Unqualified, NameR scope), PartialResolve scope)

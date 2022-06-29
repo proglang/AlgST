@@ -8,6 +8,7 @@ module AlgST.Syntax.Operators where
 
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Name
+import AlgST.Syntax.Pos
 import AlgST.Syntax.Type qualified as T
 import Control.Applicative
 import Data.HashMap.Strict (HashMap)
@@ -15,7 +16,6 @@ import Data.List.NonEmpty (NonEmpty (..), (<|))
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe
 import Language.Haskell.TH.Syntax (Lift)
-import Syntax.Base
 
 data Precedence
   = -- | > (<|)
@@ -50,7 +50,7 @@ data OperatorSequence x
 
 deriving instance (E.ForallX Lift x, T.ForallX Lift x) => Lift (OperatorSequence x)
 
-instance E.ForallX Position x => Position (OperatorSequence x) where
+instance E.ForallX HasPos x => HasPos (OperatorSequence x) where
   pos = pos . NE.head . opSeqExpressions
 
 infixr 9 `opSeqCons`

@@ -42,7 +42,6 @@ import Data.Map.Strict qualified as Map
 import Instances.TH.Lift ()
 import Language.Haskell.TH.Syntax (Lift)
 import Lens.Family2
-import Syntax.Base
 
 -- | Groups the @ForallX@ constraint synonym from "AlgST.Syntax.Decl",
 -- "AlgST.Syntax.Type", and "AlgST.Syntax.Expression".
