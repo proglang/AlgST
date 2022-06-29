@@ -377,7 +377,7 @@ builtinsEnv =
         if x <= y
           then Con conTrue []
           else Con conFalse [],
-      closure valSend \(_ :@ val) (p :@ channel) -> do
+      closure valSendLin \(_ :@ val) (p :@ channel) -> do
         c <- unwrap p TChannel channel
         putChannel c val
         pure channel,
@@ -632,7 +632,7 @@ lookupEnv p v =
     >>= maybe (failInterpet p err) pure . Map.lookup v
     >>= either eval pure
   where
-    err = pprName v ++ " is not bound."
+    err = pprName v ++ " (" ++ pprResolved v ++ ") is not bound."
 
 -- | Evaluates the given expression and extracts the expected type.
 evalAs :: Type a -> TcExp -> EvalM a

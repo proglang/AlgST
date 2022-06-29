@@ -134,6 +134,33 @@ Success.
   Is similar to the version above. Additionally the recursive function `e1` is
   also visible to `e2` under the same name `x`.
 
+### Session operations
+
+* `new [T] : (T, dual T)`
+
+  The `new` expression creates a pair of connected channels. It *must* be used
+  with a type application.
+
+* `send : forall (a:MU) (s:SL). a -> !a.s -> s`
+
+  Sends an *unrestricted* message type over the provided channel.
+
+  `send` exists as a convenience version of `sendLin`. See `sendLin` for an
+  explanation.
+
+* `sendLin : forall (a:ML) (s:SL). a -> !a.s -o s`
+
+  Sends any message type over the provided channel.
+
+  If used with unrestricted data (e.g. `Int`) the partially applied function
+  (e.g. `sendLin [Int] 1`) is linear, i.e. must be called exactly once. By
+  using `send` instead the same partial application `send [Int] 1` results in
+  an unrestricted function which may be called any number of times.
+
+* `receive : forall (a:ML) (s:SL). ?a.s -> (a, s)`
+
+  Receives any message type from the provided channel.
+
 ### Concurrency Primitives
 
 * `fork : forall (a:ML). a -> ?a.end`

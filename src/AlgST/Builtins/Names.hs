@@ -30,7 +30,7 @@ $( runDefines (ModuleName "Builtin") "builtinsPartialModuleMap" "builtinOperator
      con "True"
      con "False"
 
-     val "send"
+     val "sendLin"
      val "receive"
 
 {- ORMOLU_DISABLE -}

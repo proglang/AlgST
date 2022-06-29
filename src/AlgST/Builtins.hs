@@ -79,8 +79,11 @@ builtinsModuleCtxt :: Tc.CheckContext
               "snd : ∀(a:TU). ∀(b:TL). (a, b) -> b",
               "snd ab = let (_, b) = ab in b",
               -- Session operations.
-              "send : ∀(a : MU). ∀(s : SL). a -> !a.s -> s",
+              "sendLin : ∀(a : ML). ∀(s : SL). a -> !a.s -o s",
               "receive : ∀(a : ML). ∀(s : SL). ?a.s -> (a, s)",
+              --
+              "send : ∀(a : MU). ∀(s : SL). a -> !a.s -> s",
+              "send [a] [s] a s = sendLin [a, s] a s",
               -- Arithmetic operations.
               "(+) : Int -> Int -> Int",
               "(-) : Int -> Int -> Int",
