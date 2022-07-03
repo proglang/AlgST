@@ -20,4 +20,18 @@ nstack_server [a] x [s] c =
       nstack_server [a] x [s] c,
     Pop c ->
       send [a] x [s] c }
-      
+
+--------------------------------------------------------------------------------
+-- linear stack
+
+protocol LStack a = Elem a (LStack a) -a | Turn
+
+lstack_server : forall(a:MU).forall(s:S). ?LStack a.s -> s
+lstack_server [a,s] c =
+  match c with {
+    Elem c ->
+      let (x, c) = receive [a,?LStack a.!a.s] c in
+      let c = lstack_server [a,!a.s] c in
+      send [a] x [s] c,
+    Turn c ->
+      c }
