@@ -35,7 +35,7 @@ sourceParser = O.optional $ givePath <|> searchMain
 
     searchMain =
       O.flag' SourceMain . mconcat $
-        [ O.long "main",
+        [ O.long "find-main",
           O.help "Look for module ‘Main’ in the search path.",
           O.hidden
         ]

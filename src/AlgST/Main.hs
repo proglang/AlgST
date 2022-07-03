@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 
 module AlgST.Main (main) where
@@ -26,9 +27,11 @@ import AlgST.Util qualified as Util
 import AlgST.Util.Error
 import AlgST.Util.Output
 import Control.Category ((>>>))
+import Control.Exception
 import Control.Monad
 import Data.Bifunctor
 import Data.DList.DNonEmpty qualified as DNE
+import Data.Either
 import Data.Foldable
 import Data.Function
 import Data.HashMap.Strict (HashMap)
@@ -70,9 +73,11 @@ main = do
         (optsQueries runOpts)
         renameEnvs
         (snd <$> checkedModules)
-    when (optsDoEval runOpts) do
-      runInterpret outputHandle (fst <$> checkedModules)
-    when (not allGood) do
+    runGood <-
+      if optsDoEval runOpts
+        then runInterpret outputHandle stderrMode (fst <$> checkedModules)
+        else pure True
+    when (not allGood || not runGood) do
       exitFailure
 
 checkSources ::
@@ -214,8 +219,8 @@ answerQueries out outMode queries renameEnvs checkEnvs = do
         [ln] -> Util.truncate' 60 "..." ln
         ln : _ -> take 60 ln ++ "..."
 
-runInterpret :: OutputHandle -> HashMap ModuleName TcModule -> IO ()
-runInterpret out checkedModules = do
+runInterpret :: OutputHandle -> OutputMode -> HashMap ModuleName TcModule -> IO Bool
+runInterpret out outMode checkedModules = do
   let merge a b =
         Module
           { moduleTypes = moduleTypes a <> moduleTypes b,
@@ -228,14 +233,34 @@ runInterpret out checkedModules = do
         moduleValues mainChecked
           & Map.keys
           & List.find ((Unqualified "main" ==) . nameUnqualified)
-
+  let outputError =
+        outputLnS out . applyStyle outMode (styleFG ANSI.Red) . showString
+  outputStrLn out ""
   case mmainName of
     Nothing -> do
-      outputStrLn out "\nNo ‘main’ to run."
+      outputError "No ‘main’ to run."
+      pure False
     Just mainName -> do
       outputSticky out "Running ‘main’"
-      result <-
+      result <- try do
         I.runEval (I.programEnvironment bigModule) $
           I.eval $ E.Var ZeroPos mainName
       clearSticky out
-      outputStrLn out $ "Result: " ++ show result
+      case result of
+        Left ex
+          -- Don't catch async exceptions as these are usually not meant to be
+          -- recoverable/we want to exit as fast as possible. For example,
+          -- CTRL-C raises an async exception.
+          | Just (_ :: SomeAsyncException) <- fromException ex -> throwIO ex
+          | otherwise -> outputException out outMode "Running Failed" ex
+        Right val ->
+          outputLnS out $ applyStyle outMode styleBold (showString "Result: ") . shows val
+      pure $ isRight result
+
+outputException :: Exception e => OutputHandle -> OutputMode -> String -> e -> IO ()
+outputException h m s e =
+  outputLnS h $ header . showChar '\n' . showString (displayException e)
+  where
+    header =
+      applyStyle m (styleBold . styleFG ANSI.Red) $
+        showString "===== " . showString s . showString " ====="

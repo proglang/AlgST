@@ -5,28 +5,26 @@
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneKindSignatures #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module AlgST.Typing.Subtyping where
+module AlgST.Typing.Subtyping
+  ( module AlgST.Typing.Subtyping,
+    Alpha (..),
+  )
+where
 
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
 import AlgST.Syntax.Phases
 import AlgST.Syntax.Type qualified as T
-import AlgST.Typing.Equality (Alpha(..), Equivalence)
+import AlgST.Typing.Equality (Alpha (..), Equivalence)
 import Data.Coerce
 import Data.Kind ()
 import Data.Map.Strict qualified as Map
 import Data.Void
 import GHC.Exts (Proxy#, proxy#)
-
--- | Use this newtype wrapper to compare two syntax elements with 'Subtype'
--- instances for alpha equivalence.
--- type Alpha :: Stage -> Type -> Type
--- newtype Alpha stage a = Alpha a
 
 instance Subtype stage a => Ord (Alpha stage a) where
   (<=) = coerce (beta @stage @a proxy# 0 mempty mempty)
