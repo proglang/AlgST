@@ -2,6 +2,8 @@
 
 AlgST is an implementation of Algebraic Session Types by Andreia Mordido et al. (unpublished).
 
+It includes a typechecker, interpreter and a simple module system.
+
 
 ## Building
 
@@ -86,6 +88,9 @@ tool.
 A file can be checked by giving its path as an argument; to read input from the
 terminal give `-` as the path.
 
+When the flag `--run` is given the `main` symbol will be executed and the
+result printed.
+
 Querying the typechecker is possible with the flags
 
 | Flag             | Description                          |
@@ -100,9 +105,9 @@ Full usage info is available with `--help`.
 ### Example
 
 ```bash
-; algst - -T 'fork number' --nf 'dual ?-Int.end' <<EOF
-number : Int
-number = 42
+; algst - --run --type 'fork main' --nf 'dual ?-Int.end' <<EOF
+main : Int
+main = 10 + 20
 EOF
 ```
 
@@ -116,6 +121,8 @@ Success.
 
 --nf dual ?-Int.end
   ?Int.end
+
+Result: Number 30
 ```
 
 
