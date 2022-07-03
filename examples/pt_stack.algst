@@ -1,0 +1,23 @@
+protocol EStack a = PushE a (NStack a) (EStack a) | Quit
+protocol NStack a = PushN a (NStack a) (NStack a) | Pop -a
+
+estack_server : forall(a:MU).forall(s:S). ?EStack a.s -> s
+estack_server [a,s] c =
+  match c with {
+    PushE c ->
+      let (x, c) = receive [a,?NStack a.?EStack a.s] c in
+      let c = nstack_server [a] x [?EStack a.s] c in
+      estack_server [a,s] c,
+    Quit c ->
+      c }
+
+nstack_server : forall(a:MU). a -> forall(s:S). ?NStack a.s -> s
+nstack_server [a] x [s] c =
+  match c with {
+    PushN c ->
+      let (y, c) = receive [a,?NStack a.?NStack a.s] c in
+      let c = nstack_server [a] y [?NStack a.s] c in
+      nstack_server [a] x [s] c,
+    Pop c ->
+      send [a] x [s] c }
+      

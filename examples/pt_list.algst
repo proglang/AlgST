@@ -3,10 +3,10 @@ data List a = Nil | Cons a (List a)
 ----------------------------------------------------------------------
 -- sending
 
-type Send a = forall(s:S). a -> !a.s -> s
+type Send a = a -> forall(s:S). !a.s -> s
 
 sendList : forall a. Send a -> Send (List a)
-sendList [a] send_a [s] xs c =
+sendList [a] send_a xs [s] c =
   case xs of {
     Nil       -> select Nil [a,s] c,
     Cons x xs -> select Cons [a,s] c
@@ -15,7 +15,7 @@ sendList [a] send_a [s] xs c =
   }
 
 send_int : Send Int
-send_int [s] x = send [Int] x [s]
+send_int x [s] = send [Int] x [s]
 
 sendList_int : Send (List Int)
 sendList_int = sendList [Int] send_int
