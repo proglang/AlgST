@@ -93,7 +93,7 @@ instance Equivalence TcStage TypeRef where
       zipWith (alpha proxy w m) (typeRefArgs r1) (typeRefArgs r2)
 
 instance Subtype TcStage TypeRef where
-  beta proxy w m r1 r2 =
+  beta proxy w m _ r1 r2 =
     and $
       (typeRefName r1 == typeRefName r2) :
       -- Given that both 'TypeRef's have the same name they must have the same
