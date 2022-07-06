@@ -6,10 +6,10 @@ serve_arith : forall (s:S). ?Arith.s -> s
 serve_arith [s] c =
   match c with {
     Neg c -> let (x, c) = receive [Int, !Int.s] c in
-             send [Int] (0-x) [s] c,
+             send [Int, s] (0-x) c,
     Add c -> let (x, c) = receive [Int, ?Int.!Int.s] c in
              let (y, c) = receive [Int, !Int.s] c in
-             send [Int] (x+y) [s] c }
+             send [Int, s] (x+y) c }
 
 client_neg : forall (s:S). Int -> !Arith.s -> (Int, s)
 client_neg [s] x c =

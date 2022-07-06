@@ -5,7 +5,7 @@ flipper : !Flip.end -> end
 flipper c = let c = select Flip [end] c in
             let (x, c) = receive [Int, !Flop.end] c in
 	    select Flop [end] c
-	    |> send [Int] x [!Flip.end]
+	    |> send [Int, !Flip.end] x
             |> flipper
 
 -- mutual recursion
@@ -18,5 +18,5 @@ flip c = select Flip [end] c
 flop : (Int, !Flop.end) -> end
 flop p = let (x, c) = p in
          select Flop [end] c
-	 |> send [Int] x [!Flip.end]
+	 |> send [Int, !Flip.end] x
 	 |> flip
