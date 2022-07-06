@@ -1,0 +1,95 @@
+blackhole : forall(a:TU).a
+blackhole = blackhole
+
+-- context-free languages example from Nested Session Types, Section 2
+-- Dyck words
+
+protocol T (x:P) =
+  | L (T (T x))
+  | R x
+
+protocol D =
+  | DL (T D)
+  | QQ
+
+serveT : forall (x:P). (forall (s:S). ?x.s -> s) -> forall (s:S). ?T x.s -> s
+serveT [x] serveX [s] c = match c with {
+  L c -> serveT [T x] (serveT [x] serveX) [s] c,
+  R c -> serveX [s] c
+}
+
+serveD : forall (s:S). ?D.s -> s
+serveD [s] c = match c with {
+  QQ c -> c,
+  DL c -> serveT [D] serveD [s] c
+}
+
+-- multiple parentheses
+
+protocol S1 (x:P) =
+  | S1L1 (S1 (S1 x))
+  | S1L2 (S1 (S2 x))
+  | S1R1 x
+
+protocol S2 (x:P) =
+  | S2L1 (S1 (S2 x))
+  | S2L2 (S2 (S2 x))
+  | S2R2 x
+
+protocol E =
+  | EL1 (S1 E)
+  | EL2 (S2 E)
+  | EEE
+
+-- multiple states as multiple parameters
+
+protocol U =
+  | UL (O (C A) (C B))
+
+protocol O (x:P) (y:P) =
+  | OL (O (C x) (C y))
+  | OA x
+  | OB y
+
+protocol C (x:P) =
+  | CR x
+
+protocol A =
+  | A
+
+protocol B =
+  | B
+
+-- wrapping of Dyck words w -> L w R
+
+copyT : forall (x:P). (?x.end -> !x.end -o end) -> (?T x.end -> !T x.end -o end)
+copyT [x] copyX c_in c_out = match c_in with {
+  L c_in ->
+    copyT [T x] (copyT [x] copyX) c_in (select L [x,end] c_out),
+  R c_in ->
+    copyX c_in (select R [x,end] c_out)
+}
+
+copyD : ?D.end -> !D.end -o end
+copyD c_in c_out = match c_in with {
+  QQ c_in -> select QQ [end] c_out,
+  DL c_in ->
+    let c_out = select DL [end] c_out in
+    copyT [D] copyD c_in c_out
+}
+
+copyT1 : forall (x:P). (?x.end -> !T x.end -o !x.end) -> (?T x.end -> !T (T x).end -o !x.end)
+copyT1 [x] copyX = blackhole[?T x.end -> !T (T x).end -o !x.end]
+
+wrap1 : ?D.end -> !T D.end -o !D.end
+wrap1 c_in c_out = match c_in with {
+  QQ c_in -> select R [D,end] c_out,
+  DL c_in ->
+     copyT1 [D] wrap1 c_in (select L [D, end] c_out)
+}
+
+wrap : ?D.end -> !D.end -o end
+wrap c_in c_out =
+  let c_out = select DL [end] c_out in
+  let c_out = wrap1 c_in c_out in
+  select QQ [end] c_out
