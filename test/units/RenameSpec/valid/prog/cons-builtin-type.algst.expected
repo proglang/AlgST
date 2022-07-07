@@ -2,8 +2,6 @@ Literal#M.0
 |
 `- DataDecl
    |
-   +- OriginUser
-   |
    +- kind
    |  |
    |  `- TU
@@ -34,8 +32,6 @@ Bool#M.1
 |
 `- Decl.DataCon (Literal#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |
    +- multiplicity
@@ -49,8 +45,6 @@ Bool#M.1
 Char#M.2
 |
 `- Decl.DataCon (Literal#M.0)
-   |
-   +- OriginUser
    |
    +- parameters
    |
@@ -66,8 +60,6 @@ Int#M.3
 |
 `- Decl.DataCon (Literal#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |
    +- multiplicity
@@ -82,8 +74,6 @@ String#M.4
 |
 `- Decl.DataCon (Literal#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |
    +- multiplicity
@@ -97,8 +87,6 @@ String#M.4
 Unit#M.5
 |
 `- Decl.DataCon (Literal#M.0)
-   |
-   +- OriginUser
    |
    +- parameters
    |

@@ -202,9 +202,9 @@ type instance T.XNegate  Tc = Pos
 type instance T.XType    Tc = TypeRef
 
 type instance D.XAliasDecl    Tc = Void  -- Type aliases have been expanded after type checking.
-type instance D.XDataDecl     Tc = D.Origin
-type instance D.XProtocolDecl Tc = D.Origin
+type instance D.XDataDecl     Tc = Pos
+type instance D.XProtocolDecl Tc = Pos
 
-type instance D.XDataCon      Tc = D.Origin
-type instance D.XProtoCon     Tc = D.Origin
+type instance D.XDataCon      Tc = Pos
+type instance D.XProtoCon     Tc = Pos
 {- ORMOLU_ENABLE -}

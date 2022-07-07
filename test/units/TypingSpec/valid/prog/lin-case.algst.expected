@@ -2,8 +2,6 @@ Maybe#M.0
 |
 `- DataDecl
    |
-   +- OriginUser
-   |
    +- kind
    |  |
    |  `- TL
@@ -26,8 +24,6 @@ Just#M.1
 |
 `- Decl.DataCon (Maybe#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (a#M.4:TL)
@@ -46,8 +42,6 @@ Nothing#M.2
 |
 `- Decl.DataCon (Maybe#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (a#M.4:TL)
@@ -60,85 +54,87 @@ Nothing#M.2
 
 fromMaybe#M.3
 |
-+- type
-|  |
-|  `- Type.Forall a#M.9:TL
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Arrow U
-|        |  |
-|        |  +- Type.Unit
-|        |  |
-|        |  `- Type.Var a#M.9
-|        |     |
-|        |     `- TL
-|        |
-|        `- Type.Arrow U
-|           |
-|           +- Type.Type
-|           |  |
-|           |  `- TypeRef
-|           |     |
-|           |     +- Maybe
-|           |     |
-|           |     `- Type.Var a#M.9
-|           |        |
-|           |        `- TL
-|           |
-|           `- Type.Var a#M.9
-|              |
-|              `- TL
-|
-+- params
-|  |
-|  +- makeA#M.7
-|  |
-|  `- m#M.8
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs _#M.11:TL
+   +- type
+   |  |
+   |  `- Type.Forall a#M.9:TL
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Arrow U
+   |        |  |
+   |        |  +- Type.Unit
+   |        |  |
+   |        |  `- Type.Var a#M.9
+   |        |     |
+   |        |     `- TL
+   |        |
+   |        `- Type.Arrow U
+   |           |
+   |           +- Type.Type
+   |           |  |
+   |           |  `- TypeRef
+   |           |     |
+   |           |     +- Maybe
+   |           |     |
+   |           |     `- Type.Var a#M.9
+   |           |        |
+   |           |        `- TL
+   |           |
+   |           `- Type.Var a#M.9
+   |              |
+   |              `- TL
+   |
+   +- params
+   |  |
+   |  +- makeA#M.7
+   |  |
+   |  `- m#M.8
+   |
+   `- definition
       |
-      `- Exp.Abs U makeA#M.7
+      `- Exp.TypeAbs _#M.11:TL
          |
-         +- Type.Arrow U
-         |  |
-         |  +- Type.Unit
-         |  |
-         |  `- Type.Var _#M.11
-         |     |
-         |     `- TL
-         |
-         `- Exp.Abs U m#M.8
+         `- Exp.Abs U makeA#M.7
             |
-            +- Type.Type
+            +- Type.Arrow U
             |  |
-            |  `- TypeRef
+            |  +- Type.Unit
+            |  |
+            |  `- Type.Var _#M.11
             |     |
-            |     +- Maybe
-            |     |
-            |     `- Type.Var _#M.11
-            |        |
-            |        `- TL
+            |     `- TL
             |
-            `- Exp.Exp
+            `- Exp.Abs U m#M.8
                |
-               `- TcExpX.ValueCase
+               +- Type.Type
+               |  |
+               |  `- TypeRef
+               |     |
+               |     +- Maybe
+               |     |
+               |     `- Type.Var _#M.11
+               |        |
+               |        `- TL
+               |
+               `- Exp.Exp
                   |
-                  +- Exp.Var m#M.8
-                  |
-                  +- Just#M.1 a#M.10
-                  |  |
-                  |  `- Exp.Var a#M.10
-                  |
-                  `- Nothing#M.2
+                  `- TcExpX.ValueCase
                      |
-                     `- Exp.App
+                     +- Exp.Var m#M.8
+                     |
+                     +- Just#M.1 a#M.10
+                     |  |
+                     |  `- Exp.Var a#M.10
+                     |
+                     `- Nothing#M.2
                         |
-                        +- Exp.Var makeA#M.7
-                        |
-                        `- Exp.Lit
+                        `- Exp.App
                            |
-                           `- Lit.Unit
+                           +- Exp.Var makeA#M.7
+                           |
+                           `- Exp.Lit
+                              |
+                              `- Lit.Unit
 

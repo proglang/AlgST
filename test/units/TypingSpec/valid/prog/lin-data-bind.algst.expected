@@ -2,8 +2,6 @@ D#M.0
 |
 `- DataDecl
    |
-   +- OriginUser
-   |
    +- kind
    |  |
    |  `- TL
@@ -18,8 +16,6 @@ D#M.1
 |
 `- Decl.DataCon (D#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |
    +- multiplicity
@@ -30,41 +26,43 @@ D#M.1
 
 foo#M.2
 |
-+- type
-|  |
-|  `- Type.Arrow U
-|     |
-|     +- Type.Type
-|     |  |
-|     |  `- TypeRef
-|     |     |
-|     |     `- D
-|     |
-|     `- Type.Unit
-|
-+- params
-|  |
-|  `- x#M.3
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.Abs U x#M.3
+   +- type
+   |  |
+   |  `- Type.Arrow U
+   |     |
+   |     +- Type.Type
+   |     |  |
+   |     |  `- TypeRef
+   |     |     |
+   |     |     `- D
+   |     |
+   |     `- Type.Unit
+   |
+   +- params
+   |  |
+   |  `- x#M.3
+   |
+   `- definition
       |
-      +- Type.Type
-      |  |
-      |  `- TypeRef
-      |     |
-      |     `- D
-      |
-      `- Exp.Exp
+      `- Exp.Abs U x#M.3
          |
-         `- TcExpX.ValueCase
+         +- Type.Type
+         |  |
+         |  `- TypeRef
+         |     |
+         |     `- D
+         |
+         `- Exp.Exp
             |
-            +- Exp.Var x#M.3
-            |
-            `- D#M.1
+            `- TcExpX.ValueCase
                |
-               `- Exp.Lit
+               +- Exp.Var x#M.3
+               |
+               `- D#M.1
                   |
-                  `- Lit.Unit
+                  `- Exp.Lit
+                     |
+                     `- Lit.Unit
 

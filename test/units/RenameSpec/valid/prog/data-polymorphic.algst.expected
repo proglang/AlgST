@@ -2,8 +2,6 @@ BTree#M.0
 |
 `- DataDecl
    |
-   +- OriginUser
-   |
    +- kind
    |  |
    |  `- TU
@@ -36,8 +34,6 @@ Branch#M.1
 |
 `- Decl.DataCon (BTree#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (a#M.4:TU)
@@ -63,8 +59,6 @@ Branch#M.1
 Leaf#M.2
 |
 `- Decl.DataCon (BTree#M.0)
-   |
-   +- OriginUser
    |
    +- parameters
    |  |

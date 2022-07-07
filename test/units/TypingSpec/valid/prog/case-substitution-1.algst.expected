@@ -2,8 +2,6 @@ Id#M.0
 |
 `- DataDecl
    |
-   +- OriginUser
-   |
    +- kind
    |  |
    |  `- TU
@@ -24,8 +22,6 @@ Id#M.1
 |
 `- Decl.DataCon (Id#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (a#M.3:TU)
@@ -42,55 +38,57 @@ Id#M.1
 
 getId#M.2
 |
-+- type
-|  |
-|  `- Type.Forall a#M.7:TU
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Type
-|        |  |
-|        |  `- TypeRef
-|        |     |
-|        |     +- Id
-|        |     |
-|        |     `- Type.Var a#M.7
-|        |        |
-|        |        `- TU
-|        |
-|        `- Type.Var a#M.7
-|           |
-|           `- TU
-|
-+- params
-|  |
-|  +- [_#M.5]
-|  |
-|  `- id#M.6
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs _#M.5:TU
+   +- type
+   |  |
+   |  `- Type.Forall a#M.7:TU
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Type
+   |        |  |
+   |        |  `- TypeRef
+   |        |     |
+   |        |     +- Id
+   |        |     |
+   |        |     `- Type.Var a#M.7
+   |        |        |
+   |        |        `- TU
+   |        |
+   |        `- Type.Var a#M.7
+   |           |
+   |           `- TU
+   |
+   +- params
+   |  |
+   |  +- [_#M.5]
+   |  |
+   |  `- id#M.6
+   |
+   `- definition
       |
-      `- Exp.Abs U id#M.6
+      `- Exp.TypeAbs _#M.5:TU
          |
-         +- Type.Type
-         |  |
-         |  `- TypeRef
-         |     |
-         |     +- Id
-         |     |
-         |     `- Type.Var _#M.5
-         |        |
-         |        `- TU
-         |
-         `- Exp.Exp
+         `- Exp.Abs U id#M.6
             |
-            `- TcExpX.ValueCase
+            +- Type.Type
+            |  |
+            |  `- TypeRef
+            |     |
+            |     +- Id
+            |     |
+            |     `- Type.Var _#M.5
+            |        |
+            |        `- TU
+            |
+            `- Exp.Exp
                |
-               +- Exp.Var id#M.6
-               |
-               `- Id#M.1 a#M.8
+               `- TcExpX.ValueCase
                   |
-                  `- Exp.Var a#M.8
+                  +- Exp.Var id#M.6
+                  |
+                  `- Id#M.1 a#M.8
+                     |
+                     `- Exp.Var a#M.8
 

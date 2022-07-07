@@ -1,94 +1,100 @@
 const1#M.0
 |
-+- type
-|  |
-|  `- Type.Forall a#M.7:TL
-|     |
-|     `- Type.Forall b#M.8:TU
-|        |
-|        `- Type.Arrow U
-|           |
-|           +- Type.Var a#M.7
-|           |
-|           `- Type.Arrow U
-|              |
-|              +- Type.Var b#M.8
-|              |
-|              `- Type.Var a#M.7
-|
-+- params
-|  |
-|  +- [_#M.3]
-|  |
-|  +- [_#M.4]
-|  |
-|  +- a#M.5
-|  |
-|  `- _#M.6
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.Var a#M.5
+   +- type
+   |  |
+   |  `- Type.Forall a#M.7:TL
+   |     |
+   |     `- Type.Forall b#M.8:TU
+   |        |
+   |        `- Type.Arrow U
+   |           |
+   |           +- Type.Var a#M.7
+   |           |
+   |           `- Type.Arrow U
+   |              |
+   |              +- Type.Var b#M.8
+   |              |
+   |              `- Type.Var a#M.7
+   |
+   +- params
+   |  |
+   |  +- [_#M.3]
+   |  |
+   |  +- [_#M.4]
+   |  |
+   |  +- a#M.5
+   |  |
+   |  `- _#M.6
+   |
+   `- definition
+      |
+      `- Exp.Var a#M.5
 
 const2#M.1
 |
-+- type
-|  |
-|  `- Type.Forall a#M.13:TL
-|     |
-|     `- Type.Forall b#M.14:TU
-|        |
-|        `- Type.Arrow U
-|           |
-|           +- Type.Var a#M.13
-|           |
-|           `- Type.Arrow U
-|              |
-|              +- Type.Var b#M.14
-|              |
-|              `- Type.Var a#M.13
-|
-+- params
-|  |
-|  +- [a#M.9]
-|  |
-|  +- [b#M.10]
-|  |
-|  +- a#M.11
-|  |
-|  `- _#M.12
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.App
+   +- type
+   |  |
+   |  `- Type.Forall a#M.13:TL
+   |     |
+   |     `- Type.Forall b#M.14:TU
+   |        |
+   |        `- Type.Arrow U
+   |           |
+   |           +- Type.Var a#M.13
+   |           |
+   |           `- Type.Arrow U
+   |              |
+   |              +- Type.Var b#M.14
+   |              |
+   |              `- Type.Var a#M.13
+   |
+   +- params
+   |  |
+   |  +- [a#M.9]
+   |  |
+   |  +- [b#M.10]
+   |  |
+   |  +- a#M.11
+   |  |
+   |  `- _#M.12
+   |
+   `- definition
       |
-      +- Exp.TypeApp
-      |  |
-      |  +- Exp.Var id#M.2
-      |  |
-      |  `- Type.Var a#M.9
-      |
-      `- Exp.Var a#M.11
+      `- Exp.App
+         |
+         +- Exp.TypeApp
+         |  |
+         |  +- Exp.Var id#M.2
+         |  |
+         |  `- Type.Var a#M.9
+         |
+         `- Exp.Var a#M.11
 
 id#M.2
 |
-+- type
-|  |
-|  `- Type.Forall a#M.17:TL
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Var a#M.17
-|        |
-|        `- Type.Var a#M.17
-|
-+- params
-|  |
-|  +- [_#M.15]
-|  |
-|  `- a#M.16
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.Var a#M.16
+   +- type
+   |  |
+   |  `- Type.Forall a#M.17:TL
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Var a#M.17
+   |        |
+   |        `- Type.Var a#M.17
+   |
+   +- params
+   |  |
+   |  +- [_#M.15]
+   |  |
+   |  `- a#M.16
+   |
+   `- definition
+      |
+      `- Exp.Var a#M.16
 

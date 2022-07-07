@@ -1,54 +1,56 @@
 foo#M.0
 |
-+- type
-|  |
-|  `- Type.Forall a#M.5:TL
-|     |
-|     `- Type.Forall b#M.6:TU
-|        |
-|        `- Type.Arrow U
-|           |
-|           +- Type.Var a#M.5
-|           |  |
-|           |  `- TL
-|           |
-|           `- Type.Arrow L
-|              |
-|              +- Type.Var b#M.6
-|              |  |
-|              |  `- TU
-|              |
-|              `- Type.Var a#M.5
-|                 |
-|                 `- TL
-|
-+- params
-|  |
-|  +- [a#M.1]
-|  |
-|  +- [b#M.2]
-|  |
-|  +- a#M.3
-|  |
-|  `- b#M.4
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs a#M.1:TL
+   +- type
+   |  |
+   |  `- Type.Forall a#M.5:TL
+   |     |
+   |     `- Type.Forall b#M.6:TU
+   |        |
+   |        `- Type.Arrow U
+   |           |
+   |           +- Type.Var a#M.5
+   |           |  |
+   |           |  `- TL
+   |           |
+   |           `- Type.Arrow L
+   |              |
+   |              +- Type.Var b#M.6
+   |              |  |
+   |              |  `- TU
+   |              |
+   |              `- Type.Var a#M.5
+   |                 |
+   |                 `- TL
+   |
+   +- params
+   |  |
+   |  +- [a#M.1]
+   |  |
+   |  +- [b#M.2]
+   |  |
+   |  +- a#M.3
+   |  |
+   |  `- b#M.4
+   |
+   `- definition
       |
-      `- Exp.TypeAbs b#M.2:TU
+      `- Exp.TypeAbs a#M.1:TL
          |
-         `- Exp.Abs U a#M.3
+         `- Exp.TypeAbs b#M.2:TU
             |
-            +- Type.Var a#M.1
-            |  |
-            |  `- TL
-            |
-            `- Exp.Abs L b#M.4
+            `- Exp.Abs U a#M.3
                |
-               +- Type.Var b#M.2
+               +- Type.Var a#M.1
                |  |
-               |  `- TU
+               |  `- TL
                |
-               `- Exp.Var a#M.3
+               `- Exp.Abs L b#M.4
+                  |
+                  +- Type.Var b#M.2
+                  |  |
+                  |  `- TU
+                  |
+                  `- Exp.Var a#M.3
 

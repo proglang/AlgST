@@ -1,84 +1,86 @@
 recvPair#M.0
 |
-+- type
-|  |
-|  `- Type.Forall a#M.2:TU
-|     |
-|     `- Type.Forall b#M.3:TU
-|        |
-|        `- Type.Forall s#M.4:SL
-|           |
-|           `- Type.Arrow U
-|              |
-|              +- Type.Session (?)
-|              |  |
-|              |  +- Type.Pair
-|              |  |  |
-|              |  |  +- Type.Var a#M.2
-|              |  |  |  |
-|              |  |  |  `- TU
-|              |  |  |
-|              |  |  `- Type.Var b#M.3
-|              |  |     |
-|              |  |     `- TU
-|              |  |
-|              |  `- Type.Var s#M.4
-|              |     |
-|              |     `- SL
-|              |
-|              `- Type.Session (?)
-|                 |
-|                 +- Type.Var a#M.2
-|                 |  |
-|                 |  `- TU
-|                 |
-|                 `- Type.Session (?)
-|                    |
-|                    +- Type.Var b#M.3
-|                    |  |
-|                    |  `- TU
-|                    |
-|                    `- Type.Var s#M.4
-|                       |
-|                       `- SL
-|
-+- params
-|  |
-|  `- c#M.1
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs _#M.6:TU
+   +- type
+   |  |
+   |  `- Type.Forall a#M.2:TU
+   |     |
+   |     `- Type.Forall b#M.3:TU
+   |        |
+   |        `- Type.Forall s#M.4:SL
+   |           |
+   |           `- Type.Arrow U
+   |              |
+   |              +- Type.Session (?)
+   |              |  |
+   |              |  +- Type.Pair
+   |              |  |  |
+   |              |  |  +- Type.Var a#M.2
+   |              |  |  |  |
+   |              |  |  |  `- TU
+   |              |  |  |
+   |              |  |  `- Type.Var b#M.3
+   |              |  |     |
+   |              |  |     `- TU
+   |              |  |
+   |              |  `- Type.Var s#M.4
+   |              |     |
+   |              |     `- SL
+   |              |
+   |              `- Type.Session (?)
+   |                 |
+   |                 +- Type.Var a#M.2
+   |                 |  |
+   |                 |  `- TU
+   |                 |
+   |                 `- Type.Session (?)
+   |                    |
+   |                    +- Type.Var b#M.3
+   |                    |  |
+   |                    |  `- TU
+   |                    |
+   |                    `- Type.Var s#M.4
+   |                       |
+   |                       `- SL
+   |
+   +- params
+   |  |
+   |  `- c#M.1
+   |
+   `- definition
       |
-      `- Exp.TypeAbs _#M.7:TU
+      `- Exp.TypeAbs _#M.6:TU
          |
-         `- Exp.TypeAbs _#M.8:SL
+         `- Exp.TypeAbs _#M.7:TU
             |
-            `- Exp.Abs U c#M.1
+            `- Exp.TypeAbs _#M.8:SL
                |
-               +- Type.Session (?)
-               |  |
-               |  +- Type.Pair
-               |  |  |
-               |  |  +- Type.Var _#M.6
-               |  |  |  |
-               |  |  |  `- TU
-               |  |  |
-               |  |  `- Type.Var _#M.7
-               |  |     |
-               |  |     `- TU
-               |  |
-               |  `- Type.Var _#M.8
-               |     |
-               |     `- SL
-               |
-               `- Exp.Exp
+               `- Exp.Abs U c#M.1
                   |
-                  `- TcExpX.RecvCase
+                  +- Type.Session (?)
+                  |  |
+                  |  +- Type.Pair
+                  |  |  |
+                  |  |  +- Type.Var _#M.6
+                  |  |  |  |
+                  |  |  |  `- TU
+                  |  |  |
+                  |  |  `- Type.Var _#M.7
+                  |  |     |
+                  |  |     `- TU
+                  |  |
+                  |  `- Type.Var _#M.8
+                  |     |
+                  |     `- SL
+                  |
+                  `- Exp.Exp
                      |
-                     +- Exp.Var c#M.1
-                     |
-                     `- (,)#Builtin.0 c#M.5
+                     `- TcExpX.RecvCase
                         |
-                        `- Exp.Var c#M.5
+                        +- Exp.Var c#M.1
+                        |
+                        `- (,)#Builtin.0 c#M.5
+                           |
+                           `- Exp.Var c#M.5
 

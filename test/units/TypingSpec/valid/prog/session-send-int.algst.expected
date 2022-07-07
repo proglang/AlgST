@@ -1,74 +1,76 @@
 sendInt1#M.0
 |
-+- type
-|  |
-|  `- Type.Forall s#M.3:SL
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Session (!)
-|        |  |
-|        |  +- Type.Type
-|        |  |  |
-|        |  |  `- TypeRef
-|        |  |     |
-|        |  |     `- Int
-|        |  |
-|        |  `- Type.Var s#M.3
-|        |     |
-|        |     `- SL
-|        |
-|        `- Type.Var s#M.3
-|           |
-|           `- SL
-|
-+- params
-|  |
-|  +- [s#M.1]
-|  |
-|  `- c#M.2
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs s#M.1:SL
+   +- type
+   |  |
+   |  `- Type.Forall s#M.3:SL
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Session (!)
+   |        |  |
+   |        |  +- Type.Type
+   |        |  |  |
+   |        |  |  `- TypeRef
+   |        |  |     |
+   |        |  |     `- Int
+   |        |  |
+   |        |  `- Type.Var s#M.3
+   |        |     |
+   |        |     `- SL
+   |        |
+   |        `- Type.Var s#M.3
+   |           |
+   |           `- SL
+   |
+   +- params
+   |  |
+   |  +- [s#M.1]
+   |  |
+   |  `- c#M.2
+   |
+   `- definition
       |
-      `- Exp.Abs U c#M.2
+      `- Exp.TypeAbs s#M.1:SL
          |
-         +- Type.Session (!)
-         |  |
-         |  +- Type.Type
-         |  |  |
-         |  |  `- TypeRef
-         |  |     |
-         |  |     `- Int
-         |  |
-         |  `- Type.Var s#M.1
-         |     |
-         |     `- SL
-         |
-         `- Exp.App
+         `- Exp.Abs U c#M.2
             |
-            +- Exp.App
+            +- Type.Session (!)
             |  |
-            |  +- Exp.TypeApp
+            |  +- Type.Type
             |  |  |
-            |  |  +- Exp.TypeApp
-            |  |  |  |
-            |  |  |  +- Exp.Var send#Builtin.29
-            |  |  |  |
-            |  |  |  `- Type.Type
-            |  |  |     |
-            |  |  |     `- TypeRef
-            |  |  |        |
-            |  |  |        `- Int
-            |  |  |
-            |  |  `- Type.Var s#M.1
+            |  |  `- TypeRef
             |  |     |
-            |  |     `- SL
+            |  |     `- Int
             |  |
-            |  `- Exp.Lit
+            |  `- Type.Var s#M.1
             |     |
-            |     `- Lit.Int 1
+            |     `- SL
             |
-            `- Exp.Var c#M.2
+            `- Exp.App
+               |
+               +- Exp.App
+               |  |
+               |  +- Exp.TypeApp
+               |  |  |
+               |  |  +- Exp.TypeApp
+               |  |  |  |
+               |  |  |  +- Exp.Var send#Builtin.29
+               |  |  |  |
+               |  |  |  `- Type.Type
+               |  |  |     |
+               |  |  |     `- TypeRef
+               |  |  |        |
+               |  |  |        `- Int
+               |  |  |
+               |  |  `- Type.Var s#M.1
+               |  |     |
+               |  |     `- SL
+               |  |
+               |  `- Exp.Lit
+               |     |
+               |     `- Lit.Int 1
+               |
+               `- Exp.Var c#M.2
 

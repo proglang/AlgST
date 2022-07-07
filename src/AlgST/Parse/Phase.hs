@@ -95,10 +95,10 @@ type instance T.XDualof  Parse = Pos
 type instance T.XNegate  Parse = Pos
 type instance T.XType    Parse = Void
 
-type instance D.XAliasDecl    Parse = D.Origin
-type instance D.XDataDecl     Parse = D.Origin
-type instance D.XProtocolDecl Parse = D.Origin
+type instance D.XAliasDecl    Parse = Pos
+type instance D.XDataDecl     Parse = Pos
+type instance D.XProtocolDecl Parse = Pos
 
-type instance D.XDataCon      Parse = D.Origin
-type instance D.XProtoCon     Parse = D.Origin
+type instance D.XDataCon      Parse = Pos
+type instance D.XProtoCon     Parse = Pos
 {- ORMOLU_ENABLE -}

@@ -2,8 +2,6 @@ List#M.0
 |
 `- DataDecl
    |
-   +- OriginUser
-   |
    +- kind
    |  |
    |  `- TU
@@ -36,8 +34,6 @@ Cons#M.1
 |
 `- Decl.DataCon (List#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (a#M.4:TU)
@@ -66,8 +62,6 @@ Nil#M.2
 |
 `- Decl.DataCon (List#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (a#M.4:TU)
@@ -80,69 +74,71 @@ Nil#M.2
 
 unsafe_head#M.3
 |
-+- type
-|  |
-|  `- Type.Forall a#M.9:TU
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Type
-|        |  |
-|        |  `- TypeRef
-|        |     |
-|        |     +- List
-|        |     |
-|        |     `- Type.Var a#M.9
-|        |        |
-|        |        `- TU
-|        |
-|        `- Type.Var a#M.9
-|           |
-|           `- TU
-|
-+- params
-|  |
-|  +- [a#M.7]
-|  |
-|  `- xs#M.8
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs a#M.7:TU
+   +- type
+   |  |
+   |  `- Type.Forall a#M.9:TU
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Type
+   |        |  |
+   |        |  `- TypeRef
+   |        |     |
+   |        |     +- List
+   |        |     |
+   |        |     `- Type.Var a#M.9
+   |        |        |
+   |        |        `- TU
+   |        |
+   |        `- Type.Var a#M.9
+   |           |
+   |           `- TU
+   |
+   +- params
+   |  |
+   |  +- [a#M.7]
+   |  |
+   |  `- xs#M.8
+   |
+   `- definition
       |
-      `- Exp.Abs U xs#M.8
+      `- Exp.TypeAbs a#M.7:TU
          |
-         +- Type.Type
-         |  |
-         |  `- TypeRef
-         |     |
-         |     +- List
-         |     |
-         |     `- Type.Var a#M.7
-         |        |
-         |        `- TU
-         |
-         `- Exp.Exp
+         `- Exp.Abs U xs#M.8
             |
-            `- TcExpX.ValueCase
+            +- Type.Type
+            |  |
+            |  `- TypeRef
+            |     |
+            |     +- List
+            |     |
+            |     `- Type.Var a#M.7
+            |        |
+            |        `- TU
+            |
+            `- Exp.Exp
                |
-               +- Exp.Var xs#M.8
-               |
-               +- Cons#M.1 a#M.10 _#M.11
-               |  |
-               |  `- Exp.Var a#M.10
-               |
-               `- xs'#M.12
+               `- TcExpX.ValueCase
                   |
-                  `- Exp.App
+                  +- Exp.Var xs#M.8
+                  |
+                  +- Cons#M.1 a#M.10 _#M.11
+                  |  |
+                  |  `- Exp.Var a#M.10
+                  |
+                  `- xs'#M.12
                      |
-                     +- Exp.TypeApp
-                     |  |
-                     |  +- Exp.Var unsafe_head#M.3
-                     |  |
-                     |  `- Type.Var a#M.7
-                     |     |
-                     |     `- TU
-                     |
-                     `- Exp.Var xs'#M.12
+                     `- Exp.App
+                        |
+                        +- Exp.TypeApp
+                        |  |
+                        |  +- Exp.Var unsafe_head#M.3
+                        |  |
+                        |  `- Type.Var a#M.7
+                        |     |
+                        |     `- TU
+                        |
+                        `- Exp.Var xs'#M.12
 

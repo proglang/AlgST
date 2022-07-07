@@ -1,42 +1,44 @@
 foo#M.0
 |
-+- type
-|  |
-|  `- Type.Type
-|     |
-|     `- TypeRef
-|        |
-|        `- Int
-|
-+- params
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.Exp
+   +- type
+   |  |
+   |  `- Type.Type
+   |     |
+   |     `- TypeRef
+   |        |
+   |        `- Int
+   |
+   +- params
+   |
+   `- definition
       |
-      `- TcExpX.ValueCase
+      `- Exp.Exp
          |
-         +- Exp.Pair
-         |  |
-         |  +- Exp.Lit
-         |  |  |
-         |  |  `- Lit.Int 10
-         |  |
-         |  `- Exp.Lit
-         |     |
-         |     `- Lit.String "20"
-         |
-         `- (,)#Builtin.0 theInt#M.1 theString#M.2
+         `- TcExpX.ValueCase
             |
-            `- Exp.App
+            +- Exp.Pair
+            |  |
+            |  +- Exp.Lit
+            |  |  |
+            |  |  `- Lit.Int 10
+            |  |
+            |  `- Exp.Lit
+            |     |
+            |     `- Lit.String "20"
+            |
+            `- (,)#Builtin.0 theInt#M.1 theString#M.2
                |
-               +- Exp.App
-               |  |
-               |  +- Exp.Var (+)#Builtin.17
-               |  |
-               |  `- Exp.Var theInt#M.1
-               |
-               `- Exp.Lit
+               `- Exp.App
                   |
-                  `- Lit.Int 20
+                  +- Exp.App
+                  |  |
+                  |  +- Exp.Var (+)#Builtin.17
+                  |  |
+                  |  `- Exp.Var theInt#M.1
+                  |
+                  `- Exp.Lit
+                     |
+                     `- Lit.Int 20
 

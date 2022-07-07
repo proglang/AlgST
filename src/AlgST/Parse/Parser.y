@@ -230,7 +230,7 @@ Decl :: { ModuleBuilder }
   -- Type abbreviation
   | type KindedTVar TypeParams '=' Type {% do
       let (name, mkind) = $2
-      let decl = AliasDecl (OriginUser (pos $1)) TypeAlias
+      let decl = AliasDecl (pos $1) TypeAlias
             { aliasParams = $3
             , aliasKind = mkind
             , aliasType = $5
@@ -240,7 +240,7 @@ Decl :: { ModuleBuilder }
   -- Datatype declaration
   | data KindedTVar TypeParams {% do
       let (name, mkind) = $2
-      let decl = DataDecl (OriginUser (pos $1)) TypeNominal
+      let decl = DataDecl (pos $1) TypeNominal
             { nominalParams = $3
             , nominalKind = K.TU `fromMaybe` mkind
             , nominalConstructors = mempty
@@ -249,7 +249,7 @@ Decl :: { ModuleBuilder }
     }
   | data KindedTVar TypeParams '=' DataCons {% do
       let (name, mkind) = $2
-      let decl = DataDecl (OriginUser (pos $1)) TypeNominal
+      let decl = DataDecl (pos $1) TypeNominal
             { nominalParams = $3
             , nominalKind = K.TU `fromMaybe` mkind
             , nominalConstructors = $5
@@ -258,7 +258,7 @@ Decl :: { ModuleBuilder }
     }
   | protocol KindedTVar TypeParams '=' DataCons {% do
       let (name, mkind) = $2
-      let decl = ProtoDecl (OriginUser (pos $1)) TypeNominal
+      let decl = ProtoDecl (pos $1) TypeNominal
             { nominalParams = $3
             , nominalKind = K.P `fromMaybe` mkind
             , nominalConstructors = $5

@@ -2,8 +2,6 @@ Arith#M.0
 |
 `- ProtoDecl
    |
-   +- OriginUser
-   |
    +- kind
    |  |
    |  `- P
@@ -54,8 +52,6 @@ List#M.1
 |
 `- DataDecl
    |
-   +- OriginUser
-   |
    +- kind
    |  |
    |  `- TU
@@ -87,8 +83,6 @@ List#M.1
 Repeat#M.2
 |
 `- ProtoDecl
-   |
-   +- OriginUser
    |
    +- kind
    |  |
@@ -122,8 +116,6 @@ Add#M.3
 |
 `- Decl.ProtocolCon (Arith#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |
    `- items
@@ -151,8 +143,6 @@ Add#M.3
 Cons#M.4
 |
 `- Decl.DataCon (List#M.1)
-   |
-   +- OriginUser
    |
    +- parameters
    |  |
@@ -182,8 +172,6 @@ More#M.5
 |
 `- Decl.ProtocolCon (Repeat#M.2)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (p#M.11:P)
@@ -208,8 +196,6 @@ Neg#M.6
 |
 `- Decl.ProtocolCon (Arith#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |
    `- items
@@ -232,8 +218,6 @@ Nil#M.7
 |
 `- Decl.DataCon (List#M.1)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (a#M.10:TU)
@@ -248,8 +232,6 @@ Quit#M.8
 |
 `- Decl.ProtocolCon (Repeat#M.2)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (p#M.11:P)
@@ -258,399 +240,401 @@ Quit#M.8
 
 sum#M.9
 |
-+- type
-|  |
-|  `- Type.Arrow U
-|     |
-|     +- Type.Type
-|     |  |
-|     |  `- TypeRef
-|     |     |
-|     |     +- List
-|     |     |
-|     |     `- Type.Type
-|     |        |
-|     |        `- TypeRef
-|     |           |
-|     |           `- Int
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Session (!)
-|        |  |
-|        |  +- Type.Type
-|        |  |  |
-|        |  |  `- TypeRef
-|        |  |     |
-|        |  |     +- Repeat
-|        |  |     |
-|        |  |     `- Type.Type
-|        |  |        |
-|        |  |        `- TypeRef
-|        |  |           |
-|        |  |           `- Arith
-|        |  |
-|        |  `- Type.End
-|        |
-|        `- Type.Type
-|           |
-|           `- TypeRef
-|              |
-|              `- Int
-|
-+- params
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.Exp
+   +- type
+   |  |
+   |  `- Type.Arrow U
+   |     |
+   |     +- Type.Type
+   |     |  |
+   |     |  `- TypeRef
+   |     |     |
+   |     |     +- List
+   |     |     |
+   |     |     `- Type.Type
+   |     |        |
+   |     |        `- TypeRef
+   |     |           |
+   |     |           `- Int
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Session (!)
+   |        |  |
+   |        |  +- Type.Type
+   |        |  |  |
+   |        |  |  `- TypeRef
+   |        |  |     |
+   |        |  |     +- Repeat
+   |        |  |     |
+   |        |  |     `- Type.Type
+   |        |  |        |
+   |        |  |        `- TypeRef
+   |        |  |           |
+   |        |  |           `- Arith
+   |        |  |
+   |        |  `- Type.End
+   |        |
+   |        `- Type.Type
+   |           |
+   |           `- TypeRef
+   |              |
+   |              `- Int
+   |
+   +- params
+   |
+   `- definition
       |
-      `- TcExpX.ValueCase
+      `- Exp.Exp
          |
-         +- Exp.Rec go#M.16
-         |  |
-         |  +- Type.Arrow U
-         |  |  |
-         |  |  +- Type.Type
-         |  |  |  |
-         |  |  |  `- TypeRef
-         |  |  |     |
-         |  |  |     `- Int
-         |  |  |
-         |  |  `- Type.Arrow U
-         |  |     |
-         |  |     +- Type.Type
-         |  |     |  |
-         |  |     |  `- TypeRef
-         |  |     |     |
-         |  |     |     +- List
-         |  |     |     |
-         |  |     |     `- Type.Type
-         |  |     |        |
-         |  |     |        `- TypeRef
-         |  |     |           |
-         |  |     |           `- Int
-         |  |     |
-         |  |     `- Type.Arrow U
-         |  |        |
-         |  |        +- Type.Session (!)
-         |  |        |  |
-         |  |        |  +- Type.Type
-         |  |        |  |  |
-         |  |        |  |  `- TypeRef
-         |  |        |  |     |
-         |  |        |  |     +- Repeat
-         |  |        |  |     |
-         |  |        |  |     `- Type.Type
-         |  |        |  |        |
-         |  |        |  |        `- TypeRef
-         |  |        |  |           |
-         |  |        |  |           `- Arith
-         |  |        |  |
-         |  |        |  `- Type.End
-         |  |        |
-         |  |        `- Type.Type
-         |  |           |
-         |  |           `- TypeRef
-         |  |              |
-         |  |              `- Int
-         |  |
-         |  `- Exp.Abs U acc#M.17
-         |     |
-         |     +- Type.Type
-         |     |  |
-         |     |  `- TypeRef
-         |     |     |
-         |     |     `- Int
-         |     |
-         |     `- Exp.Abs U xs#M.18
-         |        |
-         |        +- Type.Type
-         |        |  |
-         |        |  `- TypeRef
-         |        |     |
-         |        |     +- List
-         |        |     |
-         |        |     `- Type.Type
-         |        |        |
-         |        |        `- TypeRef
-         |        |           |
-         |        |           `- Int
-         |        |
-         |        `- Exp.Abs U c#M.19
-         |           |
-         |           +- Type.Session (!)
-         |           |  |
-         |           |  +- Type.Type
-         |           |  |  |
-         |           |  |  `- TypeRef
-         |           |  |     |
-         |           |  |     +- Repeat
-         |           |  |     |
-         |           |  |     `- Type.Type
-         |           |  |        |
-         |           |  |        `- TypeRef
-         |           |  |           |
-         |           |  |           `- Arith
-         |           |  |
-         |           |  `- Type.End
-         |           |
-         |           `- Exp.Exp
-         |              |
-         |              `- TcExpX.ValueCase
-         |                 |
-         |                 +- Exp.Var xs#M.18
-         |                 |
-         |                 +- Cons#M.4 x#M.20 xs#M.21
-         |                 |  |
-         |                 |  `- Exp.Exp
-         |                 |     |
-         |                 |     `- TcExpX.ValueCase
-         |                 |        |
-         |                 |        +- Exp.App
-         |                 |        |  |
-         |                 |        |  +- Exp.TypeApp
-         |                 |        |  |  |
-         |                 |        |  |  +- Exp.TypeApp
-         |                 |        |  |  |  |
-         |                 |        |  |  |  +- Exp.Select More#M.5
-         |                 |        |  |  |  |
-         |                 |        |  |  |  `- Type.Type
-         |                 |        |  |  |     |
-         |                 |        |  |  |     `- TypeRef
-         |                 |        |  |  |        |
-         |                 |        |  |  |        `- Arith
-         |                 |        |  |  |
-         |                 |        |  |  `- Type.End
-         |                 |        |  |
-         |                 |        |  `- Exp.Var c#M.19
-         |                 |        |
-         |                 |        `- c#M.22
-         |                 |           |
-         |                 |           `- Exp.Exp
-         |                 |              |
-         |                 |              `- TcExpX.ValueCase
-         |                 |                 |
-         |                 |                 +- Exp.App
-         |                 |                 |  |
-         |                 |                 |  +- Exp.TypeApp
-         |                 |                 |  |  |
-         |                 |                 |  |  +- Exp.Select Add#M.3
-         |                 |                 |  |  |
-         |                 |                 |  |  `- Type.Session (!)
-         |                 |                 |  |     |
-         |                 |                 |  |     +- Type.Type
-         |                 |                 |  |     |  |
-         |                 |                 |  |     |  `- TypeRef
-         |                 |                 |  |     |     |
-         |                 |                 |  |     |     +- Repeat
-         |                 |                 |  |     |     |
-         |                 |                 |  |     |     `- Type.Type
-         |                 |                 |  |     |        |
-         |                 |                 |  |     |        `- TypeRef
-         |                 |                 |  |     |           |
-         |                 |                 |  |     |           `- Arith
-         |                 |                 |  |     |
-         |                 |                 |  |     `- Type.End
-         |                 |                 |  |
-         |                 |                 |  `- Exp.Var c#M.22
-         |                 |                 |
-         |                 |                 `- c#M.23
-         |                 |                    |
-         |                 |                    `- Exp.Exp
-         |                 |                       |
-         |                 |                       `- TcExpX.ValueCase
-         |                 |                          |
-         |                 |                          +- Exp.App
-         |                 |                          |  |
-         |                 |                          |  +- Exp.App
-         |                 |                          |  |  |
-         |                 |                          |  |  +- Exp.TypeApp
-         |                 |                          |  |  |  |
-         |                 |                          |  |  |  +- Exp.TypeApp
-         |                 |                          |  |  |  |  |
-         |                 |                          |  |  |  |  +- Exp.Var send#Builtin.29
-         |                 |                          |  |  |  |  |
-         |                 |                          |  |  |  |  `- Type.Type
-         |                 |                          |  |  |  |     |
-         |                 |                          |  |  |  |     `- TypeRef
-         |                 |                          |  |  |  |        |
-         |                 |                          |  |  |  |        `- Int
-         |                 |                          |  |  |  |
-         |                 |                          |  |  |  `- Type.Session (!)
-         |                 |                          |  |  |     |
-         |                 |                          |  |  |     +- Type.Type
-         |                 |                          |  |  |     |  |
-         |                 |                          |  |  |     |  `- TypeRef
-         |                 |                          |  |  |     |     |
-         |                 |                          |  |  |     |     `- Int
-         |                 |                          |  |  |     |
-         |                 |                          |  |  |     `- Type.Session (?)
-         |                 |                          |  |  |        |
-         |                 |                          |  |  |        +- Type.Type
-         |                 |                          |  |  |        |  |
-         |                 |                          |  |  |        |  `- TypeRef
-         |                 |                          |  |  |        |     |
-         |                 |                          |  |  |        |     `- Int
-         |                 |                          |  |  |        |
-         |                 |                          |  |  |        `- Type.Session (!)
-         |                 |                          |  |  |           |
-         |                 |                          |  |  |           +- Type.Type
-         |                 |                          |  |  |           |  |
-         |                 |                          |  |  |           |  `- TypeRef
-         |                 |                          |  |  |           |     |
-         |                 |                          |  |  |           |     +- Repeat
-         |                 |                          |  |  |           |     |
-         |                 |                          |  |  |           |     `- Type.Type
-         |                 |                          |  |  |           |        |
-         |                 |                          |  |  |           |        `- TypeRef
-         |                 |                          |  |  |           |           |
-         |                 |                          |  |  |           |           `- Arith
-         |                 |                          |  |  |           |
-         |                 |                          |  |  |           `- Type.End
-         |                 |                          |  |  |
-         |                 |                          |  |  `- Exp.Var x#M.20
-         |                 |                          |  |
-         |                 |                          |  `- Exp.Var c#M.23
-         |                 |                          |
-         |                 |                          `- c#M.24
-         |                 |                             |
-         |                 |                             `- Exp.Exp
-         |                 |                                |
-         |                 |                                `- TcExpX.ValueCase
-         |                 |                                   |
-         |                 |                                   +- Exp.App
-         |                 |                                   |  |
-         |                 |                                   |  +- Exp.App
-         |                 |                                   |  |  |
-         |                 |                                   |  |  +- Exp.TypeApp
-         |                 |                                   |  |  |  |
-         |                 |                                   |  |  |  +- Exp.TypeApp
-         |                 |                                   |  |  |  |  |
-         |                 |                                   |  |  |  |  +- Exp.Var send#Builtin.29
-         |                 |                                   |  |  |  |  |
-         |                 |                                   |  |  |  |  `- Type.Type
-         |                 |                                   |  |  |  |     |
-         |                 |                                   |  |  |  |     `- TypeRef
-         |                 |                                   |  |  |  |        |
-         |                 |                                   |  |  |  |        `- Int
-         |                 |                                   |  |  |  |
-         |                 |                                   |  |  |  `- Type.Session (?)
-         |                 |                                   |  |  |     |
-         |                 |                                   |  |  |     +- Type.Type
-         |                 |                                   |  |  |     |  |
-         |                 |                                   |  |  |     |  `- TypeRef
-         |                 |                                   |  |  |     |     |
-         |                 |                                   |  |  |     |     `- Int
-         |                 |                                   |  |  |     |
-         |                 |                                   |  |  |     `- Type.Session (!)
-         |                 |                                   |  |  |        |
-         |                 |                                   |  |  |        +- Type.Type
-         |                 |                                   |  |  |        |  |
-         |                 |                                   |  |  |        |  `- TypeRef
-         |                 |                                   |  |  |        |     |
-         |                 |                                   |  |  |        |     +- Repeat
-         |                 |                                   |  |  |        |     |
-         |                 |                                   |  |  |        |     `- Type.Type
-         |                 |                                   |  |  |        |        |
-         |                 |                                   |  |  |        |        `- TypeRef
-         |                 |                                   |  |  |        |           |
-         |                 |                                   |  |  |        |           `- Arith
-         |                 |                                   |  |  |        |
-         |                 |                                   |  |  |        `- Type.End
-         |                 |                                   |  |  |
-         |                 |                                   |  |  `- Exp.Var acc#M.17
-         |                 |                                   |  |
-         |                 |                                   |  `- Exp.Var c#M.24
-         |                 |                                   |
-         |                 |                                   `- c#M.25
-         |                 |                                      |
-         |                 |                                      `- Exp.Exp
-         |                 |                                         |
-         |                 |                                         `- TcExpX.ValueCase
-         |                 |                                            |
-         |                 |                                            +- Exp.App
-         |                 |                                            |  |
-         |                 |                                            |  +- Exp.TypeApp
-         |                 |                                            |  |  |
-         |                 |                                            |  |  +- Exp.TypeApp
-         |                 |                                            |  |  |  |
-         |                 |                                            |  |  |  +- Exp.Var receive#Builtin.8
-         |                 |                                            |  |  |  |
-         |                 |                                            |  |  |  `- Type.Type
-         |                 |                                            |  |  |     |
-         |                 |                                            |  |  |     `- TypeRef
-         |                 |                                            |  |  |        |
-         |                 |                                            |  |  |        `- Int
-         |                 |                                            |  |  |
-         |                 |                                            |  |  `- Type.Session (!)
-         |                 |                                            |  |     |
-         |                 |                                            |  |     +- Type.Type
-         |                 |                                            |  |     |  |
-         |                 |                                            |  |     |  `- TypeRef
-         |                 |                                            |  |     |     |
-         |                 |                                            |  |     |     +- Repeat
-         |                 |                                            |  |     |     |
-         |                 |                                            |  |     |     `- Type.Type
-         |                 |                                            |  |     |        |
-         |                 |                                            |  |     |        `- TypeRef
-         |                 |                                            |  |     |           |
-         |                 |                                            |  |     |           `- Arith
-         |                 |                                            |  |     |
-         |                 |                                            |  |     `- Type.End
-         |                 |                                            |  |
-         |                 |                                            |  `- Exp.Var c#M.25
-         |                 |                                            |
-         |                 |                                            `- (,)#Builtin.0 acc'#M.26 c#M.27
-         |                 |                                               |
-         |                 |                                               `- Exp.App
-         |                 |                                                  |
-         |                 |                                                  +- Exp.App
-         |                 |                                                  |  |
-         |                 |                                                  |  +- Exp.App
-         |                 |                                                  |  |  |
-         |                 |                                                  |  |  +- Exp.Var go#M.16
-         |                 |                                                  |  |  |
-         |                 |                                                  |  |  `- Exp.Var acc'#M.26
-         |                 |                                                  |  |
-         |                 |                                                  |  `- Exp.Var xs#M.21
-         |                 |                                                  |
-         |                 |                                                  `- Exp.Var c#M.27
-         |                 |
-         |                 `- Nil#M.7
-         |                    |
-         |                    `- Exp.Exp
-         |                       |
-         |                       `- TcExpX.ValueCase
-         |                          |
-         |                          +- Exp.App
-         |                          |  |
-         |                          |  +- Exp.TypeApp
-         |                          |  |  |
-         |                          |  |  +- Exp.TypeApp
-         |                          |  |  |  |
-         |                          |  |  |  +- Exp.Select Quit#M.8
-         |                          |  |  |  |
-         |                          |  |  |  `- Type.Type
-         |                          |  |  |     |
-         |                          |  |  |     `- TypeRef
-         |                          |  |  |        |
-         |                          |  |  |        `- Arith
-         |                          |  |  |
-         |                          |  |  `- Type.End
-         |                          |  |
-         |                          |  `- Exp.Var c#M.19
-         |                          |
-         |                          `- _#M.28
-         |                             |
-         |                             `- Exp.Var acc#M.17
-         |
-         `- go#M.29
+         `- TcExpX.ValueCase
             |
-            `- Exp.App
+            +- Exp.Rec go#M.16
+            |  |
+            |  +- Type.Arrow U
+            |  |  |
+            |  |  +- Type.Type
+            |  |  |  |
+            |  |  |  `- TypeRef
+            |  |  |     |
+            |  |  |     `- Int
+            |  |  |
+            |  |  `- Type.Arrow U
+            |  |     |
+            |  |     +- Type.Type
+            |  |     |  |
+            |  |     |  `- TypeRef
+            |  |     |     |
+            |  |     |     +- List
+            |  |     |     |
+            |  |     |     `- Type.Type
+            |  |     |        |
+            |  |     |        `- TypeRef
+            |  |     |           |
+            |  |     |           `- Int
+            |  |     |
+            |  |     `- Type.Arrow U
+            |  |        |
+            |  |        +- Type.Session (!)
+            |  |        |  |
+            |  |        |  +- Type.Type
+            |  |        |  |  |
+            |  |        |  |  `- TypeRef
+            |  |        |  |     |
+            |  |        |  |     +- Repeat
+            |  |        |  |     |
+            |  |        |  |     `- Type.Type
+            |  |        |  |        |
+            |  |        |  |        `- TypeRef
+            |  |        |  |           |
+            |  |        |  |           `- Arith
+            |  |        |  |
+            |  |        |  `- Type.End
+            |  |        |
+            |  |        `- Type.Type
+            |  |           |
+            |  |           `- TypeRef
+            |  |              |
+            |  |              `- Int
+            |  |
+            |  `- Exp.Abs U acc#M.17
+            |     |
+            |     +- Type.Type
+            |     |  |
+            |     |  `- TypeRef
+            |     |     |
+            |     |     `- Int
+            |     |
+            |     `- Exp.Abs U xs#M.18
+            |        |
+            |        +- Type.Type
+            |        |  |
+            |        |  `- TypeRef
+            |        |     |
+            |        |     +- List
+            |        |     |
+            |        |     `- Type.Type
+            |        |        |
+            |        |        `- TypeRef
+            |        |           |
+            |        |           `- Int
+            |        |
+            |        `- Exp.Abs U c#M.19
+            |           |
+            |           +- Type.Session (!)
+            |           |  |
+            |           |  +- Type.Type
+            |           |  |  |
+            |           |  |  `- TypeRef
+            |           |  |     |
+            |           |  |     +- Repeat
+            |           |  |     |
+            |           |  |     `- Type.Type
+            |           |  |        |
+            |           |  |        `- TypeRef
+            |           |  |           |
+            |           |  |           `- Arith
+            |           |  |
+            |           |  `- Type.End
+            |           |
+            |           `- Exp.Exp
+            |              |
+            |              `- TcExpX.ValueCase
+            |                 |
+            |                 +- Exp.Var xs#M.18
+            |                 |
+            |                 +- Cons#M.4 x#M.20 xs#M.21
+            |                 |  |
+            |                 |  `- Exp.Exp
+            |                 |     |
+            |                 |     `- TcExpX.ValueCase
+            |                 |        |
+            |                 |        +- Exp.App
+            |                 |        |  |
+            |                 |        |  +- Exp.TypeApp
+            |                 |        |  |  |
+            |                 |        |  |  +- Exp.TypeApp
+            |                 |        |  |  |  |
+            |                 |        |  |  |  +- Exp.Select More#M.5
+            |                 |        |  |  |  |
+            |                 |        |  |  |  `- Type.Type
+            |                 |        |  |  |     |
+            |                 |        |  |  |     `- TypeRef
+            |                 |        |  |  |        |
+            |                 |        |  |  |        `- Arith
+            |                 |        |  |  |
+            |                 |        |  |  `- Type.End
+            |                 |        |  |
+            |                 |        |  `- Exp.Var c#M.19
+            |                 |        |
+            |                 |        `- c#M.22
+            |                 |           |
+            |                 |           `- Exp.Exp
+            |                 |              |
+            |                 |              `- TcExpX.ValueCase
+            |                 |                 |
+            |                 |                 +- Exp.App
+            |                 |                 |  |
+            |                 |                 |  +- Exp.TypeApp
+            |                 |                 |  |  |
+            |                 |                 |  |  +- Exp.Select Add#M.3
+            |                 |                 |  |  |
+            |                 |                 |  |  `- Type.Session (!)
+            |                 |                 |  |     |
+            |                 |                 |  |     +- Type.Type
+            |                 |                 |  |     |  |
+            |                 |                 |  |     |  `- TypeRef
+            |                 |                 |  |     |     |
+            |                 |                 |  |     |     +- Repeat
+            |                 |                 |  |     |     |
+            |                 |                 |  |     |     `- Type.Type
+            |                 |                 |  |     |        |
+            |                 |                 |  |     |        `- TypeRef
+            |                 |                 |  |     |           |
+            |                 |                 |  |     |           `- Arith
+            |                 |                 |  |     |
+            |                 |                 |  |     `- Type.End
+            |                 |                 |  |
+            |                 |                 |  `- Exp.Var c#M.22
+            |                 |                 |
+            |                 |                 `- c#M.23
+            |                 |                    |
+            |                 |                    `- Exp.Exp
+            |                 |                       |
+            |                 |                       `- TcExpX.ValueCase
+            |                 |                          |
+            |                 |                          +- Exp.App
+            |                 |                          |  |
+            |                 |                          |  +- Exp.App
+            |                 |                          |  |  |
+            |                 |                          |  |  +- Exp.TypeApp
+            |                 |                          |  |  |  |
+            |                 |                          |  |  |  +- Exp.TypeApp
+            |                 |                          |  |  |  |  |
+            |                 |                          |  |  |  |  +- Exp.Var send#Builtin.29
+            |                 |                          |  |  |  |  |
+            |                 |                          |  |  |  |  `- Type.Type
+            |                 |                          |  |  |  |     |
+            |                 |                          |  |  |  |     `- TypeRef
+            |                 |                          |  |  |  |        |
+            |                 |                          |  |  |  |        `- Int
+            |                 |                          |  |  |  |
+            |                 |                          |  |  |  `- Type.Session (!)
+            |                 |                          |  |  |     |
+            |                 |                          |  |  |     +- Type.Type
+            |                 |                          |  |  |     |  |
+            |                 |                          |  |  |     |  `- TypeRef
+            |                 |                          |  |  |     |     |
+            |                 |                          |  |  |     |     `- Int
+            |                 |                          |  |  |     |
+            |                 |                          |  |  |     `- Type.Session (?)
+            |                 |                          |  |  |        |
+            |                 |                          |  |  |        +- Type.Type
+            |                 |                          |  |  |        |  |
+            |                 |                          |  |  |        |  `- TypeRef
+            |                 |                          |  |  |        |     |
+            |                 |                          |  |  |        |     `- Int
+            |                 |                          |  |  |        |
+            |                 |                          |  |  |        `- Type.Session (!)
+            |                 |                          |  |  |           |
+            |                 |                          |  |  |           +- Type.Type
+            |                 |                          |  |  |           |  |
+            |                 |                          |  |  |           |  `- TypeRef
+            |                 |                          |  |  |           |     |
+            |                 |                          |  |  |           |     +- Repeat
+            |                 |                          |  |  |           |     |
+            |                 |                          |  |  |           |     `- Type.Type
+            |                 |                          |  |  |           |        |
+            |                 |                          |  |  |           |        `- TypeRef
+            |                 |                          |  |  |           |           |
+            |                 |                          |  |  |           |           `- Arith
+            |                 |                          |  |  |           |
+            |                 |                          |  |  |           `- Type.End
+            |                 |                          |  |  |
+            |                 |                          |  |  `- Exp.Var x#M.20
+            |                 |                          |  |
+            |                 |                          |  `- Exp.Var c#M.23
+            |                 |                          |
+            |                 |                          `- c#M.24
+            |                 |                             |
+            |                 |                             `- Exp.Exp
+            |                 |                                |
+            |                 |                                `- TcExpX.ValueCase
+            |                 |                                   |
+            |                 |                                   +- Exp.App
+            |                 |                                   |  |
+            |                 |                                   |  +- Exp.App
+            |                 |                                   |  |  |
+            |                 |                                   |  |  +- Exp.TypeApp
+            |                 |                                   |  |  |  |
+            |                 |                                   |  |  |  +- Exp.TypeApp
+            |                 |                                   |  |  |  |  |
+            |                 |                                   |  |  |  |  +- Exp.Var send#Builtin.29
+            |                 |                                   |  |  |  |  |
+            |                 |                                   |  |  |  |  `- Type.Type
+            |                 |                                   |  |  |  |     |
+            |                 |                                   |  |  |  |     `- TypeRef
+            |                 |                                   |  |  |  |        |
+            |                 |                                   |  |  |  |        `- Int
+            |                 |                                   |  |  |  |
+            |                 |                                   |  |  |  `- Type.Session (?)
+            |                 |                                   |  |  |     |
+            |                 |                                   |  |  |     +- Type.Type
+            |                 |                                   |  |  |     |  |
+            |                 |                                   |  |  |     |  `- TypeRef
+            |                 |                                   |  |  |     |     |
+            |                 |                                   |  |  |     |     `- Int
+            |                 |                                   |  |  |     |
+            |                 |                                   |  |  |     `- Type.Session (!)
+            |                 |                                   |  |  |        |
+            |                 |                                   |  |  |        +- Type.Type
+            |                 |                                   |  |  |        |  |
+            |                 |                                   |  |  |        |  `- TypeRef
+            |                 |                                   |  |  |        |     |
+            |                 |                                   |  |  |        |     +- Repeat
+            |                 |                                   |  |  |        |     |
+            |                 |                                   |  |  |        |     `- Type.Type
+            |                 |                                   |  |  |        |        |
+            |                 |                                   |  |  |        |        `- TypeRef
+            |                 |                                   |  |  |        |           |
+            |                 |                                   |  |  |        |           `- Arith
+            |                 |                                   |  |  |        |
+            |                 |                                   |  |  |        `- Type.End
+            |                 |                                   |  |  |
+            |                 |                                   |  |  `- Exp.Var acc#M.17
+            |                 |                                   |  |
+            |                 |                                   |  `- Exp.Var c#M.24
+            |                 |                                   |
+            |                 |                                   `- c#M.25
+            |                 |                                      |
+            |                 |                                      `- Exp.Exp
+            |                 |                                         |
+            |                 |                                         `- TcExpX.ValueCase
+            |                 |                                            |
+            |                 |                                            +- Exp.App
+            |                 |                                            |  |
+            |                 |                                            |  +- Exp.TypeApp
+            |                 |                                            |  |  |
+            |                 |                                            |  |  +- Exp.TypeApp
+            |                 |                                            |  |  |  |
+            |                 |                                            |  |  |  +- Exp.Var receive#Builtin.8
+            |                 |                                            |  |  |  |
+            |                 |                                            |  |  |  `- Type.Type
+            |                 |                                            |  |  |     |
+            |                 |                                            |  |  |     `- TypeRef
+            |                 |                                            |  |  |        |
+            |                 |                                            |  |  |        `- Int
+            |                 |                                            |  |  |
+            |                 |                                            |  |  `- Type.Session (!)
+            |                 |                                            |  |     |
+            |                 |                                            |  |     +- Type.Type
+            |                 |                                            |  |     |  |
+            |                 |                                            |  |     |  `- TypeRef
+            |                 |                                            |  |     |     |
+            |                 |                                            |  |     |     +- Repeat
+            |                 |                                            |  |     |     |
+            |                 |                                            |  |     |     `- Type.Type
+            |                 |                                            |  |     |        |
+            |                 |                                            |  |     |        `- TypeRef
+            |                 |                                            |  |     |           |
+            |                 |                                            |  |     |           `- Arith
+            |                 |                                            |  |     |
+            |                 |                                            |  |     `- Type.End
+            |                 |                                            |  |
+            |                 |                                            |  `- Exp.Var c#M.25
+            |                 |                                            |
+            |                 |                                            `- (,)#Builtin.0 acc'#M.26 c#M.27
+            |                 |                                               |
+            |                 |                                               `- Exp.App
+            |                 |                                                  |
+            |                 |                                                  +- Exp.App
+            |                 |                                                  |  |
+            |                 |                                                  |  +- Exp.App
+            |                 |                                                  |  |  |
+            |                 |                                                  |  |  +- Exp.Var go#M.16
+            |                 |                                                  |  |  |
+            |                 |                                                  |  |  `- Exp.Var acc'#M.26
+            |                 |                                                  |  |
+            |                 |                                                  |  `- Exp.Var xs#M.21
+            |                 |                                                  |
+            |                 |                                                  `- Exp.Var c#M.27
+            |                 |
+            |                 `- Nil#M.7
+            |                    |
+            |                    `- Exp.Exp
+            |                       |
+            |                       `- TcExpX.ValueCase
+            |                          |
+            |                          +- Exp.App
+            |                          |  |
+            |                          |  +- Exp.TypeApp
+            |                          |  |  |
+            |                          |  |  +- Exp.TypeApp
+            |                          |  |  |  |
+            |                          |  |  |  +- Exp.Select Quit#M.8
+            |                          |  |  |  |
+            |                          |  |  |  `- Type.Type
+            |                          |  |  |     |
+            |                          |  |  |     `- TypeRef
+            |                          |  |  |        |
+            |                          |  |  |        `- Arith
+            |                          |  |  |
+            |                          |  |  `- Type.End
+            |                          |  |
+            |                          |  `- Exp.Var c#M.19
+            |                          |
+            |                          `- _#M.28
+            |                             |
+            |                             `- Exp.Var acc#M.17
+            |
+            `- go#M.29
                |
-               +- Exp.Var go#M.29
-               |
-               `- Exp.Lit
+               `- Exp.App
                   |
-                  `- Lit.Int 0
+                  +- Exp.Var go#M.29
+                  |
+                  `- Exp.Lit
+                     |
+                     `- Lit.Int 0
 

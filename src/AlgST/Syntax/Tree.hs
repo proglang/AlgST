@@ -234,13 +234,6 @@ instance (D.ForallDeclX LabeledTree x, T.ForallX LabeledTree x) => LabeledTree (
             nominalDeclTree labeledTree decl
           ]
 
-instance LabeledTree D.Origin where
-  labeledTree =
-    pure . \case
-      D.OriginUser _ -> leaf "OriginUser"
-      D.OriginImport i -> leaf ("OriginImport " ++ i)
-      D.OriginBuiltin -> leaf "OriginBuiltin"
-
 instance T.ForallX LabeledTree x => LabeledTree (D.TypeAlias x) where
   labeledTree alias = pure $ tree "TypeAlias" [typeAliasTree alias]
 
@@ -263,17 +256,17 @@ paramsTree :: D.Params stage -> [LabTree]
 paramsTree ps = [leaf $ "(" ++ describeName p ++ ":" ++ show k ++ ")" | (_ :@ p, k) <- ps]
 
 instance (T.ForallX LabeledTree x) => LabeledTree (D.SignatureDecl x) where
-  labeledTree D.SignatureDecl {signatureOrigin = origin, signatureType = ty} =
-    [ Node "origin" $ labeledTree origin,
-      Node "type" $ labeledTree ty
-    ]
+  labeledTree D.SignatureDecl {signatureType = ty} =
+    pure . Node "SignatureDecl" $
+      [Node "type" $ labeledTree ty]
 
 instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (D.ValueDecl x) where
   labeledTree vd =
-    [ Node "type" $ labeledTree $ D.valueType vd,
-      Node "params" $ leaf . param . unL <$> D.valueParams vd,
-      Node "definition" $ labeledTree $ D.valueBody vd
-    ]
+    pure . Node "ValueDecl" $
+      [ Node "type" $ labeledTree $ D.valueType vd,
+        Node "params" $ leaf . param . unL <$> D.valueParams vd,
+        Node "definition" $ labeledTree $ D.valueBody vd
+      ]
     where
       param (Left tvar) = "[" ++ describeName tvar ++ "]"
       param (Right pvar) = describeName pvar

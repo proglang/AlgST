@@ -2,8 +2,6 @@ List#M.0
 |
 `- DataDecl
    |
-   +- OriginUser
-   |
    +- kind
    |  |
    |  `- TU
@@ -36,8 +34,6 @@ Cons#M.1
 |
 `- Decl.DataCon (List#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (a#M.4:TU)
@@ -66,8 +62,6 @@ Nil#M.2
 |
 `- Decl.DataCon (List#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (a#M.4:TU)
@@ -80,127 +74,129 @@ Nil#M.2
 
 length#M.3
 |
-+- type
-|  |
-|  `- Type.Forall a#M.8:TU
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Type
-|        |  |
-|        |  `- TypeRef
-|        |     |
-|        |     +- List
-|        |     |
-|        |     `- Type.Var a#M.8
-|        |        |
-|        |        `- TU
-|        |
-|        `- Type.Type
-|           |
-|           `- TypeRef
-|              |
-|              `- Int
-|
-+- params
-|  |
-|  `- [a#M.7]
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs a#M.7:TU
+   +- type
+   |  |
+   |  `- Type.Forall a#M.8:TU
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Type
+   |        |  |
+   |        |  `- TypeRef
+   |        |     |
+   |        |     +- List
+   |        |     |
+   |        |     `- Type.Var a#M.8
+   |        |        |
+   |        |        `- TU
+   |        |
+   |        `- Type.Type
+   |           |
+   |           `- TypeRef
+   |              |
+   |              `- Int
+   |
+   +- params
+   |  |
+   |  `- [a#M.7]
+   |
+   `- definition
       |
-      `- Exp.Exp
+      `- Exp.TypeAbs a#M.7:TU
          |
-         `- TcExpX.ValueCase
+         `- Exp.Exp
             |
-            +- Exp.Rec go#M.9
-            |  |
-            |  +- Type.Arrow U
-            |  |  |
-            |  |  +- Type.Type
-            |  |  |  |
-            |  |  |  `- TypeRef
-            |  |  |     |
-            |  |  |     `- Int
-            |  |  |
-            |  |  `- Type.Arrow U
-            |  |     |
-            |  |     +- Type.Type
-            |  |     |  |
-            |  |     |  `- TypeRef
-            |  |     |     |
-            |  |     |     +- List
-            |  |     |     |
-            |  |     |     `- Type.Var a#M.7
-            |  |     |        |
-            |  |     |        `- TU
-            |  |     |
-            |  |     `- Type.Type
-            |  |        |
-            |  |        `- TypeRef
-            |  |           |
-            |  |           `- Int
-            |  |
-            |  `- Exp.Abs U acc#M.10
-            |     |
-            |     +- Type.Type
-            |     |  |
-            |     |  `- TypeRef
-            |     |     |
-            |     |     `- Int
-            |     |
-            |     `- Exp.Abs U xs#M.11
-            |        |
-            |        +- Type.Type
-            |        |  |
-            |        |  `- TypeRef
-            |        |     |
-            |        |     +- List
-            |        |     |
-            |        |     `- Type.Var a#M.7
-            |        |        |
-            |        |        `- TU
-            |        |
-            |        `- Exp.Exp
-            |           |
-            |           `- TcExpX.ValueCase
-            |              |
-            |              +- Exp.Var xs#M.11
-            |              |
-            |              +- Cons#M.1 _#M.12 xs#M.13
-            |              |  |
-            |              |  `- Exp.App
-            |              |     |
-            |              |     +- Exp.App
-            |              |     |  |
-            |              |     |  +- Exp.Var go#M.9
-            |              |     |  |
-            |              |     |  `- Exp.App
-            |              |     |     |
-            |              |     |     +- Exp.App
-            |              |     |     |  |
-            |              |     |     |  +- Exp.Var (+)#Builtin.17
-            |              |     |     |  |
-            |              |     |     |  `- Exp.Var acc#M.10
-            |              |     |     |
-            |              |     |     `- Exp.Lit
-            |              |     |        |
-            |              |     |        `- Lit.Int 1
-            |              |     |
-            |              |     `- Exp.Var xs#M.13
-            |              |
-            |              `- Nil#M.2
-            |                 |
-            |                 `- Exp.Var acc#M.10
-            |
-            `- go#M.14
+            `- TcExpX.ValueCase
                |
-               `- Exp.App
+               +- Exp.Rec go#M.9
+               |  |
+               |  +- Type.Arrow U
+               |  |  |
+               |  |  +- Type.Type
+               |  |  |  |
+               |  |  |  `- TypeRef
+               |  |  |     |
+               |  |  |     `- Int
+               |  |  |
+               |  |  `- Type.Arrow U
+               |  |     |
+               |  |     +- Type.Type
+               |  |     |  |
+               |  |     |  `- TypeRef
+               |  |     |     |
+               |  |     |     +- List
+               |  |     |     |
+               |  |     |     `- Type.Var a#M.7
+               |  |     |        |
+               |  |     |        `- TU
+               |  |     |
+               |  |     `- Type.Type
+               |  |        |
+               |  |        `- TypeRef
+               |  |           |
+               |  |           `- Int
+               |  |
+               |  `- Exp.Abs U acc#M.10
+               |     |
+               |     +- Type.Type
+               |     |  |
+               |     |  `- TypeRef
+               |     |     |
+               |     |     `- Int
+               |     |
+               |     `- Exp.Abs U xs#M.11
+               |        |
+               |        +- Type.Type
+               |        |  |
+               |        |  `- TypeRef
+               |        |     |
+               |        |     +- List
+               |        |     |
+               |        |     `- Type.Var a#M.7
+               |        |        |
+               |        |        `- TU
+               |        |
+               |        `- Exp.Exp
+               |           |
+               |           `- TcExpX.ValueCase
+               |              |
+               |              +- Exp.Var xs#M.11
+               |              |
+               |              +- Cons#M.1 _#M.12 xs#M.13
+               |              |  |
+               |              |  `- Exp.App
+               |              |     |
+               |              |     +- Exp.App
+               |              |     |  |
+               |              |     |  +- Exp.Var go#M.9
+               |              |     |  |
+               |              |     |  `- Exp.App
+               |              |     |     |
+               |              |     |     +- Exp.App
+               |              |     |     |  |
+               |              |     |     |  +- Exp.Var (+)#Builtin.17
+               |              |     |     |  |
+               |              |     |     |  `- Exp.Var acc#M.10
+               |              |     |     |
+               |              |     |     `- Exp.Lit
+               |              |     |        |
+               |              |     |        `- Lit.Int 1
+               |              |     |
+               |              |     `- Exp.Var xs#M.13
+               |              |
+               |              `- Nil#M.2
+               |                 |
+               |                 `- Exp.Var acc#M.10
+               |
+               `- go#M.14
                   |
-                  +- Exp.Var go#M.14
-                  |
-                  `- Exp.Lit
+                  `- Exp.App
                      |
-                     `- Lit.Int 0
+                     +- Exp.Var go#M.14
+                     |
+                     `- Exp.Lit
+                        |
+                        `- Lit.Int 0
 

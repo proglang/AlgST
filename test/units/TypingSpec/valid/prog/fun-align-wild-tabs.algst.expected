@@ -1,34 +1,36 @@
 foo#M.0
 |
-+- type
-|  |
-|  `- Type.Forall a#M.3:TU
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Var a#M.3
-|        |  |
-|        |  `- TU
-|        |
-|        `- Type.Var a#M.3
-|           |
-|           `- TU
-|
-+- params
-|  |
-|  +- [_#M.1]
-|  |
-|  `- a#M.2
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs _#M.1:TU
+   +- type
+   |  |
+   |  `- Type.Forall a#M.3:TU
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Var a#M.3
+   |        |  |
+   |        |  `- TU
+   |        |
+   |        `- Type.Var a#M.3
+   |           |
+   |           `- TU
+   |
+   +- params
+   |  |
+   |  +- [_#M.1]
+   |  |
+   |  `- a#M.2
+   |
+   `- definition
       |
-      `- Exp.Abs U a#M.2
+      `- Exp.TypeAbs _#M.1:TU
          |
-         +- Type.Var _#M.1
-         |  |
-         |  `- TU
-         |
-         `- Exp.Var a#M.2
+         `- Exp.Abs U a#M.2
+            |
+            +- Type.Var _#M.1
+            |  |
+            |  `- TU
+            |
+            `- Exp.Var a#M.2
 

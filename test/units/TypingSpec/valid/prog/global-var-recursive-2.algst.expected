@@ -1,42 +1,46 @@
 bottom1#M.0
 |
-+- type
-|  |
-|  `- Type.Forall a#M.2:TU
-|     |
-|     `- Type.Var a#M.2
-|        |
-|        `- TU
-|
-+- params
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.Var bottom2#M.1
+   +- type
+   |  |
+   |  `- Type.Forall a#M.2:TU
+   |     |
+   |     `- Type.Var a#M.2
+   |        |
+   |        `- TU
+   |
+   +- params
+   |
+   `- definition
+      |
+      `- Exp.Var bottom2#M.1
 
 bottom2#M.1
 |
-+- type
-|  |
-|  `- Type.Forall a#M.4:TU
-|     |
-|     `- Type.Var a#M.4
-|        |
-|        `- TU
-|
-+- params
-|  |
-|  `- [a#M.3]
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs a#M.3:TU
+   +- type
+   |  |
+   |  `- Type.Forall a#M.4:TU
+   |     |
+   |     `- Type.Var a#M.4
+   |        |
+   |        `- TU
+   |
+   +- params
+   |  |
+   |  `- [a#M.3]
+   |
+   `- definition
       |
-      `- Exp.TypeApp
+      `- Exp.TypeAbs a#M.3:TU
          |
-         +- Exp.Var bottom1#M.0
-         |
-         `- Type.Var a#M.3
+         `- Exp.TypeApp
             |
-            `- TU
+            +- Exp.Var bottom1#M.0
+            |
+            `- Type.Var a#M.3
+               |
+               `- TU
 

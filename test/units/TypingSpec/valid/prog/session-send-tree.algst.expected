@@ -2,8 +2,6 @@ BTree#M.0
 |
 `- DataDecl
    |
-   +- OriginUser
-   |
    +- kind
    |  |
    |  `- TU
@@ -46,8 +44,6 @@ Branch#M.1
 |
 `- Decl.DataCon (BTree#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (a#M.4:TU)
@@ -82,8 +78,6 @@ Leaf#M.2
 |
 `- Decl.DataCon (BTree#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (a#M.4:TU)
@@ -100,279 +94,281 @@ Leaf#M.2
 
 sendBTree#M.3
 |
-+- type
-|  |
-|  `- Type.Forall a#M.12:TU
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Forall s#M.13:SL
-|        |  |
-|        |  `- Type.Arrow U
-|        |     |
-|        |     +- Type.Session (!)
-|        |     |  |
-|        |     |  +- Type.Var a#M.12
-|        |     |  |  |
-|        |     |  |  `- TU
-|        |     |  |
-|        |     |  `- Type.Var s#M.13
-|        |     |     |
-|        |     |     `- SL
-|        |     |
-|        |     `- Type.Var s#M.13
-|        |        |
-|        |        `- SL
-|        |
-|        `- Type.Arrow U
-|           |
-|           +- Type.Type
-|           |  |
-|           |  `- TypeRef
-|           |     |
-|           |     +- BTree
-|           |     |
-|           |     `- Type.Var a#M.12
-|           |        |
-|           |        `- TU
-|           |
-|           `- Type.Forall s#M.14:SL
-|              |
-|              `- Type.Arrow U
-|                 |
-|                 +- Type.Session (!)
-|                 |  |
-|                 |  +- Type.Type
-|                 |  |  |
-|                 |  |  `- TypeRef
-|                 |  |     |
-|                 |  |     +- BTree
-|                 |  |     |
-|                 |  |     `- Type.Var a#M.12
-|                 |  |        |
-|                 |  |        `- TU
-|                 |  |
-|                 |  `- Type.Var s#M.14
-|                 |     |
-|                 |     `- SL
-|                 |
-|                 `- Type.Var s#M.14
-|                    |
-|                    `- SL
-|
-+- params
-|  |
-|  +- [a#M.7]
-|  |
-|  +- sendA#M.8
-|  |
-|  +- t#M.9
-|  |
-|  +- [s#M.10]
-|  |
-|  `- c#M.11
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs a#M.7:TU
+   +- type
+   |  |
+   |  `- Type.Forall a#M.12:TU
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Forall s#M.13:SL
+   |        |  |
+   |        |  `- Type.Arrow U
+   |        |     |
+   |        |     +- Type.Session (!)
+   |        |     |  |
+   |        |     |  +- Type.Var a#M.12
+   |        |     |  |  |
+   |        |     |  |  `- TU
+   |        |     |  |
+   |        |     |  `- Type.Var s#M.13
+   |        |     |     |
+   |        |     |     `- SL
+   |        |     |
+   |        |     `- Type.Var s#M.13
+   |        |        |
+   |        |        `- SL
+   |        |
+   |        `- Type.Arrow U
+   |           |
+   |           +- Type.Type
+   |           |  |
+   |           |  `- TypeRef
+   |           |     |
+   |           |     +- BTree
+   |           |     |
+   |           |     `- Type.Var a#M.12
+   |           |        |
+   |           |        `- TU
+   |           |
+   |           `- Type.Forall s#M.14:SL
+   |              |
+   |              `- Type.Arrow U
+   |                 |
+   |                 +- Type.Session (!)
+   |                 |  |
+   |                 |  +- Type.Type
+   |                 |  |  |
+   |                 |  |  `- TypeRef
+   |                 |  |     |
+   |                 |  |     +- BTree
+   |                 |  |     |
+   |                 |  |     `- Type.Var a#M.12
+   |                 |  |        |
+   |                 |  |        `- TU
+   |                 |  |
+   |                 |  `- Type.Var s#M.14
+   |                 |     |
+   |                 |     `- SL
+   |                 |
+   |                 `- Type.Var s#M.14
+   |                    |
+   |                    `- SL
+   |
+   +- params
+   |  |
+   |  +- [a#M.7]
+   |  |
+   |  +- sendA#M.8
+   |  |
+   |  +- t#M.9
+   |  |
+   |  +- [s#M.10]
+   |  |
+   |  `- c#M.11
+   |
+   `- definition
       |
-      `- Exp.Abs U sendA#M.8
+      `- Exp.TypeAbs a#M.7:TU
          |
-         +- Type.Forall s#M.13:SL
-         |  |
-         |  `- Type.Arrow U
-         |     |
-         |     +- Type.Session (!)
-         |     |  |
-         |     |  +- Type.Var a#M.7
-         |     |  |  |
-         |     |  |  `- TU
-         |     |  |
-         |     |  `- Type.Var s#M.13
-         |     |     |
-         |     |     `- SL
-         |     |
-         |     `- Type.Var s#M.13
-         |        |
-         |        `- SL
-         |
-         `- Exp.Abs U t#M.9
+         `- Exp.Abs U sendA#M.8
             |
-            +- Type.Type
+            +- Type.Forall s#M.13:SL
             |  |
-            |  `- TypeRef
+            |  `- Type.Arrow U
             |     |
-            |     +- BTree
+            |     +- Type.Session (!)
+            |     |  |
+            |     |  +- Type.Var a#M.7
+            |     |  |  |
+            |     |  |  `- TU
+            |     |  |
+            |     |  `- Type.Var s#M.13
+            |     |     |
+            |     |     `- SL
             |     |
-            |     `- Type.Var a#M.7
+            |     `- Type.Var s#M.13
             |        |
-            |        `- TU
+            |        `- SL
             |
-            `- Exp.TypeAbs s#M.10:SL
+            `- Exp.Abs U t#M.9
                |
-               `- Exp.Abs U c#M.11
+               +- Type.Type
+               |  |
+               |  `- TypeRef
+               |     |
+               |     +- BTree
+               |     |
+               |     `- Type.Var a#M.7
+               |        |
+               |        `- TU
+               |
+               `- Exp.TypeAbs s#M.10:SL
                   |
-                  +- Type.Session (!)
-                  |  |
-                  |  +- Type.Type
-                  |  |  |
-                  |  |  `- TypeRef
-                  |  |     |
-                  |  |     +- BTree
-                  |  |     |
-                  |  |     `- Type.Var a#M.7
-                  |  |        |
-                  |  |        `- TU
-                  |  |
-                  |  `- Type.Var s#M.10
-                  |     |
-                  |     `- SL
-                  |
-                  `- Exp.Exp
+                  `- Exp.Abs U c#M.11
                      |
-                     `- TcExpX.ValueCase
+                     +- Type.Session (!)
+                     |  |
+                     |  +- Type.Type
+                     |  |  |
+                     |  |  `- TypeRef
+                     |  |     |
+                     |  |     +- BTree
+                     |  |     |
+                     |  |     `- Type.Var a#M.7
+                     |  |        |
+                     |  |        `- TU
+                     |  |
+                     |  `- Type.Var s#M.10
+                     |     |
+                     |     `- SL
+                     |
+                     `- Exp.Exp
                         |
-                        +- Exp.Var t#M.9
-                        |
-                        +- Branch#M.1 l#M.15 r#M.16
-                        |  |
-                        |  `- Exp.Exp
-                        |     |
-                        |     `- TcExpX.ValueCase
-                        |        |
-                        |        +- Exp.App
-                        |        |  |
-                        |        |  +- Exp.TypeApp
-                        |        |  |  |
-                        |        |  |  +- Exp.TypeApp
-                        |        |  |  |  |
-                        |        |  |  |  +- Exp.Select Branch#M.1
-                        |        |  |  |  |
-                        |        |  |  |  `- Type.Var a#M.7
-                        |        |  |  |     |
-                        |        |  |  |     `- TU
-                        |        |  |  |
-                        |        |  |  `- Type.Var s#M.10
-                        |        |  |     |
-                        |        |  |     `- SL
-                        |        |  |
-                        |        |  `- Exp.Var c#M.11
-                        |        |
-                        |        `- c#M.17
-                        |           |
-                        |           `- Exp.Exp
-                        |              |
-                        |              `- TcExpX.ValueCase
-                        |                 |
-                        |                 +- Exp.App
-                        |                 |  |
-                        |                 |  +- Exp.App
-                        |                 |  |  |
-                        |                 |  |  +- Exp.App
-                        |                 |  |  |  |
-                        |                 |  |  |  +- Exp.TypeApp
-                        |                 |  |  |  |  |
-                        |                 |  |  |  |  +- Exp.TypeApp
-                        |                 |  |  |  |  |  |
-                        |                 |  |  |  |  |  +- Exp.Var sendBTree#M.3
-                        |                 |  |  |  |  |  |
-                        |                 |  |  |  |  |  `- Type.Var a#M.7
-                        |                 |  |  |  |  |     |
-                        |                 |  |  |  |  |     `- TU
-                        |                 |  |  |  |  |
-                        |                 |  |  |  |  `- Type.Session (!)
-                        |                 |  |  |  |     |
-                        |                 |  |  |  |     +- Type.Type
-                        |                 |  |  |  |     |  |
-                        |                 |  |  |  |     |  `- TypeRef
-                        |                 |  |  |  |     |     |
-                        |                 |  |  |  |     |     +- BTree
-                        |                 |  |  |  |     |     |
-                        |                 |  |  |  |     |     `- Type.Var a#M.7
-                        |                 |  |  |  |     |        |
-                        |                 |  |  |  |     |        `- TU
-                        |                 |  |  |  |     |
-                        |                 |  |  |  |     `- Type.Var s#M.10
-                        |                 |  |  |  |        |
-                        |                 |  |  |  |        `- SL
-                        |                 |  |  |  |
-                        |                 |  |  |  `- Exp.Var sendA#M.8
-                        |                 |  |  |
-                        |                 |  |  `- Exp.Var l#M.15
-                        |                 |  |
-                        |                 |  `- Exp.Var c#M.17
-                        |                 |
-                        |                 `- c#M.18
-                        |                    |
-                        |                    `- Exp.Exp
-                        |                       |
-                        |                       `- TcExpX.ValueCase
-                        |                          |
-                        |                          +- Exp.App
-                        |                          |  |
-                        |                          |  +- Exp.App
-                        |                          |  |  |
-                        |                          |  |  +- Exp.App
-                        |                          |  |  |  |
-                        |                          |  |  |  +- Exp.TypeApp
-                        |                          |  |  |  |  |
-                        |                          |  |  |  |  +- Exp.TypeApp
-                        |                          |  |  |  |  |  |
-                        |                          |  |  |  |  |  +- Exp.Var sendBTree#M.3
-                        |                          |  |  |  |  |  |
-                        |                          |  |  |  |  |  `- Type.Var a#M.7
-                        |                          |  |  |  |  |     |
-                        |                          |  |  |  |  |     `- TU
-                        |                          |  |  |  |  |
-                        |                          |  |  |  |  `- Type.Var s#M.10
-                        |                          |  |  |  |     |
-                        |                          |  |  |  |     `- SL
-                        |                          |  |  |  |
-                        |                          |  |  |  `- Exp.Var sendA#M.8
-                        |                          |  |  |
-                        |                          |  |  `- Exp.Var r#M.16
-                        |                          |  |
-                        |                          |  `- Exp.Var c#M.18
-                        |                          |
-                        |                          `- c#M.19
-                        |                             |
-                        |                             `- Exp.Var c#M.19
-                        |
-                        `- Leaf#M.2 a#M.20
+                        `- TcExpX.ValueCase
                            |
-                           `- Exp.Exp
+                           +- Exp.Var t#M.9
+                           |
+                           +- Branch#M.1 l#M.15 r#M.16
+                           |  |
+                           |  `- Exp.Exp
+                           |     |
+                           |     `- TcExpX.ValueCase
+                           |        |
+                           |        +- Exp.App
+                           |        |  |
+                           |        |  +- Exp.TypeApp
+                           |        |  |  |
+                           |        |  |  +- Exp.TypeApp
+                           |        |  |  |  |
+                           |        |  |  |  +- Exp.Select Branch#M.1
+                           |        |  |  |  |
+                           |        |  |  |  `- Type.Var a#M.7
+                           |        |  |  |     |
+                           |        |  |  |     `- TU
+                           |        |  |  |
+                           |        |  |  `- Type.Var s#M.10
+                           |        |  |     |
+                           |        |  |     `- SL
+                           |        |  |
+                           |        |  `- Exp.Var c#M.11
+                           |        |
+                           |        `- c#M.17
+                           |           |
+                           |           `- Exp.Exp
+                           |              |
+                           |              `- TcExpX.ValueCase
+                           |                 |
+                           |                 +- Exp.App
+                           |                 |  |
+                           |                 |  +- Exp.App
+                           |                 |  |  |
+                           |                 |  |  +- Exp.App
+                           |                 |  |  |  |
+                           |                 |  |  |  +- Exp.TypeApp
+                           |                 |  |  |  |  |
+                           |                 |  |  |  |  +- Exp.TypeApp
+                           |                 |  |  |  |  |  |
+                           |                 |  |  |  |  |  +- Exp.Var sendBTree#M.3
+                           |                 |  |  |  |  |  |
+                           |                 |  |  |  |  |  `- Type.Var a#M.7
+                           |                 |  |  |  |  |     |
+                           |                 |  |  |  |  |     `- TU
+                           |                 |  |  |  |  |
+                           |                 |  |  |  |  `- Type.Session (!)
+                           |                 |  |  |  |     |
+                           |                 |  |  |  |     +- Type.Type
+                           |                 |  |  |  |     |  |
+                           |                 |  |  |  |     |  `- TypeRef
+                           |                 |  |  |  |     |     |
+                           |                 |  |  |  |     |     +- BTree
+                           |                 |  |  |  |     |     |
+                           |                 |  |  |  |     |     `- Type.Var a#M.7
+                           |                 |  |  |  |     |        |
+                           |                 |  |  |  |     |        `- TU
+                           |                 |  |  |  |     |
+                           |                 |  |  |  |     `- Type.Var s#M.10
+                           |                 |  |  |  |        |
+                           |                 |  |  |  |        `- SL
+                           |                 |  |  |  |
+                           |                 |  |  |  `- Exp.Var sendA#M.8
+                           |                 |  |  |
+                           |                 |  |  `- Exp.Var l#M.15
+                           |                 |  |
+                           |                 |  `- Exp.Var c#M.17
+                           |                 |
+                           |                 `- c#M.18
+                           |                    |
+                           |                    `- Exp.Exp
+                           |                       |
+                           |                       `- TcExpX.ValueCase
+                           |                          |
+                           |                          +- Exp.App
+                           |                          |  |
+                           |                          |  +- Exp.App
+                           |                          |  |  |
+                           |                          |  |  +- Exp.App
+                           |                          |  |  |  |
+                           |                          |  |  |  +- Exp.TypeApp
+                           |                          |  |  |  |  |
+                           |                          |  |  |  |  +- Exp.TypeApp
+                           |                          |  |  |  |  |  |
+                           |                          |  |  |  |  |  +- Exp.Var sendBTree#M.3
+                           |                          |  |  |  |  |  |
+                           |                          |  |  |  |  |  `- Type.Var a#M.7
+                           |                          |  |  |  |  |     |
+                           |                          |  |  |  |  |     `- TU
+                           |                          |  |  |  |  |
+                           |                          |  |  |  |  `- Type.Var s#M.10
+                           |                          |  |  |  |     |
+                           |                          |  |  |  |     `- SL
+                           |                          |  |  |  |
+                           |                          |  |  |  `- Exp.Var sendA#M.8
+                           |                          |  |  |
+                           |                          |  |  `- Exp.Var r#M.16
+                           |                          |  |
+                           |                          |  `- Exp.Var c#M.18
+                           |                          |
+                           |                          `- c#M.19
+                           |                             |
+                           |                             `- Exp.Var c#M.19
+                           |
+                           `- Leaf#M.2 a#M.20
                               |
-                              `- TcExpX.ValueCase
+                              `- Exp.Exp
                                  |
-                                 +- Exp.App
-                                 |  |
-                                 |  +- Exp.TypeApp
-                                 |  |  |
-                                 |  |  +- Exp.TypeApp
-                                 |  |  |  |
-                                 |  |  |  +- Exp.Select Leaf#M.2
-                                 |  |  |  |
-                                 |  |  |  `- Type.Var a#M.7
-                                 |  |  |     |
-                                 |  |  |     `- TU
-                                 |  |  |
-                                 |  |  `- Type.Var s#M.10
-                                 |  |     |
-                                 |  |     `- SL
-                                 |  |
-                                 |  `- Exp.Var c#M.11
-                                 |
-                                 `- c#M.21
+                                 `- TcExpX.ValueCase
                                     |
-                                    `- Exp.App
+                                    +- Exp.App
+                                    |  |
+                                    |  +- Exp.TypeApp
+                                    |  |  |
+                                    |  |  +- Exp.TypeApp
+                                    |  |  |  |
+                                    |  |  |  +- Exp.Select Leaf#M.2
+                                    |  |  |  |
+                                    |  |  |  `- Type.Var a#M.7
+                                    |  |  |     |
+                                    |  |  |     `- TU
+                                    |  |  |
+                                    |  |  `- Type.Var s#M.10
+                                    |  |     |
+                                    |  |     `- SL
+                                    |  |
+                                    |  `- Exp.Var c#M.11
+                                    |
+                                    `- c#M.21
                                        |
-                                       +- Exp.TypeApp
-                                       |  |
-                                       |  +- Exp.Var sendA#M.8
-                                       |  |
-                                       |  `- Type.Var s#M.10
-                                       |     |
-                                       |     `- SL
-                                       |
-                                       `- Exp.Var c#M.21
+                                       `- Exp.App
+                                          |
+                                          +- Exp.TypeApp
+                                          |  |
+                                          |  +- Exp.Var sendA#M.8
+                                          |  |
+                                          |  `- Type.Var s#M.10
+                                          |     |
+                                          |     `- SL
+                                          |
+                                          `- Exp.Var c#M.21
 

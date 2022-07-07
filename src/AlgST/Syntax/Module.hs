@@ -13,7 +13,6 @@
 module AlgST.Syntax.Module
   ( -- * Modules
     Module (..),
-    moduleOrigins,
     emptyModule,
     withoutDefinitions,
     TypesMap,
@@ -41,7 +40,6 @@ import Data.Map ((\\))
 import Data.Map.Strict qualified as Map
 import Instances.TH.Lift ()
 import Language.Haskell.TH.Syntax (Lift)
-import Lens.Family2
 
 -- | Groups the @ForallX@ constraint synonym from "AlgST.Syntax.Decl",
 -- "AlgST.Syntax.Type", and "AlgST.Syntax.Expression".
@@ -116,21 +114,6 @@ deriving stock instance (ForallX Lift x) => Lift (Module x)
 
 emptyModule :: Module x
 emptyModule = Module Map.empty Map.empty Map.empty
-
--- | A traversal over the 'Origin's of all declarations and signatures.
-moduleOrigins ::
-  (D.ForallDeclX D.Originated x, D.ForallConX D.Originated x) =>
-  Traversal' (Module x) D.Origin
-moduleOrigins f p = do
-  types <- traverse (D.originL f) (moduleTypes p)
-  values <- traverse (D.originL f) (moduleValues p)
-  imports <- traverse (D.originL f) (moduleSigs p)
-  pure
-    Module
-      { moduleTypes = types,
-        moduleValues = values,
-        moduleSigs = imports
-      }
 
 -- | @withoutDefinitions p1 p2@ removes all definitions from @p1@ which
 -- also appear in @p2π /in the same field./

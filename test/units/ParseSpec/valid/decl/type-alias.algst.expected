@@ -7,8 +7,6 @@ declarations
    |
    `- AliasDecl
       |
-      +- OriginUser
-      |
       +- kind
       |  |
       |  `- Nothing

@@ -2,8 +2,6 @@ List#M.0
 |
 `- DataDecl
    |
-   +- OriginUser
-   |
    +- kind
    |  |
    |  `- TU
@@ -36,8 +34,6 @@ Maybe#M.1
 |
 `- DataDecl
    |
-   +- OriginUser
-   |
    +- kind
    |  |
    |  `- TU
@@ -59,8 +55,6 @@ Maybe#M.1
 Cons#M.2
 |
 `- Decl.DataCon (List#M.0)
-   |
-   +- OriginUser
    |
    +- parameters
    |  |
@@ -90,8 +84,6 @@ Just#M.3
 |
 `- Decl.DataCon (Maybe#M.1)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (a#M.9:TU)
@@ -110,8 +102,6 @@ Nil#M.4
 |
 `- Decl.DataCon (List#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (elem#M.8:TU)
@@ -126,8 +116,6 @@ Nothing#M.5
 |
 `- Decl.DataCon (Maybe#M.1)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (a#M.9:TU)
@@ -140,79 +128,83 @@ Nothing#M.5
 
 empty#M.6
 |
-+- type
-|  |
-|  `- Type.Forall a#M.15:TU
-|     |
-|     `- Type.Type
-|        |
-|        `- TypeRef
-|           |
-|           +- List
-|           |
-|           `- Type.Var a#M.15
-|              |
-|              `- TU
-|
-+- params
-|  |
-|  `- [a#M.14]
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs a#M.14:TU
+   +- type
+   |  |
+   |  `- Type.Forall a#M.15:TU
+   |     |
+   |     `- Type.Type
+   |        |
+   |        `- TypeRef
+   |           |
+   |           +- List
+   |           |
+   |           `- Type.Var a#M.15
+   |              |
+   |              `- TU
+   |
+   +- params
+   |  |
+   |  `- [a#M.14]
+   |
+   `- definition
       |
-      `- Exp.TypeApp
+      `- Exp.TypeAbs a#M.14:TU
          |
-         +- Exp.Con Nil#M.4
-         |
-         `- Type.Var a#M.14
+         `- Exp.TypeApp
             |
-            `- TU
+            +- Exp.Con Nil#M.4
+            |
+            `- Type.Var a#M.14
+               |
+               `- TU
 
 empty_head#M.7
 |
-+- type
-|  |
-|  `- Type.Type
-|     |
-|     `- TypeRef
-|        |
-|        +- Maybe
-|        |
-|        `- Type.Unit
-|
-+- params
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.Exp
+   +- type
+   |  |
+   |  `- Type.Type
+   |     |
+   |     `- TypeRef
+   |        |
+   |        +- Maybe
+   |        |
+   |        `- Type.Unit
+   |
+   +- params
+   |
+   `- definition
       |
-      `- TcExpX.ValueCase
+      `- Exp.Exp
          |
-         +- Exp.TypeApp
-         |  |
-         |  +- Exp.Var empty#M.6
-         |  |
-         |  `- Type.Unit
-         |
-         +- Cons#M.2 x#M.16 _#M.17
-         |  |
-         |  `- Exp.App
-         |     |
-         |     +- Exp.TypeApp
-         |     |  |
-         |     |  +- Exp.Con Just#M.3
-         |     |  |
-         |     |  `- Type.Unit
-         |     |
-         |     `- Exp.Var x#M.16
-         |
-         `- Nil#M.4
+         `- TcExpX.ValueCase
             |
-            `- Exp.TypeApp
+            +- Exp.TypeApp
+            |  |
+            |  +- Exp.Var empty#M.6
+            |  |
+            |  `- Type.Unit
+            |
+            +- Cons#M.2 x#M.16 _#M.17
+            |  |
+            |  `- Exp.App
+            |     |
+            |     +- Exp.TypeApp
+            |     |  |
+            |     |  +- Exp.Con Just#M.3
+            |     |  |
+            |     |  `- Type.Unit
+            |     |
+            |     `- Exp.Var x#M.16
+            |
+            `- Nil#M.4
                |
-               +- Exp.Con Nothing#M.5
-               |
-               `- Type.Unit
+               `- Exp.TypeApp
+                  |
+                  +- Exp.Con Nothing#M.5
+                  |
+                  `- Type.Unit
 

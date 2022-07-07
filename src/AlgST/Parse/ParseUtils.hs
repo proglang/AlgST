@@ -194,7 +194,7 @@ typeConstructors ::
   TypeVar PStage ->
   TypeDecl Parse ->
   NameMap Values (ConstructorDecl Parse)
-typeConstructors = declConstructors originAt originAt
+typeConstructors = declConstructors
 
 type IncompleteValueDecl = Maybe (Located (PName Values), PType)
 
@@ -213,7 +213,7 @@ completePrevious = Kleisli \p -> do
       pure p
     Just (loc :@ name, sig) -> do
       put Nothing
-      let decl = SignatureDecl (OriginUser loc) sig
+      let decl = SignatureDecl loc sig
       sigs <- lift $ insertNoDuplicates name decl (moduleSigs p)
       pure p {moduleSigs = sigs}
 
@@ -252,7 +252,7 @@ moduleValueBinding valueName params e = Kleisli \p0 -> do
     Just (defLoc :@ _, ty) -> lift do
       let decl =
             ValueDecl
-              { valueOrigin = OriginUser defLoc,
+              { valuePos = defLoc,
                 valueType = ty,
                 valueParams = params,
                 valueBody = e

@@ -1,48 +1,50 @@
 const_int#M.0
 |
-+- type
-|  |
-|  `- Type.Arrow U
-|     |
-|     +- Type.Type
-|     |  |
-|     |  `- TypeRef
-|     |     |
-|     |     `- Int
-|     |
-|     `- Type.Forall a#M.1:TU
-|        |
-|        `- Type.Arrow U
-|           |
-|           +- Type.Var a#M.1
-|           |  |
-|           |  `- TU
-|           |
-|           `- Type.Type
-|              |
-|              `- TypeRef
-|                 |
-|                 `- Int
-|
-+- params
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs _#M.2:TU
+   +- type
+   |  |
+   |  `- Type.Arrow U
+   |     |
+   |     +- Type.Type
+   |     |  |
+   |     |  `- TypeRef
+   |     |     |
+   |     |     `- Int
+   |     |
+   |     `- Type.Forall a#M.1:TU
+   |        |
+   |        `- Type.Arrow U
+   |           |
+   |           +- Type.Var a#M.1
+   |           |  |
+   |           |  `- TU
+   |           |
+   |           `- Type.Type
+   |              |
+   |              `- TypeRef
+   |                 |
+   |                 `- Int
+   |
+   +- params
+   |
+   `- definition
       |
-      `- Exp.Abs U i#M.3
+      `- Exp.TypeAbs _#M.2:TU
          |
-         +- Type.Type
-         |  |
-         |  `- TypeRef
-         |     |
-         |     `- Int
-         |
-         `- Exp.Abs U _#M.4
+         `- Exp.Abs U i#M.3
             |
-            +- Type.Var _#M.2
+            +- Type.Type
             |  |
-            |  `- TU
+            |  `- TypeRef
+            |     |
+            |     `- Int
             |
-            `- Exp.Var i#M.3
+            `- Exp.Abs U _#M.4
+               |
+               +- Type.Var _#M.2
+               |  |
+               |  `- TU
+               |
+               `- Exp.Var i#M.3
 

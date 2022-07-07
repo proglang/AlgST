@@ -2,8 +2,6 @@ Repeat#M.0
 |
 `- ProtoDecl
    |
-   +- OriginUser
-   |
    +- kind
    |  |
    |  `- P
@@ -36,8 +34,6 @@ More#M.2
 |
 `- Decl.ProtocolCon (Repeat#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (p#M.5:P)
@@ -62,8 +58,6 @@ Quit#M.3
 |
 `- Decl.ProtocolCon (Repeat#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (p#M.5:P)
@@ -72,167 +66,169 @@ Quit#M.3
 
 repeater#M.4
 |
-+- type
-|  |
-|  `- Type.Forall p#M.13:P
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Forall s#M.7:SL
-|        |  |
-|        |  `- Type.Arrow U
-|        |     |
-|        |     +- Type.Session (?)
-|        |     |  |
-|        |     |  +- Type.Var p#M.13
-|        |     |  |  |
-|        |     |  |  `- P
-|        |     |  |
-|        |     |  `- Type.Var s#M.7
-|        |     |     |
-|        |     |     `- SL
-|        |     |
-|        |     `- Type.Var s#M.7
-|        |        |
-|        |        `- SL
-|        |
-|        `- Type.Forall s#M.7:SL
-|           |
-|           `- Type.Arrow U
-|              |
-|              +- Type.Session (?)
-|              |  |
-|              |  +- Type.Type
-|              |  |  |
-|              |  |  `- TypeRef
-|              |  |     |
-|              |  |     +- Repeat
-|              |  |     |
-|              |  |     `- Type.Var p#M.13
-|              |  |        |
-|              |  |        `- P
-|              |  |
-|              |  `- Type.Var s#M.7
-|              |     |
-|              |     `- SL
-|              |
-|              `- Type.Var s#M.7
-|                 |
-|                 `- SL
-|
-+- params
-|  |
-|  +- [p#M.10]
-|  |
-|  +- handleOne#M.11
-|  |
-|  `- [s#M.12]
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs p#M.10:P
+   +- type
+   |  |
+   |  `- Type.Forall p#M.13:P
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Forall s#M.7:SL
+   |        |  |
+   |        |  `- Type.Arrow U
+   |        |     |
+   |        |     +- Type.Session (?)
+   |        |     |  |
+   |        |     |  +- Type.Var p#M.13
+   |        |     |  |  |
+   |        |     |  |  `- P
+   |        |     |  |
+   |        |     |  `- Type.Var s#M.7
+   |        |     |     |
+   |        |     |     `- SL
+   |        |     |
+   |        |     `- Type.Var s#M.7
+   |        |        |
+   |        |        `- SL
+   |        |
+   |        `- Type.Forall s#M.7:SL
+   |           |
+   |           `- Type.Arrow U
+   |              |
+   |              +- Type.Session (?)
+   |              |  |
+   |              |  +- Type.Type
+   |              |  |  |
+   |              |  |  `- TypeRef
+   |              |  |     |
+   |              |  |     +- Repeat
+   |              |  |     |
+   |              |  |     `- Type.Var p#M.13
+   |              |  |        |
+   |              |  |        `- P
+   |              |  |
+   |              |  `- Type.Var s#M.7
+   |              |     |
+   |              |     `- SL
+   |              |
+   |              `- Type.Var s#M.7
+   |                 |
+   |                 `- SL
+   |
+   +- params
+   |  |
+   |  +- [p#M.10]
+   |  |
+   |  +- handleOne#M.11
+   |  |
+   |  `- [s#M.12]
+   |
+   `- definition
       |
-      `- Exp.Abs U handleOne#M.11
+      `- Exp.TypeAbs p#M.10:P
          |
-         +- Type.Forall s#M.7:SL
-         |  |
-         |  `- Type.Arrow U
-         |     |
-         |     +- Type.Session (?)
-         |     |  |
-         |     |  +- Type.Var p#M.10
-         |     |  |  |
-         |     |  |  `- P
-         |     |  |
-         |     |  `- Type.Var s#M.7
-         |     |     |
-         |     |     `- SL
-         |     |
-         |     `- Type.Var s#M.7
-         |        |
-         |        `- SL
-         |
-         `- Exp.TypeAbs s#M.12:SL
+         `- Exp.Abs U handleOne#M.11
             |
-            `- Exp.Rec go#M.14
+            +- Type.Forall s#M.7:SL
+            |  |
+            |  `- Type.Arrow U
+            |     |
+            |     +- Type.Session (?)
+            |     |  |
+            |     |  +- Type.Var p#M.10
+            |     |  |  |
+            |     |  |  `- P
+            |     |  |
+            |     |  `- Type.Var s#M.7
+            |     |     |
+            |     |     `- SL
+            |     |
+            |     `- Type.Var s#M.7
+            |        |
+            |        `- SL
+            |
+            `- Exp.TypeAbs s#M.12:SL
                |
-               +- Type.Arrow U
-               |  |
-               |  +- Type.Session (?)
-               |  |  |
-               |  |  +- Type.Type
-               |  |  |  |
-               |  |  |  `- TypeRef
-               |  |  |     |
-               |  |  |     +- Repeat
-               |  |  |     |
-               |  |  |     `- Type.Var p#M.10
-               |  |  |        |
-               |  |  |        `- P
-               |  |  |
-               |  |  `- Type.Var s#M.12
-               |  |     |
-               |  |     `- SL
-               |  |
-               |  `- Type.Var s#M.12
-               |     |
-               |     `- SL
-               |
-               `- Exp.Abs U c#M.15
+               `- Exp.Rec go#M.14
                   |
-                  +- Type.Session (?)
+                  +- Type.Arrow U
                   |  |
-                  |  +- Type.Type
+                  |  +- Type.Session (?)
                   |  |  |
-                  |  |  `- TypeRef
+                  |  |  +- Type.Type
+                  |  |  |  |
+                  |  |  |  `- TypeRef
+                  |  |  |     |
+                  |  |  |     +- Repeat
+                  |  |  |     |
+                  |  |  |     `- Type.Var p#M.10
+                  |  |  |        |
+                  |  |  |        `- P
+                  |  |  |
+                  |  |  `- Type.Var s#M.12
                   |  |     |
-                  |  |     +- Repeat
-                  |  |     |
-                  |  |     `- Type.Var p#M.10
-                  |  |        |
-                  |  |        `- P
+                  |  |     `- SL
                   |  |
                   |  `- Type.Var s#M.12
                   |     |
                   |     `- SL
                   |
-                  `- Exp.Exp
+                  `- Exp.Abs U c#M.15
                      |
-                     `- TcExpX.RecvCase
+                     +- Type.Session (?)
+                     |  |
+                     |  +- Type.Type
+                     |  |  |
+                     |  |  `- TypeRef
+                     |  |     |
+                     |  |     +- Repeat
+                     |  |     |
+                     |  |     `- Type.Var p#M.10
+                     |  |        |
+                     |  |        `- P
+                     |  |
+                     |  `- Type.Var s#M.12
+                     |     |
+                     |     `- SL
+                     |
+                     `- Exp.Exp
                         |
-                        +- Exp.Var c#M.15
-                        |
-                        +- More#M.2 c#M.16
-                        |  |
-                        |  `- Exp.App
-                        |     |
-                        |     +- Exp.Var go#M.14
-                        |     |
-                        |     `- Exp.App
-                        |        |
-                        |        +- Exp.TypeApp
-                        |        |  |
-                        |        |  +- Exp.Var handleOne#M.11
-                        |        |  |
-                        |        |  `- Type.Session (?)
-                        |        |     |
-                        |        |     +- Type.Type
-                        |        |     |  |
-                        |        |     |  `- TypeRef
-                        |        |     |     |
-                        |        |     |     +- Repeat
-                        |        |     |     |
-                        |        |     |     `- Type.Var p#M.10
-                        |        |     |        |
-                        |        |     |        `- P
-                        |        |     |
-                        |        |     `- Type.Var s#M.12
-                        |        |        |
-                        |        |        `- SL
-                        |        |
-                        |        `- Exp.Var c#M.16
-                        |
-                        `- Quit#M.3 c#M.17
+                        `- TcExpX.RecvCase
                            |
-                           `- Exp.Var c#M.17
+                           +- Exp.Var c#M.15
+                           |
+                           +- More#M.2 c#M.16
+                           |  |
+                           |  `- Exp.App
+                           |     |
+                           |     +- Exp.Var go#M.14
+                           |     |
+                           |     `- Exp.App
+                           |        |
+                           |        +- Exp.TypeApp
+                           |        |  |
+                           |        |  +- Exp.Var handleOne#M.11
+                           |        |  |
+                           |        |  `- Type.Session (?)
+                           |        |     |
+                           |        |     +- Type.Type
+                           |        |     |  |
+                           |        |     |  `- TypeRef
+                           |        |     |     |
+                           |        |     |     +- Repeat
+                           |        |     |     |
+                           |        |     |     `- Type.Var p#M.10
+                           |        |     |        |
+                           |        |     |        `- P
+                           |        |     |
+                           |        |     `- Type.Var s#M.12
+                           |        |        |
+                           |        |        `- SL
+                           |        |
+                           |        `- Exp.Var c#M.16
+                           |
+                           `- Quit#M.3 c#M.17
+                              |
+                              `- Exp.Var c#M.17
 

@@ -1,78 +1,82 @@
 add#M.0
 |
-+- type
-|  |
-|  `- Type.Arrow U
-|     |
-|     +- Type.Con Int#Builtin.1
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Con Int#Builtin.1
-|        |
-|        `- Type.Con Int#Builtin.1
-|
-+- params
-|  |
-|  +- a#M.2
-|  |
-|  `- b#M.3
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.App
+   +- type
+   |  |
+   |  `- Type.Arrow U
+   |     |
+   |     +- Type.Con Int#Builtin.1
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Con Int#Builtin.1
+   |        |
+   |        `- Type.Con Int#Builtin.1
+   |
+   +- params
+   |  |
+   |  +- a#M.2
+   |  |
+   |  `- b#M.3
+   |
+   `- definition
       |
-      +- Exp.App
-      |  |
-      |  +- Exp.Var (+)#Builtin.17
-      |  |
-      |  `- Exp.Var a#M.2
-      |
-      `- Exp.Var b#M.3
+      `- Exp.App
+         |
+         +- Exp.App
+         |  |
+         |  +- Exp.Var (+)#Builtin.17
+         |  |
+         |  `- Exp.Var a#M.2
+         |
+         `- Exp.Var b#M.3
 
 add3#M.1
 |
-+- type
-|  |
-|  `- Type.Arrow U
-|     |
-|     +- Type.Con Int#Builtin.1
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Con Int#Builtin.1
-|        |
-|        `- Type.Arrow U
-|           |
-|           +- Type.Con Int#Builtin.1
-|           |
-|           `- Type.Con Int#Builtin.1
-|
-+- params
-|  |
-|  +- a#M.4
-|  |
-|  +- b#M.5
-|  |
-|  `- c#M.6
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.App
+   +- type
+   |  |
+   |  `- Type.Arrow U
+   |     |
+   |     +- Type.Con Int#Builtin.1
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Con Int#Builtin.1
+   |        |
+   |        `- Type.Arrow U
+   |           |
+   |           +- Type.Con Int#Builtin.1
+   |           |
+   |           `- Type.Con Int#Builtin.1
+   |
+   +- params
+   |  |
+   |  +- a#M.4
+   |  |
+   |  +- b#M.5
+   |  |
+   |  `- c#M.6
+   |
+   `- definition
       |
-      +- Exp.App
-      |  |
-      |  +- Exp.Var add#M.0
-      |  |
-      |  `- Exp.App
-      |     |
-      |     +- Exp.App
-      |     |  |
-      |     |  +- Exp.Var add#M.0
-      |     |  |
-      |     |  `- Exp.Var a#M.4
-      |     |
-      |     `- Exp.Var b#M.5
-      |
-      `- Exp.Var c#M.6
+      `- Exp.App
+         |
+         +- Exp.App
+         |  |
+         |  +- Exp.Var add#M.0
+         |  |
+         |  `- Exp.App
+         |     |
+         |     +- Exp.App
+         |     |  |
+         |     |  +- Exp.Var add#M.0
+         |     |  |
+         |     |  `- Exp.Var a#M.4
+         |     |
+         |     `- Exp.Var b#M.5
+         |
+         `- Exp.Var c#M.6
 

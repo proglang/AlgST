@@ -5,23 +5,25 @@ declarations
 |
 `- id
    |
-   +- type
-   |  |
-   |  `- Type.Forall a:TU
-   |     |
-   |     `- Type.Arrow U
-   |        |
-   |        +- Type.Var a
-   |        |
-   |        `- Type.Var a
-   |
-   +- params
-   |  |
-   |  +- [a]
-   |  |
-   |  `- a
-   |
-   `- definition
+   `- ValueDecl
       |
-      `- Exp.Var a
+      +- type
+      |  |
+      |  `- Type.Forall a:TU
+      |     |
+      |     `- Type.Arrow U
+      |        |
+      |        +- Type.Var a
+      |        |
+      |        `- Type.Var a
+      |
+      +- params
+      |  |
+      |  +- [a]
+      |  |
+      |  `- a
+      |
+      `- definition
+         |
+         `- Exp.Var a
 

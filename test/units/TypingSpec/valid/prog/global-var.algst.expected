@@ -1,46 +1,50 @@
 constUnit#M.0
 |
-+- type
-|  |
-|  `- Type.Forall a#M.4:TU
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Var a#M.4
-|        |  |
-|        |  `- TU
-|        |
-|        `- Type.Unit
-|
-+- params
-|  |
-|  +- [_#M.2]
-|  |
-|  `- _#M.3
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs _#M.2:TU
+   +- type
+   |  |
+   |  `- Type.Forall a#M.4:TU
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Var a#M.4
+   |        |  |
+   |        |  `- TU
+   |        |
+   |        `- Type.Unit
+   |
+   +- params
+   |  |
+   |  +- [_#M.2]
+   |  |
+   |  `- _#M.3
+   |
+   `- definition
       |
-      `- Exp.Abs U _#M.3
+      `- Exp.TypeAbs _#M.2:TU
          |
-         +- Type.Var _#M.2
-         |  |
-         |  `- TU
-         |
-         `- Exp.Var unit#M.1
+         `- Exp.Abs U _#M.3
+            |
+            +- Type.Var _#M.2
+            |  |
+            |  `- TU
+            |
+            `- Exp.Var unit#M.1
 
 unit#M.1
 |
-+- type
-|  |
-|  `- Type.Unit
-|
-+- params
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.Lit
+   +- type
+   |  |
+   |  `- Type.Unit
+   |
+   +- params
+   |
+   `- definition
       |
-      `- Lit.Unit
+      `- Exp.Lit
+         |
+         `- Lit.Unit
 

@@ -7,8 +7,6 @@ declarations
 |  |
 |  `- DataDecl
 |     |
-|     +- OriginUser
-|     |
 |     +- kind
 |     |  |
 |     |  `- TU
@@ -40,8 +38,6 @@ declarations
 +- BTree2
 |  |
 |  `- DataDecl
-|     |
-|     +- OriginUser
 |     |
 |     +- kind
 |     |  |
@@ -87,8 +83,6 @@ declarations
 |  |
 |  `- Decl.DataCon (BTree)
 |     |
-|     +- OriginUser
-|     |
 |     +- parameters
 |     |  |
 |     |  `- (a:TU)
@@ -114,8 +108,6 @@ declarations
 +- Branch2
 |  |
 |  `- Decl.DataCon (BTree2)
-|     |
-|     +- OriginUser
 |     |
 |     +- parameters
 |     |  |
@@ -155,8 +147,6 @@ declarations
 |  |
 |  `- Decl.DataCon (BTree)
 |     |
-|     +- OriginUser
-|     |
 |     +- parameters
 |     |  |
 |     |  `- (a:TU)
@@ -172,8 +162,6 @@ declarations
 `- Leaf2
    |
    `- Decl.DataCon (BTree2)
-      |
-      +- OriginUser
       |
       +- parameters
       |  |

@@ -2,8 +2,6 @@ Identity#M.0
 |
 `- DataDecl
    |
-   +- OriginUser
-   |
    +- kind
    |  |
    |  `- TU
@@ -24,8 +22,6 @@ Identity#M.1
 |
 `- Decl.DataCon (Identity#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (a#M.4:TU)
@@ -42,51 +38,115 @@ Identity#M.1
 
 runIdentity#M.2
 |
-+- type
-|  |
-|  `- Type.Forall a#M.7:TU
-|     |
-|     `- Type.Forall s#M.8:SL
-|        |
-|        `- Type.Arrow U
-|           |
-|           +- Type.Session (?)
-|           |  |
-|           |  +- Type.Type
-|           |  |  |
-|           |  |  `- TypeRef
-|           |  |     |
-|           |  |     +- Identity
-|           |  |     |
-|           |  |     `- Type.Var a#M.7
-|           |  |        |
-|           |  |        `- TU
-|           |  |
-|           |  `- Type.Var s#M.8
-|           |     |
-|           |     `- SL
-|           |
-|           `- Type.Session (?)
-|              |
-|              +- Type.Var a#M.7
-|              |  |
-|              |  `- TU
-|              |
-|              `- Type.Var s#M.8
-|                 |
-|                 `- SL
-|
-+- params
-|  |
-|  `- c#M.6
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs _#M.13:TU
+   +- type
+   |  |
+   |  `- Type.Forall a#M.7:TU
+   |     |
+   |     `- Type.Forall s#M.8:SL
+   |        |
+   |        `- Type.Arrow U
+   |           |
+   |           +- Type.Session (?)
+   |           |  |
+   |           |  +- Type.Type
+   |           |  |  |
+   |           |  |  `- TypeRef
+   |           |  |     |
+   |           |  |     +- Identity
+   |           |  |     |
+   |           |  |     `- Type.Var a#M.7
+   |           |  |        |
+   |           |  |        `- TU
+   |           |  |
+   |           |  `- Type.Var s#M.8
+   |           |     |
+   |           |     `- SL
+   |           |
+   |           `- Type.Session (?)
+   |              |
+   |              +- Type.Var a#M.7
+   |              |  |
+   |              |  `- TU
+   |              |
+   |              `- Type.Var s#M.8
+   |                 |
+   |                 `- SL
+   |
+   +- params
+   |  |
+   |  `- c#M.6
+   |
+   `- definition
       |
-      `- Exp.TypeAbs _#M.14:SL
+      `- Exp.TypeAbs _#M.13:TU
          |
-         `- Exp.Abs U c#M.6
+         `- Exp.TypeAbs _#M.14:SL
+            |
+            `- Exp.Abs U c#M.6
+               |
+               +- Type.Session (?)
+               |  |
+               |  +- Type.Type
+               |  |  |
+               |  |  `- TypeRef
+               |  |     |
+               |  |     +- Identity
+               |  |     |
+               |  |     `- Type.Var _#M.13
+               |  |        |
+               |  |        `- TU
+               |  |
+               |  `- Type.Var _#M.14
+               |     |
+               |     `- SL
+               |
+               `- Exp.Exp
+                  |
+                  `- TcExpX.RecvCase
+                     |
+                     +- Exp.Var c#M.6
+                     |
+                     `- Identity#M.1 c#M.9
+                        |
+                        `- Exp.Var c#M.9
+
+skipD0#M.3
+|
+`- ValueDecl
+   |
+   +- type
+   |  |
+   |  `- Type.Forall s#M.11:SL
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Session (?)
+   |        |  |
+   |        |  +- Type.Type
+   |        |  |  |
+   |        |  |  `- TypeRef
+   |        |  |     |
+   |        |  |     `- D0
+   |        |  |
+   |        |  `- Type.Var s#M.11
+   |        |     |
+   |        |     `- SL
+   |        |
+   |        `- Type.Var s#M.11
+   |           |
+   |           `- SL
+   |
+   +- params
+   |  |
+   |  `- c#M.10
+   |
+   `- definition
+      |
+      `- Exp.TypeAbs _#M.15:SL
+         |
+         `- Exp.Abs U c#M.10
             |
             +- Type.Session (?)
             |  |
@@ -94,13 +154,9 @@ runIdentity#M.2
             |  |  |
             |  |  `- TypeRef
             |  |     |
-            |  |     +- Identity
-            |  |     |
-            |  |     `- Type.Var _#M.13
-            |  |        |
-            |  |        `- TU
+            |  |     `- D0
             |  |
-            |  `- Type.Var _#M.14
+            |  `- Type.Var _#M.15
             |     |
             |     `- SL
             |
@@ -108,65 +164,9 @@ runIdentity#M.2
                |
                `- TcExpX.RecvCase
                   |
-                  +- Exp.Var c#M.6
+                  +- Exp.Var c#M.10
                   |
-                  `- Identity#M.1 c#M.9
+                  `- D0#Declarations.14 c#M.12
                      |
-                     `- Exp.Var c#M.9
-
-skipD0#M.3
-|
-+- type
-|  |
-|  `- Type.Forall s#M.11:SL
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Session (?)
-|        |  |
-|        |  +- Type.Type
-|        |  |  |
-|        |  |  `- TypeRef
-|        |  |     |
-|        |  |     `- D0
-|        |  |
-|        |  `- Type.Var s#M.11
-|        |     |
-|        |     `- SL
-|        |
-|        `- Type.Var s#M.11
-|           |
-|           `- SL
-|
-+- params
-|  |
-|  `- c#M.10
-|
-`- definition
-   |
-   `- Exp.TypeAbs _#M.15:SL
-      |
-      `- Exp.Abs U c#M.10
-         |
-         +- Type.Session (?)
-         |  |
-         |  +- Type.Type
-         |  |  |
-         |  |  `- TypeRef
-         |  |     |
-         |  |     `- D0
-         |  |
-         |  `- Type.Var _#M.15
-         |     |
-         |     `- SL
-         |
-         `- Exp.Exp
-            |
-            `- TcExpX.RecvCase
-               |
-               +- Exp.Var c#M.10
-               |
-               `- D0#Declarations.14 c#M.12
-                  |
-                  `- Exp.Var c#M.12
+                     `- Exp.Var c#M.12
 

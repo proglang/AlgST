@@ -7,8 +7,6 @@ declarations
 |  |
 |  `- ProtoDecl
 |     |
-|     +- OriginUser
-|     |
 |     +- kind
 |     |  |
 |     |  `- P
@@ -45,8 +43,6 @@ declarations
 |  |
 |  `- Decl.ProtocolCon (Arith)
 |     |
-|     +- OriginUser
-|     |
 |     +- parameters
 |     |
 |     `- items
@@ -65,8 +61,6 @@ declarations
 |  |
 |  `- Decl.ProtocolCon (Arith)
 |     |
-|     +- OriginUser
-|     |
 |     +- parameters
 |     |
 |     `- items
@@ -82,8 +76,6 @@ declarations
 `- Quit
    |
    `- Decl.ProtocolCon (Arith)
-      |
-      +- OriginUser
       |
       +- parameters
       |

@@ -2,8 +2,6 @@ Identity#M.0
 |
 `- DataDecl
    |
-   +- OriginUser
-   |
    +- kind
    |  |
    |  `- TU
@@ -24,8 +22,6 @@ Identity#M.1
 |
 `- Decl.DataCon (Identity#M.0)
    |
-   +- OriginUser
-   |
    +- parameters
    |  |
    |  `- (a#M.4:TU)
@@ -42,93 +38,97 @@ Identity#M.1
 
 matchD0#M.2
 |
-+- type
-|  |
-|  `- Type.Arrow U
-|     |
-|     +- Type.Type
-|     |  |
-|     |  `- TypeRef
-|     |     |
-|     |     `- D0
-|     |
-|     `- Type.Unit
-|
-+- params
-|  |
-|  `- d0#M.6
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.Abs U d0#M.6
-      |
-      +- Type.Type
-      |  |
-      |  `- TypeRef
-      |     |
-      |     `- D0
-      |
-      `- Exp.Exp
-         |
-         `- TcExpX.ValueCase
-            |
-            +- Exp.Var d0#M.6
-            |
-            `- D0#Declarations.14
-               |
-               `- Exp.Lit
-                  |
-                  `- Lit.Unit
-
-runIdentity#M.3
-|
-+- type
-|  |
-|  `- Type.Forall a#M.8:TU
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Type
-|        |  |
-|        |  `- TypeRef
-|        |     |
-|        |     +- Identity
-|        |     |
-|        |     `- Type.Var a#M.8
-|        |        |
-|        |        `- TU
-|        |
-|        `- Type.Var a#M.8
-|           |
-|           `- TU
-|
-+- params
-|  |
-|  `- id#M.7
-|
-`- definition
+   +- type
+   |  |
+   |  `- Type.Arrow U
+   |     |
+   |     +- Type.Type
+   |     |  |
+   |     |  `- TypeRef
+   |     |     |
+   |     |     `- D0
+   |     |
+   |     `- Type.Unit
    |
-   `- Exp.TypeAbs _#M.10:TU
+   +- params
+   |  |
+   |  `- d0#M.6
+   |
+   `- definition
       |
-      `- Exp.Abs U id#M.7
+      `- Exp.Abs U d0#M.6
          |
          +- Type.Type
          |  |
          |  `- TypeRef
          |     |
-         |     +- Identity
-         |     |
-         |     `- Type.Var _#M.10
-         |        |
-         |        `- TU
+         |     `- D0
          |
          `- Exp.Exp
             |
             `- TcExpX.ValueCase
                |
-               +- Exp.Var id#M.7
+               +- Exp.Var d0#M.6
                |
-               `- Identity#M.1 a#M.9
+               `- D0#Declarations.14
                   |
-                  `- Exp.Var a#M.9
+                  `- Exp.Lit
+                     |
+                     `- Lit.Unit
+
+runIdentity#M.3
+|
+`- ValueDecl
+   |
+   +- type
+   |  |
+   |  `- Type.Forall a#M.8:TU
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Type
+   |        |  |
+   |        |  `- TypeRef
+   |        |     |
+   |        |     +- Identity
+   |        |     |
+   |        |     `- Type.Var a#M.8
+   |        |        |
+   |        |        `- TU
+   |        |
+   |        `- Type.Var a#M.8
+   |           |
+   |           `- TU
+   |
+   +- params
+   |  |
+   |  `- id#M.7
+   |
+   `- definition
+      |
+      `- Exp.TypeAbs _#M.10:TU
+         |
+         `- Exp.Abs U id#M.7
+            |
+            +- Type.Type
+            |  |
+            |  `- TypeRef
+            |     |
+            |     +- Identity
+            |     |
+            |     `- Type.Var _#M.10
+            |        |
+            |        `- TU
+            |
+            `- Exp.Exp
+               |
+               `- TcExpX.ValueCase
+                  |
+                  +- Exp.Var id#M.7
+                  |
+                  `- Identity#M.1 a#M.9
+                     |
+                     `- Exp.Var a#M.9
 

@@ -65,10 +65,10 @@ type instance T.XDualof  Rn = Pos
 type instance T.XNegate  Rn = Pos
 type instance T.XType    Rn = Void
 
-type instance D.XAliasDecl    Rn = D.Origin
-type instance D.XDataDecl     Rn = D.Origin
-type instance D.XProtocolDecl Rn = D.Origin
+type instance D.XAliasDecl    Rn = Pos
+type instance D.XDataDecl     Rn = Pos
+type instance D.XProtocolDecl Rn = Pos
 
-type instance D.XDataCon      Rn = D.Origin
-type instance D.XProtoCon     Rn = D.Origin
+type instance D.XDataCon      Rn = Pos
+type instance D.XProtoCon     Rn = Pos
 {- ORMOLU_ENABLE -}

@@ -254,15 +254,14 @@ checkTypeDecl name = \case
   AliasDecl _ _ ->
     pure Nothing
   DataDecl origin decl -> do
-    -- Builtin declarations are allowed to be declared with a kind of ML or MU
-    -- as well.
-    let alwaysAllowed =
-          K.TL :| [K.TU]
+    -- A builtin declaration may declare types as ML/MU. Usually only TL/TU is
+    -- allowed.
     let allowed
-          -- A builtin declaration may declare types as ML/MU. Usually only
-          -- TL/TU is allowed.
-          | isBuiltin origin = K.ML <| K.MU <| alwaysAllowed
-          | otherwise = alwaysAllowed
+          | nameResolvedModule name == BuiltinsModule =
+            K.ML <| K.MU <| alwaysAllowed
+          | otherwise =
+            alwaysAllowed
+        alwaysAllowed = K.TL :| [K.TU]
     kind <- expectNominalKind (pos origin) "data" name (nominalKind decl) allowed
     tcConstructors <- local (bindParams (nominalParams decl)) do
       traverseConstructors (checkDataCon kind) (nominalConstructors decl)
@@ -405,7 +404,7 @@ checkValueSignatures = Map.traverseMaybeWithKey $ const \case
 
 checkedConstructors :: TypesMap Tc -> TcValuesMap
 checkedConstructors = Map.foldMapWithKey \name ->
-  Map.map ValueCon . declConstructors originAt originAt name
+  Map.map ValueCon . declConstructors name
 
 checkSignature ::
   (HasKiEnv env, HasKiSt st) => SignatureDecl Rn -> TcM env st (SignatureDecl Tc)

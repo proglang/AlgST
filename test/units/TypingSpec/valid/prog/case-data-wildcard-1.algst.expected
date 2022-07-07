@@ -1,46 +1,40 @@
 and#M.0
 |
-+- type
-|  |
-|  `- Type.Arrow U
-|     |
-|     +- Type.Type
-|     |  |
-|     |  `- TypeRef
-|     |     |
-|     |     `- Bool
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Type
-|        |  |
-|        |  `- TypeRef
-|        |     |
-|        |     `- Bool
-|        |
-|        `- Type.Type
-|           |
-|           `- TypeRef
-|              |
-|              `- Bool
-|
-+- params
-|  |
-|  +- x#M.1
-|  |
-|  `- y#M.2
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.Abs U x#M.1
+   +- type
+   |  |
+   |  `- Type.Arrow U
+   |     |
+   |     +- Type.Type
+   |     |  |
+   |     |  `- TypeRef
+   |     |     |
+   |     |     `- Bool
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Type
+   |        |  |
+   |        |  `- TypeRef
+   |        |     |
+   |        |     `- Bool
+   |        |
+   |        `- Type.Type
+   |           |
+   |           `- TypeRef
+   |              |
+   |              `- Bool
+   |
+   +- params
+   |  |
+   |  +- x#M.1
+   |  |
+   |  `- y#M.2
+   |
+   `- definition
       |
-      +- Type.Type
-      |  |
-      |  `- TypeRef
-      |     |
-      |     `- Bool
-      |
-      `- Exp.Abs U y#M.2
+      `- Exp.Abs U x#M.1
          |
          +- Type.Type
          |  |
@@ -48,17 +42,25 @@ and#M.0
          |     |
          |     `- Bool
          |
-         `- Exp.Exp
+         `- Exp.Abs U y#M.2
             |
-            `- TcExpX.ValueCase
+            +- Type.Type
+            |  |
+            |  `- TypeRef
+            |     |
+            |     `- Bool
+            |
+            `- Exp.Exp
                |
-               +- Exp.Var x#M.1
-               |
-               +- True#Builtin.5
-               |  |
-               |  `- Exp.Var y#M.2
-               |
-               `- _#M.3
+               `- TcExpX.ValueCase
                   |
-                  `- Exp.Con False#Builtin.6
+                  +- Exp.Var x#M.1
+                  |
+                  +- True#Builtin.5
+                  |  |
+                  |  `- Exp.Var y#M.2
+                  |
+                  `- _#M.3
+                     |
+                     `- Exp.Con False#Builtin.6
 

@@ -18,15 +18,11 @@ import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
 import AlgST.Syntax.Phases
 import AlgST.Syntax.Type qualified as T
-import Control.Category ((>>>))
 import Data.Functor.Identity
 import Data.Kind qualified as Hs
 import Data.Map.Strict qualified as Map
 import Data.Maybe
-import Data.Void
 import Language.Haskell.TH.Syntax (Lift)
-import Lens.Family2
-import Lens.Family2.Unchecked (lens)
 
 {- ORMOLU_DISABLE -}
 type family XAliasDecl x
@@ -85,57 +81,12 @@ traverseConstructors ::
   (Constructors stage a -> f (Constructors stage b))
 traverseConstructors f = Map.traverseWithKey (traverse . traverse . f)
 
-data Origin
-  = OriginUser !Pos
-  | OriginImport !String
-  | OriginBuiltin
-  deriving (Lift)
-
-instance HasPos Origin where
-  pos = \case
-    OriginUser p -> p
-    _ -> ZeroPos
-
-class Originated a where
-  originL :: Lens' a Origin
-
-instance Originated Origin where
-  originL = id
-  {-# INLINE originL #-}
-
-instance Originated Void where
-  originL = lens absurd const
-
-instance (Originated a, Originated b) => Originated (Either a b) where
-  originL f = either (fmap Left . originL f) (fmap Right . originL f)
-  {-# INLINE originL #-}
-
--- | Checks for 'OriginBuiltin'.
-isBuiltin :: Originated a => a -> Bool
-isBuiltin =
-  view originL >>> \case
-    OriginBuiltin -> True
-    _ -> False
-
-originAt :: Originated a => a -> Pos -> a
-originAt a p =
-  a & originL %~ \case
-    OriginUser _ -> OriginUser p
-    origin -> origin
-
 data TypeDecl x
   = AliasDecl (XAliasDecl x) (TypeAlias x)
   | DataDecl (XDataDecl x) (TypeNominal (XStage x) (T.Type x))
   | ProtoDecl (XProtocolDecl x) (TypeNominal (XStage x) (T.Type x))
 
 deriving stock instance (ForallDeclX Lift x, T.ForallX Lift x) => Lift (TypeDecl x)
-
-instance ForallDeclX Originated x => Originated (TypeDecl x) where
-  originL f = \case
-    AliasDecl x decl -> flip AliasDecl decl <$> originL f x
-    DataDecl x decl -> flip DataDecl decl <$> originL f x
-    ProtoDecl x decl -> flip ProtoDecl decl <$> originL f x
-  {-# INLINE originL #-}
 
 declParams :: TypeDecl x -> XParams x
 declParams = \case
@@ -145,24 +96,23 @@ declParams = \case
 
 declConstructors ::
   forall x.
-  (XDataDecl x -> Pos -> XDataCon x) ->
-  (XProtocolDecl x -> Pos -> XProtoCon x) ->
+  (XDataCon x ~ Pos, XProtoCon x ~ Pos) =>
   XTypeVar x ->
   TypeDecl x ->
   NameMapG (XStage x) Values (ConstructorDecl x)
-declConstructors xData xProto name d = case d of
+declConstructors name d = case d of
   AliasDecl _ _ ->
     Map.empty
-  DataDecl x decl -> do
+  DataDecl _ decl -> do
     -- Falling back to 'Un' is not 100% correct but we know that for a well
     -- formed data declaration the kind *must* have multiplicity information.
     -- So the only way to get 'Nothing' here is when the user annotated the
     -- declaration to have kind 'P' which will lead to an erorr diagnosis.
     let mul = K.Un `fromMaybe` K.multiplicity (nominalKind decl)
-    let con (p, items) = DataCon @x (xData x p) name (declParams d) mul items
+    let con (p, items) = DataCon @x p name (declParams d) mul items
     Map.map con (nominalConstructors decl)
-  ProtoDecl x decl -> do
-    let con (p, items) = ProtocolCon @x (xProto x p) name (declParams d) items
+  ProtoDecl _ decl -> do
+    let con (p, items) = ProtocolCon @x p name (declParams d) items
     Map.map con (nominalConstructors decl)
 
 instance ForallDeclX HasPos x => HasPos (TypeDecl x) where
@@ -172,23 +122,17 @@ instance ForallDeclX HasPos x => HasPos (TypeDecl x) where
     ProtoDecl x _ -> pos x
 
 data SignatureDecl x = SignatureDecl
-  { signatureOrigin :: !Origin,
+  { signaturePos :: Pos,
     signatureType :: T.Type x
   }
 
 deriving stock instance (T.ForallX Lift x) => Lift (SignatureDecl x)
 
-instance Originated (SignatureDecl x) where
-  originL =
-    lens
-      (\(SignatureDecl origin _) -> origin)
-      (\(SignatureDecl _ ty) origin -> SignatureDecl origin ty)
-
 instance HasPos (SignatureDecl x) where
-  pos = pos . view originL
+  pos = signaturePos
 
 data ValueDecl x = ValueDecl
-  { valueOrigin :: Origin,
+  { valuePos :: Pos,
     valueType :: T.Type x,
     valueParams :: [Located (ANameG (XStage x))],
     valueBody :: E.Exp x
@@ -196,16 +140,11 @@ data ValueDecl x = ValueDecl
 
 deriving stock instance (E.ForallX Lift x, T.ForallX Lift x) => Lift (ValueDecl x)
 
-instance Originated (ValueDecl x) where
-  originL = lens valueOrigin \d origin ->
-    d {valueOrigin = origin}
-  {-# INLINE originL #-}
-
 instance HasPos (ValueDecl x) where
-  pos = pos . valueOrigin
+  pos = valuePos
 
 valueSignatureDecl :: ValueDecl x -> SignatureDecl x
-valueSignatureDecl = SignatureDecl <$> valueOrigin <*> valueType
+valueSignatureDecl = SignatureDecl <$> valuePos <*> valueType
 
 data ConstructorDecl x
   = -- | A data constructor is annotated with
@@ -223,16 +162,6 @@ data ConstructorDecl x
     ProtocolCon (XProtoCon x) !(XTypeVar x) (XParams x) [T.Type x]
 
 deriving stock instance (ForallConX Lift x, T.ForallX Lift x) => Lift (ConstructorDecl x)
-
-instance ForallConX Originated x => Originated (ConstructorDecl x) where
-  originL f = \case
-    DataCon x name params mul items -> do
-      x' <- originL f x
-      pure $ DataCon x' name params mul items
-    ProtocolCon x name params items -> do
-      x' <- originL f x
-      pure $ ProtocolCon x' name params items
-  {-# INLINE originL #-}
 
 conParent :: ConstructorDecl x -> XTypeVar x
 conParent = \case

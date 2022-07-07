@@ -7,8 +7,6 @@ declarations
 |  |
 |  `- DataDecl
 |     |
-|     +- OriginUser
-|     |
 |     +- kind
 |     |  |
 |     |  `- TU
@@ -29,8 +27,6 @@ declarations
 |  |
 |  `- Decl.DataCon (IntList)
 |     |
-|     +- OriginUser
-|     |
 |     +- parameters
 |     |
 |     +- multiplicity
@@ -46,8 +42,6 @@ declarations
 `- Nil
    |
    `- Decl.DataCon (IntList)
-      |
-      +- OriginUser
       |
       +- parameters
       |

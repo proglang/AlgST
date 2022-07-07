@@ -1,66 +1,68 @@
 and#M.0
 |
-+- type
-|  |
-|  `- Type.Arrow U
-|     |
-|     +- Type.Type
-|     |  |
-|     |  `- TypeRef
-|     |     |
-|     |     `- Bool
-|     |
-|     `- Type.Arrow U
-|        |
-|        +- Type.Type
-|        |  |
-|        |  `- TypeRef
-|        |     |
-|        |     `- D0
-|        |
-|        `- Type.Unit
-|
-+- params
-|  |
-|  +- a#M.1
-|  |
-|  `- b#M.2
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.Abs U a#M.1
+   +- type
+   |  |
+   |  `- Type.Arrow U
+   |     |
+   |     +- Type.Type
+   |     |  |
+   |     |  `- TypeRef
+   |     |     |
+   |     |     `- Bool
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Type
+   |        |  |
+   |        |  `- TypeRef
+   |        |     |
+   |        |     `- D0
+   |        |
+   |        `- Type.Unit
+   |
+   +- params
+   |  |
+   |  +- a#M.1
+   |  |
+   |  `- b#M.2
+   |
+   `- definition
       |
-      +- Type.Type
-      |  |
-      |  `- TypeRef
-      |     |
-      |     `- Bool
-      |
-      `- Exp.Abs U b#M.2
+      `- Exp.Abs U a#M.1
          |
          +- Type.Type
          |  |
          |  `- TypeRef
          |     |
-         |     `- D0
+         |     `- Bool
          |
-         `- Exp.Exp
+         `- Exp.Abs U b#M.2
             |
-            `- TcExpX.ValueCase
+            +- Type.Type
+            |  |
+            |  `- TypeRef
+            |     |
+            |     `- D0
+            |
+            `- Exp.Exp
                |
-               +- Exp.Var a#M.1
-               |
-               `- _#M.3
+               `- TcExpX.ValueCase
                   |
-                  `- Exp.Exp
+                  +- Exp.Var a#M.1
+                  |
+                  `- _#M.3
                      |
-                     `- TcExpX.ValueCase
+                     `- Exp.Exp
                         |
-                        +- Exp.Var b#M.2
-                        |
-                        `- _#M.4
+                        `- TcExpX.ValueCase
                            |
-                           `- Exp.Lit
+                           +- Exp.Var b#M.2
+                           |
+                           `- _#M.4
                               |
-                              `- Lit.Unit
+                              `- Exp.Lit
+                                 |
+                                 `- Lit.Unit
 

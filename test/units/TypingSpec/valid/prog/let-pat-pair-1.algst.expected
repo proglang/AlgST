@@ -1,66 +1,68 @@
 pairId1#M.0
 |
-+- type
-|  |
-|  `- Type.Forall a#M.2:TU
-|     |
-|     `- Type.Forall b#M.3:TU
-|        |
-|        `- Type.Arrow U
-|           |
-|           +- Type.Pair
-|           |  |
-|           |  +- Type.Var a#M.2
-|           |  |  |
-|           |  |  `- TU
-|           |  |
-|           |  `- Type.Var b#M.3
-|           |     |
-|           |     `- TU
-|           |
-|           `- Type.Pair
-|              |
-|              +- Type.Var a#M.2
-|              |  |
-|              |  `- TU
-|              |
-|              `- Type.Var b#M.3
-|                 |
-|                 `- TU
-|
-+- params
-|  |
-|  `- ab#M.1
-|
-`- definition
+`- ValueDecl
    |
-   `- Exp.TypeAbs _#M.6:TU
+   +- type
+   |  |
+   |  `- Type.Forall a#M.2:TU
+   |     |
+   |     `- Type.Forall b#M.3:TU
+   |        |
+   |        `- Type.Arrow U
+   |           |
+   |           +- Type.Pair
+   |           |  |
+   |           |  +- Type.Var a#M.2
+   |           |  |  |
+   |           |  |  `- TU
+   |           |  |
+   |           |  `- Type.Var b#M.3
+   |           |     |
+   |           |     `- TU
+   |           |
+   |           `- Type.Pair
+   |              |
+   |              +- Type.Var a#M.2
+   |              |  |
+   |              |  `- TU
+   |              |
+   |              `- Type.Var b#M.3
+   |                 |
+   |                 `- TU
+   |
+   +- params
+   |  |
+   |  `- ab#M.1
+   |
+   `- definition
       |
-      `- Exp.TypeAbs _#M.7:TU
+      `- Exp.TypeAbs _#M.6:TU
          |
-         `- Exp.Abs U ab#M.1
+         `- Exp.TypeAbs _#M.7:TU
             |
-            +- Type.Pair
-            |  |
-            |  +- Type.Var _#M.6
-            |  |  |
-            |  |  `- TU
-            |  |
-            |  `- Type.Var _#M.7
-            |     |
-            |     `- TU
-            |
-            `- Exp.Exp
+            `- Exp.Abs U ab#M.1
                |
-               `- TcExpX.ValueCase
+               +- Type.Pair
+               |  |
+               |  +- Type.Var _#M.6
+               |  |  |
+               |  |  `- TU
+               |  |
+               |  `- Type.Var _#M.7
+               |     |
+               |     `- TU
+               |
+               `- Exp.Exp
                   |
-                  +- Exp.Var ab#M.1
-                  |
-                  `- (,)#Builtin.0 a#M.4 b#M.5
+                  `- TcExpX.ValueCase
                      |
-                     `- Exp.Pair
+                     +- Exp.Var ab#M.1
+                     |
+                     `- (,)#Builtin.0 a#M.4 b#M.5
                         |
-                        +- Exp.Var a#M.4
-                        |
-                        `- Exp.Var b#M.5
+                        `- Exp.Pair
+                           |
+                           +- Exp.Var a#M.4
+                           |
+                           `- Exp.Var b#M.5
 

@@ -7,7 +7,6 @@ module AlgST.Builtins.TH where
 
 import AlgST.Parse.Parser
 import AlgST.Rename
-import AlgST.Syntax.Decl
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
 import AlgST.Typing
@@ -35,11 +34,7 @@ parseTH modName baseMap srcLines = Code.do
     reportError "Imports not yet supported by ‘parseTH’."
   let (modmap, resolve) = continueRename baseMap modName (parsedModule parsed)
   let check renamed = do
-        let markBuiltin = \case
-              DataDecl _ decl -> DataDecl OriginBuiltin decl
-              decl -> decl
-        let builtinRenamed = renamed {moduleTypes = markBuiltin <$> moduleTypes renamed}
-        let doCheck = checkWithModule mempty builtinRenamed \runTypeM checked ->
+        let doCheck = checkWithModule mempty renamed \runTypeM checked ->
               (checked,) <$> runTypeM extractCheckContext
         mapErrors runErrors $ mapValidateT lift doCheck
   let checked = resolve mempty >>= \(RenameExtra f) -> f check
