@@ -63,6 +63,13 @@ data KiTypingEnv = KiTypingEnv
     tcExpansionStack :: Seq ExpansionEntry
   }
 
+emptyKiTypingEnv :: KiTypingEnv
+emptyKiTypingEnv =
+  KiTypingEnv
+    { tcKindEnv = mempty,
+      tcExpansionStack = mempty
+    }
+
 data TcValue
   = ValueGlobal (Maybe (ValueDecl Rn)) TcType
   | ValueCon (ConstructorDecl Tc)

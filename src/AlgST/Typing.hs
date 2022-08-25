@@ -171,7 +171,7 @@ checkWithModule ctxt prog k = do
         TyTypingEnv
           { tcCheckedTypes = contextTypes ctxt <> tcTypes,
             tcCheckedValues = contextValues ctxt <> tcValues <> sigValues,
-            tcKiTypingEnv = kiEnv
+            tcKiTypingEnv = emptyKiTypingEnv -- See [Note: Empty KiTypingEnv]
           }
   let embed :: TypeM a -> TcM env KiSt a
       embed = embedTypeM tyEnv
@@ -191,16 +191,11 @@ checkWithModule ctxt prog k = do
             contextTyCons ctxt
               <> typeConstructorsFromDecls (moduleTypes prog)
         }
-    kiEnv =
-      KiTypingEnv
-        { tcKindEnv = mempty,
-          tcExpansionStack = mempty
-        }
     run st m = do
       (res, st) <-
         runValidateT m
           & flip runStateT st
-          & flip runReaderT kiEnv
+          & flip runReaderT emptyKiTypingEnv
           & lift
       (st,) <$> either refute pure res
     checkGlobals = do
@@ -210,8 +205,19 @@ checkWithModule ctxt prog k = do
       tcSigs <- traverse checkSignature (moduleSigs prog)
       pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcSigs)
 
+{- [Note: Empty KiTypingEnv]
+
+It would be relatively reasonable, when running a TypeM computation, to look
+into the current kind context to get a `KiTypingEnv` value. However, at the
+moment this is not necessary: although we can start a 'KindM' computation from
+inside a 'TypeM' computation the reverse is not possible. In other words: a
+threading of the kind checking context through a level of type checking into
+kind checking is not necessary.
+
+-}
+
 checkModule :: CheckContext -> Module Rn -> ValidateT Errors Fresh TcModule
-checkModule ctxt p = checkWithModule ctxt p \_ -> pure
+checkModule ctxt p = checkWithModule ctxt p \_ -> pure -- `const pure` does not work because of simplified subsumption.
 
 checkResultAsRnM :: ValidateT Errors Fresh a -> RnM a
 checkResultAsRnM = mapValidateT lift >>> mapErrors runErrors
