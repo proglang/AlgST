@@ -96,7 +96,7 @@ import Data.Bifunctor
 import Data.DList.DNonEmpty qualified as DNE
 import Data.Foldable
 import Data.Functor.Identity
-import Data.List.NonEmpty (NonEmpty (..), nonEmpty, (<|))
+import Data.List.NonEmpty (NonEmpty (..), (<|))
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Merge.Strict qualified as Merge
 import Data.Map.Strict qualified as Map
@@ -222,20 +222,6 @@ checkModule ctxt p = checkWithModule ctxt p \_ -> pure -- `const pure` does not 
 checkResultAsRnM :: ValidateT Errors Fresh a -> RnM a
 checkResultAsRnM = mapValidateT lift >>> mapErrors runErrors
 
-addError :: MonadValidate Errors m => Diagnostic -> m ()
-addError !e = dispute $ This $ DNE.singleton e
-
--- | Records multiple errors. If the error list is acutally empty, no errors
--- will be recorded and the computation won't fail.
-addErrors :: MonadValidate Errors m => [Diagnostic] -> m ()
-addErrors = maybe (pure ()) (dispute . This . DNE.fromNonEmpty) . nonEmpty
-
-addFatalError :: MonadValidate Errors m => Diagnostic -> m a
-addFatalError !e = refute $ This $ DNE.singleton e
-
-maybeError :: MonadValidate Errors m => Diagnostic -> Maybe a -> m a
-maybeError e = maybe (addFatalError e) pure
-
 useVar :: MonadValidate Errors m => Pos -> ProgVar TcStage -> Var -> m Var
 useVar loc name v = case varUsage v of
   UnUsage ->
@@ -243,7 +229,7 @@ useVar loc name v = case varUsage v of
   LinUnunsed ->
     pure v {varUsage = LinUsed loc}
   LinUsed ppos -> do
-    addError (Error.linVarUsedTwice ppos loc name v)
+    Error.add (Error.linVarUsedTwice ppos loc name v)
     pure v
 
 checkTypeDecls :: (HasKiEnv env, HasKiSt st) => TypesMap Rn -> TcM env st (TypesMap Tc)
@@ -465,7 +451,7 @@ checkAlignedBinds fullTy allVs e = go fullTy fullTy allVs
       -- The bind ›v‹ does not align with the expected type. While trying to
       -- align it the expected type got more and more destructured. The first
       -- argument to 'go' is the un-destructured expected type.
-      addFatalError $ uncurryL Error.mismatchedBind v t
+      Error.fatal $ uncurryL Error.mismatchedBind v t
 
 expectNominalKind ::
   MonadValidate Errors m =>
@@ -478,7 +464,7 @@ expectNominalKind ::
 expectNominalKind loc nomKind name actual allowed = do
   if actual `elem` allowed
     then pure actual
-    else NE.last allowed <$ addError (Error.invalidNominalKind loc nomKind name actual allowed)
+    else NE.last allowed <$ Error.add (Error.invalidNominalKind loc nomKind name actual allowed)
 
 -- | @typeAppBase t us@ destructures @t@ multiple levels to the type
 -- application head. @us@ is a non-empty list of already established
@@ -500,7 +486,7 @@ typeAppBase = flip go
     go us = \case
       T.Con p c -> pure (p, c, toList us)
       T.App _ t u -> go (u <| us) t
-      t -> addFatalError $ err us t
+      t -> Error.fatal $ err us t
     err :: NonEmpty RnType -> RnType -> Diagnostic
     err us t = Error.typeConstructorNParams (pos t) (t <| us) (length us) 0
 
@@ -539,7 +525,7 @@ zipTypeParams loc name ps0 ts0 = go 0 ps0 ts0
         ((v,) <$> kicheck a k)
         (go (n + 1) ps as)
     go !n ps as =
-      addFatalError $
+      Error.fatal $
         Error.typeConstructorNParams
           loc
           (T.Con loc name :| ts0)
@@ -575,7 +561,7 @@ kisynth =
       pure (T.Unit p, K.MU)
     T.Var p v -> do
       mk <- asks $ view kiEnvL >>> tcKindEnv >>> Map.lookup v
-      k <- maybeError (Error.unboundVar p v) mk
+      k <- Error.ifNothing (Error.unboundVar p v) mk
       pure (T.Var (p @- k) v, k)
     T.Con p v -> do
       kisynthTypeCon p v []
@@ -599,7 +585,7 @@ kisynth =
                 forallT = T.Forall p (K.Bind p v k t')
             pure (forallT, forallK)
           Nothing -> do
-            addFatalError (Error.unexpectedKind t tyk [])
+            Error.fatal (Error.unexpectedKind t tyk [])
     T.Pair p t1 t2 -> do
       ((t1', k1), (t2', k2)) <- do
         -- Applicatively to get error messages from both branches.
@@ -661,11 +647,11 @@ tysynth =
 
     --
     E.Var p v -> do
-      synthVariable p v >>= maybeError (Error.unboundVar p v)
+      synthVariable p v >>= Error.ifNothing (Error.unboundVar p v)
 
     --
     E.Con p v -> do
-      synthVariable p v >>= maybeError (Error.undeclaredCon p v)
+      synthVariable p v >>= Error.ifNothing (Error.undeclaredCon p v)
 
     --
     E.Abs p bnd -> do
@@ -685,7 +671,7 @@ tysynth =
       (e', ty) <- tysynth e
       let k = typeKind ty
       when (not (k <=? K.ML)) do
-        addError $ Error.unexpectedForkKind "fork" e ty k K.ML
+        Error.add $ Error.unexpectedForkKind "fork" e ty k K.ML
       let resultTy = buildSessionType p T.In [ty] $ T.End p
       pure (E.Fork p e', resultTy)
 
@@ -694,14 +680,14 @@ tysynth =
       (e', ty) <- tysynth e
       let k = typeKind ty
       when (not (k <=? K.TU)) do
-        addError $ Error.unexpectedForkKind "fork_" e ty k K.TU
+        Error.add $ Error.unexpectedForkKind "fork_" e ty k K.TU
       pure (E.Fork_ p e', T.Unit p)
 
     --
     E.App p e1 e2 -> do
       (e1', t1) <- tysynth e1
       (t, u) <-
-        maybeError
+        Error.ifNothing
           (Error.noArrowType e1 t1)
           (appArrow t1)
       e2' <- tycheck e2 t
@@ -715,7 +701,7 @@ tysynth =
     E.TypeApp p e t -> do
       (e', eTy) <- tysynth e
       K.Bind _ v k u <-
-        maybeError
+        Error.ifNothing
           (Error.noForallType e eTy)
           (appTArrow eTy)
       t' <- kicheck t k
@@ -812,7 +798,7 @@ tysynth =
             ValueCon conDecl <- MaybeT $ asks $ tcCheckedValues >>> Map.lookup con
             parentDecl <- MaybeT $ asks $ tcCheckedTypes >>> Map.lookup (conParent conDecl)
             pure (conDecl, parentDecl)
-      (conDecl, parentDecl) <- maybeError (uncurryL Error.undeclaredCon lcon) =<< findConDecl
+      (conDecl, parentDecl) <- Error.ifNothing (uncurryL Error.undeclaredCon lcon) =<< findConDecl
       (params, ref) <- instantiateDeclRef ZeroPos (conParent conDecl) parentDecl
       let sub = applySubstitutions (typeRefSubstitutions parentDecl ref)
       ty <- buildSelectType p params (T.Type ref) (sub <$> conItems conDecl)
@@ -820,11 +806,11 @@ tysynth =
 
     --
     e@(E.Exp (BuiltinNew _)) -> do
-      addFatalError $ Error.builtinMissingApp e "a type application"
+      Error.fatal $ Error.builtinMissingApp e "a type application"
     e@(E.Exp (BuiltinFork _)) -> do
-      addFatalError $ Error.builtinMissingApp e "an expression"
+      Error.fatal $ Error.builtinMissingApp e "an expression"
     e@(E.Exp (BuiltinFork_ _)) -> do
-      addFatalError $ Error.builtinMissingApp e "an expression"
+      Error.fatal $ Error.builtinMissingApp e "an expression"
 
     --
     E.New x _ -> absurd x
@@ -863,7 +849,7 @@ patternBranches = \case
     let subst d = substituteTypeConstructors (typeRefSubstitutions d ref) d
     let missingCon = Error.undeclaredCon (typeRefPos ref) (typeRefName ref)
     mdecl <- asks $ tcCheckedTypes >>> Map.lookup (typeRefName ref)
-    fmap snd . subst <$> maybeError missingCon mdecl
+    fmap snd . subst <$> Error.ifNothing missingCon mdecl
   PatternPair _ t1 t2 ->
     pure $ Map.singleton conPair [t1, t2]
 
@@ -890,7 +876,7 @@ extractMatchableType s p t = etaTcM do
     (patTy -> Just p) ->
       pure $ MatchValue p
     _ ->
-      addFatalError $ Error.invalidPatternExpr s p t tNF
+      Error.fatal $ Error.invalidPatternExpr s p t tNF
 
 -- | Looks up the type for the given 'ProgVar'. This function works correctly
 -- for local variables, globals and constructors.
@@ -914,7 +900,7 @@ synthVariable p name = runMaybeT (useLocal <|> useGlobal)
           ty <- lift $ buildDataConType p parent decl mul items
           pure (E.Con p name, ty)
         ValueCon (ProtocolCon _ parent _ _) ->
-          addFatalError $ Error.protocolConAsValue p name parent
+          Error.fatal $ Error.protocolConAsValue p name parent
 
 instantiateDeclRef ::
   Pos -> TypeVar TcStage -> TypeDecl Tc -> TcM env st (Params TcStage, TypeRef)
@@ -1046,7 +1032,7 @@ checkSessionCase loc cases patTy s mExpectedTy = do
   (cmap, ty) <- checkCaseExpr loc False cases patTy mExpectedTy \_con fields b -> etaTcM do
     -- Get the variable to bind and its type.
     let vTy = buildSessionType (pos b) T.In fields s
-    v <- maybeError (Error.invalidSessionCaseBranch b) $ case E.branchBinds b of
+    v <- Error.ifNothing (Error.invalidSessionCaseBranch b) $ case E.branchBinds b of
       [v] -> Just v
       _ -> Nothing
     pure $ Identity (v, vTy)
@@ -1089,7 +1075,7 @@ checkCaseExpr loc allowWild cmap patTy mExpectedTy typedBinds = etaTcM do
                 (originalPatternType patTy)
                 con
         -- Check that the constructor is valid for the matched type.
-        fields <- maybeError branchError $ Map.lookup con allBranches
+        fields <- Error.ifNothing branchError $ Map.lookup con allBranches
         -- Check that the bindings correspond with the fields, establish their
         -- types.
         binds <- typedBinds con fields branch
@@ -1117,7 +1103,7 @@ checkCaseExpr loc allowWild cmap patTy mExpectedTy typedBinds = etaTcM do
         <*> traverse goWild (E.casesWildcard cmap)
 
   case mty of
-    Nothing -> addFatalError $ Error.emptyCaseExpr loc
+    Nothing -> Error.fatal $ Error.emptyCaseExpr loc
     Just ty -> pure (checkedCases, ty)
 
 -- | The @Branched@ monad builds on top of 'TypeM'. It keeps track of the
@@ -1253,7 +1239,7 @@ checkConsumedOverlap ::
   TcNameMap Values BranchConsumed ->
   b ->
   m ()
-checkConsumedOverlap m1 other1 m2 other2 = addErrors errors
+checkConsumedOverlap m1 other1 m2 other2 = Error.adds errors
   where
     errors =
       errs m1 m2 other2 ++ errs m2 m1 other1
@@ -1282,7 +1268,7 @@ litType p = \case
 -- (/E-LinAbs/ or /E-UnAbs/).
 tysynthBind :: Pos -> E.Bind Rn -> TypeM (E.Bind Tc, TcType)
 tysynthBind absLoc (E.Bind p _ v Nothing _) = do
-  addFatalError $ Error.synthUntypedLambda absLoc p v
+  Error.fatal $ Error.synthUntypedLambda absLoc p v
 tysynthBind absLoc (E.Bind p m v (Just ty) e) = do
   ty' <- kicheck ty K.TL
   (e', eTy) <- withProgVarBind (unrestrictedLoc absLoc m) p v ty' (tysynth e)
@@ -1310,7 +1296,7 @@ tycheckBind absLoc bind@(E.Bind p m v mVarTy e) bindTy =
       e' <- withProgVarBind (unrestrictedLoc absLoc m) p v varTy (tycheck e u)
       pure $ E.Bind p m v (Just varTy) e'
     Nothing -> do
-      addFatalError $ Error.noArrowType absExpr bindTy
+      Error.fatal $ Error.noArrowType absExpr bindTy
   where
     absExpr = E.Abs p bind
 
@@ -1341,7 +1327,7 @@ tycheckTyBind check bindExpr b@(K.Bind p v k a) t =
       local (bindTyVar v k) do
         K.Bind p v k <$> check a tSubst
     _ -> do
-      addFatalError $ Error.typeMismatchBind b t bindExpr
+      Error.fatal $ Error.typeMismatchBind b t bindExpr
 
 checkRecLam :: E.RecLam Rn -> TcType -> TypeM (E.RecLam Tc)
 checkRecLam = go
@@ -1373,10 +1359,10 @@ withProgVarBinds !mUnArrLoc vtys action = etaTcM do
         let ki = typeKind ty
         usage <- case K.multiplicity ki of
           Just K.Lin
-            | isWild v -> UnUsage <$ addError (Error.linearWildcard p ty)
+            | isWild v -> UnUsage <$ Error.add (Error.linearWildcard p ty)
             | otherwise -> pure LinUnunsed
           Just K.Un -> pure UnUsage
-          Nothing -> UnUsage <$ addError (Error.unexpectedKind ty ki [K.TL])
+          Nothing -> UnUsage <$ Error.add (Error.unexpectedKind ty ki [K.TL])
         let var =
               Var
                 { varUsage = usage,
@@ -1394,13 +1380,13 @@ withProgVarBinds !mUnArrLoc vtys action = etaTcM do
   whenJust mUnArrLoc \arrLoc -> do
     -- When in an unrestricted context check that no linear variables were
     -- consumed.
-    addErrors
+    Error.adds
       [ Error.invalidConsumed arrLoc name var usageLoc
         | (name, (var, usageLoc)) <- Map.toList (filterAdditionalConsumed outerVars resultVars)
       ]
 
   -- Emit an error for any of the new variables which are still 'UnusedLin'.
-  addErrors
+  Error.adds
     [ Error.missingUse name var
       | (name, var@Var {varUsage = LinUnunsed}) <-
           Map.toList (resultVars `Map.intersection` newVars)
@@ -1497,14 +1483,14 @@ requireSubtype e t1 t2 = do
   nf1 <- normalize t1
   nf2 <- normalize t2
   when (not (Eq.Alpha nf1 <= Eq.Alpha nf2)) do
-    addError (Error.typeMismatch e t1 nf1 t2 nf2)
+    Error.add (Error.typeMismatch e t1 nf1 t2 nf2)
 
 -- | Returns the normalform of the given type or throws an error at the given
 -- position.
 normalize :: MonadValidate Errors m => TcType -> m TcType
 normalize t = case nf t of
   Just t' -> pure t'
-  Nothing -> addFatalError (Error.noNormalform t)
+  Nothing -> Error.fatal (Error.noNormalform t)
 
 bindTyVar :: HasKiEnv env => TypeVar TcStage -> K.Kind -> env -> env
 bindTyVar v k = kiEnvL . tcKindEnvL %~ Map.insert v k
@@ -1513,7 +1499,7 @@ bindParams :: HasKiEnv env => Params TcStage -> env -> env
 bindParams ps = kiEnvL . tcKindEnvL <>~ Map.fromList (first unL <$> ps)
 
 errorIf :: MonadValidate Errors m => Bool -> Diagnostic -> m ()
-errorIf True e = addError e
+errorIf True e = Error.add e
 errorIf _ _ = pure ()
 
 -- | @expectSubkind t k ks@ verifies that @k@ is a subkind of any of the kinds

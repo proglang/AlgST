@@ -20,12 +20,29 @@ import AlgST.Typing.Monad
 import AlgST.Typing.Phase
 import AlgST.Util
 import AlgST.Util.ErrorMessage
+import Control.Monad.Validate
+import Data.DList.DNonEmpty qualified as DNE
 import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty, nonEmpty)
 import Data.List.NonEmpty qualified as NE
 import Data.Singletons
+import Data.These
 import Data.Void
 import Prelude hiding (truncate)
+
+add :: MonadValidate Errors m => Diagnostic -> m ()
+add !e = dispute $ This $ DNE.singleton e
+
+-- | Records multiple errors. If the error list is acutally empty, no errors
+-- will be recorded and the computation won't fail.
+adds :: MonadValidate Errors m => [Diagnostic] -> m ()
+adds = maybe (pure ()) (dispute . This . DNE.fromNonEmpty) . nonEmpty
+
+fatal :: MonadValidate Errors m => Diagnostic -> m a
+fatal !e = refute $ This $ DNE.singleton e
+
+ifNothing :: MonadValidate Errors m => Diagnostic -> Maybe a -> m a
+ifNothing e = maybe (fatal e) pure
 
 unexpectedKind ::
   (T.ForallX HasPos x, Unparse (T.XType x)) =>
