@@ -25,6 +25,13 @@ packages:
       sha256: dc329b99e191f8fdcf6cd8f1c9d4efdc3bb90d6d8e2aa6957e70134648f9a18c
   original:
     hackage: lens-family-core-2.1.0@sha256:124b4371ffc147a8f2fb59a7bda339ce20eec83f887a647a63497e1efc56f837,2290
+- completed:
+    hackage: monad-validate-1.2.0.1@sha256:5a100da896f11ca4b7c123da85decbedeb46c37054a097f258ac911e715cb68d,2587
+    pantry-tree:
+      size: 611
+      sha256: 034ee4de9765e38b763f5d73b236cc112205728e680cefbfe12d2882accc3264
+  original:
+    hackage: monad-validate-1.2.0.1@sha256:5a100da896f11ca4b7c123da85decbedeb46c37054a097f258ac911e715cb68d,2587
 snapshots:
 - completed:
     size: 619158
