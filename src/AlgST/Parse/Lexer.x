@@ -1,4 +1,5 @@
 {
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE StrictData #-}
 
 module AlgST.Parse.Lexer
@@ -7,9 +8,11 @@ module AlgST.Parse.Lexer
 , dropNewlines
 ) where
 
+import AlgST.Syntax.Pos
 import AlgST.Util.ErrorMessage
 import AlgST.Util.Output
-import AlgST.Syntax.Pos
+import Control.Applicative
+import Data.DList qualified as DL
 }
 
 %wrapper "posn"
@@ -191,22 +194,44 @@ instance Show Token where
   show (TokenEnd _) = "end"
   show (TokenImport _) = "import"
 
+data TokenList = TokenList
+  { tl_toks :: DL.DList Token
+  , tl_nl   :: Maybe Token
+  }
+
+emptyTokenList :: TokenList
+emptyTokenList = TokenList DL.empty Nothing
+
+snocToken :: TokenList -> Token -> TokenList
+snocToken tl t@(TokenNL _) = case tl_toks tl of
+  -- Ignore any initial newline tokens.
+  DL.Nil -> emptyTokenList
+  -- Remeber the first pending newline position.
+  _ -> tl { tl_nl = tl_nl tl <|> Just t }
+snocToken tl t = TokenList
+  -- Insert the pending newline token before the new non-newline token.
+  { tl_toks = tl_toks tl `DL.append` foldMap DL.singleton (tl_nl tl) `DL.snoc` t
+  , tl_nl   = Nothing
+  }
+
 scanTokens :: String -> Either Diagnostic [Token]
-scanTokens str = trim <$> go (alexStartPos, '\n', [], str)
+scanTokens str = go emptyTokenList (alexStartPos, '\n', [], str)
   where
-    go inp@(pos,_,_,str) =
+    go !tl inp@(pos,_,_,str) =
       case alexScan inp 0 of
         AlexEOF ->
-          Right []
+          -- Forget any pending newline tokens.
+          Right $ DL.toList $ tl_toks tl
         AlexError _ ->
           Left $ PosError (internalPos pos)
             [ Error "Unexpected error on input"
             , Error $ Unexpected $ head str
             ]
         AlexSkip  inp' _len ->
-          go inp'
-        AlexToken inp' len act ->
-          (act pos (take len str) :) <$> go inp'
+          go tl inp'
+        AlexToken inp' len act -> do
+          let !t = act pos (take len str)
+          go (tl `snocToken` t) inp'
 
 newtype Unexpected = Unexpected Char
 
@@ -223,15 +248,6 @@ getLineNum (AlexPn _offset lineNum _colNum) = lineNum
 
 getColumnNum :: AlexPosn -> Int
 getColumnNum (AlexPn _offset _lineNum colNum) = colNum
-
--- Trim newlines
-trim :: [Token] -> [Token]
-trim = reverse . trim' . reverse . trim'
-  where
-    trim' :: [Token] -> [Token]
-    trim' [] = []
-    trim' (TokenNL _ : ts) = trim' ts
-    trim' ts = ts
 
 dropNewlines :: [Token] -> [Token]
 dropNewlines = filter \case

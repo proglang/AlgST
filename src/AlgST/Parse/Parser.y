@@ -144,12 +144,7 @@ Module :: { ParsedModule }
   : {- empty -}       { ParsedModule [] emptyModule }
   | Decls             {% ParsedModule [] `fmap` runModuleBuilder $1 }
   | Imports           { ParsedModule $1 emptyModule }
-  | Imports NL Decls  {% ParsedModule $1 `fmap` runModuleBuilder $3 }
-
-
-NL :: { () }
-  : nl      { () }
-  | NL nl   { () }
+  | Imports nl Decls  {% ParsedModule $1 `fmap` runModuleBuilder $3 }
 
 
 -------------------------------------------------------------------------------
@@ -158,7 +153,7 @@ NL :: { () }
 
 Imports :: { [Located (Import ModuleName)] }
   : Import              { [$1] }
-  | Imports NL Import   { $3 : $1 }
+  | Imports nl Import   { $3 : $1 }
 
 Import :: { Located (Import ModuleName) }
   : import ModuleName ImportList {% do
@@ -171,13 +166,13 @@ Import :: { Located (Import ModuleName) }
     }
 
 ImportList :: { Pos -> ParseM ImportSelection }
-  -- The optional NL tokens allow closing the parenthesis to appear on a new
+  -- The optional `nl` tokens allow closing the parenthesis to appear on a new
   -- line in column 0.
   : {- empty -}                       { \p -> pure $ ImportAll p mempty mempty }
   | '(*)'                             { const $ pure $ ImportAll (pos $1) mempty mempty }
   | '()'                              { const $ pure $ ImportOnly mempty }
-  | '(' opt(NL) ')'                   { const $ pure $ ImportOnly mempty }
-  | '(' ImportSelection opt(NL) ')'   { $2 }
+  | '(' opt(nl) ')'                   { const $ pure $ ImportOnly mempty }
+  | '(' ImportSelection opt(nl) ')'   { $2 }
 
 ImportSelection :: { Pos -> ParseM ImportSelection }
   : ImportItems opt(',')
@@ -216,7 +211,7 @@ ImportScope :: { Pos -> Located Scope }
 
 Decls :: { ModuleBuilder }
   : Decl          { $1 }
-  | Decls NL Decl { $1 >>> $3 }
+  | Decls nl Decl { $1 >>> $3 }
 
 Decl :: { ModuleBuilder }
   -- Function signature
@@ -418,9 +413,9 @@ Cases :: { PCaseMap }
   : -- An empty case is not allowed. Accepting it here allows us to provide
     -- better error messages.
     '{' '}' { emptyCaseMap }
-  | -- optional NL: The closing brace may be on column 0 of a new line. Usually
-    -- NL separates declarations.
-    '{' CaseMap opt(',') opt(NL) '}' { $2 }
+  | -- optional nl: The closing brace may be on column 0 of a new line. Usually
+    -- nl separates declarations.
+    '{' CaseMap opt(',') opt(nl) '}' { $2 }
 
 CaseMap :: { PCaseMap }
   : Case             {% $1 emptyCaseMap }
