@@ -1,4 +1,5 @@
-FROM haskell:9.0.2
+# For a smaller final image we do a multi-stage build.
+FROM haskell:9.0.2-slim AS builder
 
 WORKDIR /opt/algst
 
@@ -19,6 +20,20 @@ RUN stack build --test --no-run-tests --dependencies-only
 COPY . /opt/algst/
 RUN stack build --test --no-run-tests --copy-bins
 
-# Default to running a shell inside the example directory.
-WORKDIR /opt/algst/examples
+# Haskell 9.0.2 uses debian:buster.
+FROM debian:buster-slim
+
+# Install some runtime dependencies.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  libnuma1 \
+  libgmp10
+
+# Copy the examples.
+WORKDIR /opt/algst
+COPY examples /opt/algst
+
+# Copy the executable.
+COPY --from=builder /root/.local/bin/algst /usr/local/bin
+
+# Default to running a shell.
 CMD "bash"
