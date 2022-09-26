@@ -1,7 +1,7 @@
 
 1:23: error:
 	 Expression
-	     λ(i:Int) -> i
+	     \(i:Int) -> i
 	 has type
 	     Int -> Int
 	 but context demands a subtype of

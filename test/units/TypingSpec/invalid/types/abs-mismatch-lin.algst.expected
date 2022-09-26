@@ -1,7 +1,7 @@
 
 1:23: error:
 	 Expression
-	     λi -o i
+	     \i -o i
 	 has type
 	     Int -o Int
 	 but context demands a subtype of

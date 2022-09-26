@@ -63,7 +63,7 @@ showKind brackets var sort arrow term =
   showSortedVar brackets var sort ++ arrow ++ show term
 
 showForall :: Unparse (T.XType x) => K.Bind (XStage x) (T.Type x) -> String
-showForall (K.Bind _ a k t) = "∀" ++ showKind bracketsRound a k ". " t
+showForall (K.Bind _ a k t) = "forall " ++ showKind bracketsRound a k ". " t
 
 instance (Unparse (E.XExp x), Unparse (T.XType x)) => Show (E.Bind x) where
   show (E.Bind _ m x Nothing e) = pprName x ++ showArrow m ++ show e
@@ -177,7 +177,7 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Exp x) where
   unparse (E.Var _ x) = (maxRator, pprName x)
   unparse (E.Con _ x) = (maxRator, pprName x)
   -- Abstraction intro and elim
-  unparse (E.Abs _ b) = (arrowRator, "λ" ++ show b)
+  unparse (E.Abs _ b) = (arrowRator, '\\' : show b)
   unparse (E.App _ (E.App _ (E.Var _ x) e1) e2)
     | Just rator <- operatorRator x =
       let l = bracket (unparse e1) Op.L rator
@@ -198,7 +198,7 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Exp x) where
   unparse (E.TypeApp _ x t) =
     (appRator, show x ++ " [" ++ show t ++ "]")
   unparse (E.TypeAbs _ (K.Bind _ a k e)) =
-    (arrowRator, "λ" ++ showKind bracketsSquare a k "->" e)
+    (arrowRator, '\\' : showKind bracketsSquare a k "->" e)
   -- Boolean elim
   unparse (E.Cond _ e1 e2 e3) =
     (inRator, "if " ++ s1 ++ " then " ++ s2 ++ " else " ++ s3)

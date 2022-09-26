@@ -39,6 +39,7 @@ dependencies:
 - transformers
 - unliftio-core
 - unordered-containers
+- with-utf8
 
 ghc-options:
   - -j

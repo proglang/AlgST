@@ -40,6 +40,7 @@ import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.Strict qualified as Map
 import Data.Traversable
+import Main.Utf8
 import System.Console.ANSI qualified as ANSI
 import System.Exit
 import System.FilePath qualified as FP
@@ -49,7 +50,7 @@ mainModule :: ModuleName
 mainModule = ModuleName "Main"
 
 main :: IO ()
-main = do
+main = withUtf8 do
   runOpts <- getOptions
   stderrMode <- maybe (discoverMode stderr) pure (optsOutputMode runOpts)
 

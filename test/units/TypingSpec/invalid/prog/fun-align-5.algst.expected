@@ -1,4 +1,4 @@
 
 2:6: error:
 	 Binding of type variable a does not align with type
-	     Int -> ∀(a:TU). a -> ()
+	     Int -> forall (a:TU). a -> ()

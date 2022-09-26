@@ -3,4 +3,4 @@
 	 Type of
 	    f
 	 is neither a function type nor convertible to a function type:
-	    ∀(a:TU). a -> ()
+	    forall (a:TU). a -> ()

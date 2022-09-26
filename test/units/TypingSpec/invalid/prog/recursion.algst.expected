@@ -1,7 +1,7 @@
 
 2:7: error:
 	 Expression
-	     rec go : Bool -o Int = λ(a:Bool) -o go a
+	     rec go : Bool -o Int = \(a:Bool) -o go a
 	 has type
 	     Bool -o Int
 	 but context demands a subtype of
