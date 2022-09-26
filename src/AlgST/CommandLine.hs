@@ -15,8 +15,10 @@ import AlgST.Util.Output
 import Control.Applicative
 import Data.Sequence (Seq)
 import Data.Sequence qualified as Seq
+import Data.Version
 import Numeric.Natural (Natural)
 import Options.Applicative qualified as O
+import Paths_AlgST
 
 data Source
   = SourceFile !FilePath
@@ -206,11 +208,19 @@ driverDebugFlag name help =
   O.flag False True $
     O.long name <> O.help help <> O.hidden
 
+versionOption :: O.Parser (a -> a)
+versionOption =
+  O.infoOption ("algst version " ++ showVersion version) . mconcat $
+    [ O.long "version",
+      O.short 'V',
+      O.help "Show the current version."
+    ]
+
 getOptions :: IO RunOpts
 getOptions =
   O.execParser $
     O.info
-      (optsParser <**> O.helper)
+      (optsParser <**> O.helper <**> versionOption)
       (mconcat parserInfo)
   where
     parserInfo =
