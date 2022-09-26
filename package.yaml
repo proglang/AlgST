@@ -1,10 +1,10 @@
 name:                AlgST
-version:             1.0.0
-github:              "JaSpa/AlgST"
+version:             1.1.0
+github:              "proglang/AlgST"
 license:             MIT
 author:              "Janek Spaderna"
 copyright:           "2022 Janek Spaderna"
-synopsis:            "Parser & Typechecker for Algebraic Session Types"
+synopsis:            "Parser, Typechecker & Interpreter for Algebraic Session Types"
 
 extra-source-files:
   - README.md
@@ -45,7 +45,7 @@ ghc-options:
   - -Wall
   # Orphans are used deliberately in multiple locations.
   - -Wno-orphans
-  # Multiple warnings imported from the FreeST code. Unclear if a fixes should be applied.
+  # Multiple warnings imported from the FreeST code. Unclear if fixes should be applied.
   - -Wno-name-shadowing
   # Ticking promoted constructors is mostly visual clutter.
   - -Wno-unticked-promoted-constructors
