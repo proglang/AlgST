@@ -30,5 +30,4 @@ COPY examples /opt/algst
 # Copy the executable.
 COPY --from=builder /root/.local/bin/algst /usr/local/bin
 
-# Default to running a shell.
-CMD "bash"
+ENTRYPOINT ["algst"]
