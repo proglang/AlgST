@@ -5,6 +5,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -85,7 +86,7 @@ import Data.Function
 import Data.Functor.Identity
 import Data.HashMap.Strict qualified as HM
 import Data.HashSet (HashSet)
-import Data.HashSet qualified as HS
+import Data.HashSet qualified as Set
 import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Map.Merge.Strict qualified as Merge
@@ -196,10 +197,18 @@ typeConstructors ::
   NameMap Values (ConstructorDecl Parse)
 typeConstructors = declConstructors
 
-type IncompleteValueDecl = Maybe (Located (PName Values), PType)
+data PartialValueDecl = PartialValueDecl
+  { partialPos :: Pos,
+    partialName :: PName Values,
+    partialType :: PType,
+    partialImplicit :: Bool
+  }
+
+instance HasPos PartialValueDecl where
+  pos = partialPos
 
 type ModuleBuilder =
-  Kleisli (StateT IncompleteValueDecl ParseM) PModule PModule
+  Kleisli (StateT (Maybe PartialValueDecl) ParseM) PModule PModule
 
 runModuleBuilder :: ModuleBuilder -> ParseM PModule
 runModuleBuilder builder =
@@ -211,60 +220,98 @@ completePrevious = Kleisli \p -> do
   case msig of
     Nothing ->
       pure p
-    Just (loc :@ name, sig) -> do
+    Just PartialValueDecl {..} -> do
       put Nothing
-      let decl = SignatureDecl loc sig
-      sigs <- lift $ insertNoDuplicates name decl (moduleSigs p)
+      let decl = SignatureDecl partialPos partialType
+      sigs <- lift $ insertNoDuplicates partialName decl (moduleSigs p)
       pure p {moduleSigs = sigs}
 
-moduleValueDecl :: Located (ProgVar PStage) -> PType -> ModuleBuilder
-moduleValueDecl valueName ty =
+moduleValueDecl :: Pos -> ProgVar PStage -> Bool -> PType -> ModuleBuilder
+moduleValueDecl loc valueName implicit ty =
   completePrevious >>> Kleisli \p -> do
-    put $ Just (valueName, ty)
+    put . Just $
+      PartialValueDecl
+        { partialPos = loc,
+          partialName = valueName,
+          partialType = ty,
+          partialImplicit = implicit
+        }
     pure p
 
-moduleValueBinding :: Located (ProgVar PStage) -> [Located AName] -> PExp -> ModuleBuilder
-moduleValueBinding valueName params e = Kleisli \p0 -> do
-  mincomplete <- get
+moduleValueBinding ::
+  Pos -> ProgVar PStage -> Bool -> [Located AName] -> PExp -> ModuleBuilder
+moduleValueBinding loc valueName implicit params e = Kleisli \p0 -> do
+  mpartial <- get
   p <-
-    -- If there is an incomplete definition which does not match the current
-    -- variable, we have to add it to the "imported" signatures.
     if
-        | Just (prevName, _) <- mincomplete,
-          onUnL (/=) valueName prevName ->
-          runKleisli completePrevious p0
+        -- If there is an incomplete definition which does not match the current
+        -- variable, we have to add it to the "imported" signatures.
+        | Just PartialValueDecl {partialName} <- mpartial,
+          valueName /= partialName ->
+            runKleisli completePrevious p0
+        -- A top level implicit must be marked as such both in the type
+        -- signature and the definition.
+        | Just pd <- mpartial,
+          partialImplicit pd /= implicit -> do
+            lift $
+              addErrors
+                [ implicitDeclInconsistent
+                    (pos pd)
+                    (partialImplicit pd)
+                    loc
+                    implicit
+                    valueName
+                ]
+            pure p0
         | otherwise ->
-          pure p0
+            pure p0
 
-  -- Re-read the incomplete binding, might be changed by the call to
-  -- 'validateNotIncomplete' and remember that there is no incomplete binding
-  -- now.
-  mincomplete' <- get <* put Nothing
-  case mincomplete' of
+  -- Re-read the incomplete binding, as the call to 'completePrevious' might
+  -- change it.
+  mpartial' <- get <* put Nothing
+  case mpartial' of
     Nothing -> lift do
       addError
-        (pos valueName)
+        loc
         [ Error "Binding of",
           Error valueName,
           Error "should be preceeded by its declaration."
         ]
       pure p
-    Just (defLoc :@ _, ty) -> lift do
+    Just PartialValueDecl {..} -> lift do
       let decl =
             ValueDecl
-              { valuePos = defLoc,
-                valueType = ty,
+              { valuePos = partialPos,
+                valueType = partialType,
+                valueImplicit = implicit || partialImplicit,
                 valueParams = params,
                 valueBody = e
               }
       parsedValues' <-
         insertNoDuplicates
-          (unL valueName)
+          valueName
           (Right decl)
           (moduleValues p)
-      when (unL valueName `Map.member` moduleSigs p) do
-        addErrors [uncurryL errorImportShadowed valueName]
+      when (valueName `Map.member` moduleSigs p) do
+        addErrors [errorImportShadowed loc valueName]
       pure p {moduleValues = parsedValues'}
+
+implicitDeclInconsistent :: Pos -> Bool -> Pos -> Bool -> PName Values -> Diagnostic
+implicitDeclInconsistent p1 i1 p2 i2 name =
+  PosError
+    p1
+    [ Error "Declaration for",
+      Error name,
+      ErrLine,
+      Error (marking i1),
+      Error p1,
+      ErrLine,
+      Error (marking i2),
+      Error p2
+    ]
+  where
+    marking True = "      marked implicit at"
+    marking False = "  not marked implicit at"
 
 moduleTypeDecl :: TypeVar PStage -> TypeDecl Parse -> ModuleBuilder
 moduleTypeDecl v tydecl =
@@ -336,37 +383,37 @@ addImportItem :: Pos -> ImportMergeState -> ImportItem -> ParseM ImportMergeStat
 addImportItem stmtLoc ims ii@ImportItem {..} = case importBehaviour of
   ImportHide
     | Just other <- HM.lookup (importKey ii) (imsRenamed ims),
-      HS.member (importKey ii) (imsAsIs ims) ->
-      -- Hiding once and importing as-is conflicts.
-      conflict $ other @- ImportAsIs
+      Set.member (importKey ii) (imsAsIs ims) ->
+        -- Hiding once and importing as-is conflicts.
+        conflict $ other @- ImportAsIs
     | otherwise ->
-      -- Hiding twice is alright (we might want to emit a warning). Hiding also
-      -- explicitly allows some other identifier to reuse the name.
-      ok $ imsHiddenL . L.hashAt (importKey ii) .~ Just importLocation
+        -- Hiding twice is alright (we might want to emit a warning). Hiding also
+        -- explicitly allows some other identifier to reuse the name.
+        ok $ imsHiddenL . L.hashAt (importKey ii) .~ Just importLocation
   ImportAsIs
     | Just hideLoc <- HM.lookup (importKey ii) (imsHidden ims) ->
-      -- Hiding once and importing as-is conflicts.
-      conflict $ hideLoc @- ImportHide
+        -- Hiding once and importing as-is conflicts.
+        conflict $ hideLoc @- ImportHide
     | Just (otherLoc :@ orig) <- HM.lookup (importKey ii) (imsRenamed ims),
-      not $ HS.member (importKey ii) (imsAsIs ims) ->
-      -- Importing once as-is and mapping another identifier to this name
-      -- conflicts.
-      conflict $ otherLoc @- ImportFrom orig
+      not $ Set.member (importKey ii) (imsAsIs ims) ->
+        -- Importing once as-is and mapping another identifier to this name
+        -- conflicts.
+        conflict $ otherLoc @- ImportFrom orig
     | otherwise ->
-      -- Importing twice as-is is alright (we might want to emit a warning).
-      -- Remeber this import.
-      ok $
-        imsAsIsL %~ HS.insert (importKey ii)
-          >>> imsRenamedL . L.hashAt (importKey ii) .~ Just (importLocation @- importIdent)
+        -- Importing twice as-is is alright (we might want to emit a warning).
+        -- Remeber this import.
+        ok $
+          imsAsIsL %~ Set.insert (importKey ii)
+            >>> imsRenamedL . L.hashAt (importKey ii) .~ Just (importLocation @- importIdent)
   ImportFrom orig
     | Just (otherLoc :@ otherName) <- HM.lookup (importKey ii) (imsRenamed ims) -> do
-      -- Mapping another identifier to the same name conflicts, be it via an
-      -- explicit rename or an as-is import.
-      let isAsIs = HS.member (importKey ii) (imsAsIs ims)
-      conflict $ otherLoc @- if isAsIs then ImportAsIs else ImportFrom otherName
+        -- Mapping another identifier to the same name conflicts, be it via an
+        -- explicit rename or an as-is import.
+        let isAsIs = Set.member (importKey ii) (imsAsIs ims)
+        conflict $ otherLoc @- if isAsIs then ImportAsIs else ImportFrom otherName
     | otherwise ->
-      -- An explicit hide is ok.
-      ok $ imsRenamedL . L.hashAt (importKey ii) .~ Just (importLocation @- orig)
+        -- An explicit hide is ok.
+        ok $ imsRenamedL . L.hashAt (importKey ii) .~ Just (importLocation @- orig)
   where
     ok f = pure (f ims)
     conflict other =

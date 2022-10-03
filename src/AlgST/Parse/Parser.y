@@ -1,4 +1,5 @@
 {
+{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveFunctor #-}
@@ -215,50 +216,54 @@ Decls :: { ModuleBuilder }
 
 Decl :: { ModuleBuilder }
   -- Function signature
-  : ProgVar TySig {
-      moduleValueDecl $1 $2
+  : opt('?') ProgVar TySig { do
+      let !loc = maybe (pos $2) pos $1
+      let !implicit = isJust $1
+      moduleValueDecl loc (unL $2) implicit $3
     }
   -- Function declaration
-  | ProgVar ValueParams '=' Exp {
-      moduleValueBinding $1 $2 $4
+  | opt('?') ProgVar ValueParams '=' Exp { do
+      let !loc = maybe (pos $2) pos $1
+      let !implicit = isJust $1
+      moduleValueBinding loc (unL $2) implicit $3 $5
     }
   -- Type abbreviation
-  | type KindedTVar TypeParams '=' Type {% do
+  | type KindedTVar TypeParams '=' Type { do
       let (name, mkind) = $2
       let decl = AliasDecl (pos $1) TypeAlias
             { aliasParams = $3
             , aliasKind = mkind
             , aliasType = $5
             }
-      pure $ moduleTypeDecl (unL name) decl
+      moduleTypeDecl (unL name) decl
     }
   -- Datatype declaration
-  | data KindedTVar TypeParams {% do
+  | data KindedTVar TypeParams { do
       let (name, mkind) = $2
       let decl = DataDecl (pos $1) TypeNominal
             { nominalParams = $3
             , nominalKind = K.TU `fromMaybe` mkind
             , nominalConstructors = mempty
             }
-      pure $ moduleTypeDecl (unL name) decl
+      moduleTypeDecl (unL name) decl
     }
-  | data KindedTVar TypeParams '=' DataCons {% do
+  | data KindedTVar TypeParams '=' DataCons { do
       let (name, mkind) = $2
       let decl = DataDecl (pos $1) TypeNominal
             { nominalParams = $3
             , nominalKind = K.TU `fromMaybe` mkind
             , nominalConstructors = $5
             }
-      pure $ moduleTypeDecl (unL name) decl
+      moduleTypeDecl (unL name) decl
     }
-  | protocol KindedTVar TypeParams '=' DataCons {% do
+  | protocol KindedTVar TypeParams '=' DataCons { do
       let (name, mkind) = $2
       let decl = ProtoDecl (pos $1) TypeNominal
             { nominalParams = $3
             , nominalKind = K.P `fromMaybe` mkind
             , nominalConstructors = $5
             }
-      pure $ moduleTypeDecl (unL name) decl
+      moduleTypeDecl (unL name) decl
     }
 
 TySig :: { PType }
@@ -281,9 +286,9 @@ DataCon :: { (ProgVar PStage, (Pos, [PType])) }
   : Constructor TypeSeq { (unL $1, (pos $1, DL.toList $2)) }
 
 ValueParams :: { [Located AName] }
-  : bindings(ValueParam) {%
+  : bindings(ValueParam) {% do
       let isAWildcard = either isWild isWild . unL
-       in concat `fmap` $1 (filter (not . isAWildcard))
+      concat `fmap` $1 (filter (not . isAWildcard))
     }
 
 ValueParam :: { [Located AName] }
