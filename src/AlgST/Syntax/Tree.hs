@@ -270,12 +270,15 @@ instance (T.ForallX LabeledTree x) => LabeledTree (D.SignatureDecl x) where
 
 instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (D.ValueDecl x) where
   labeledTree vd =
-    pure . Node "ValueDecl" $
+    pure . Node "ValueDecl" . noteImplicit $
       [ Node "type" $ labeledTree $ D.valueType vd,
         Node "params" $ leaf . param . unL <$> D.valueParams vd,
         Node "definition" $ labeledTree $ D.valueBody vd
       ]
     where
+      noteImplicit
+        | D.valueImplicit vd = (leaf "implicit" :)
+        | otherwise = id
       param (Left tvar) = "[" ++ describeName tvar ++ "]"
       param (Right pvar) = describeName pvar
 

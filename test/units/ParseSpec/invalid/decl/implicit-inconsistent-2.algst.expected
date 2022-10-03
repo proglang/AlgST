@@ -1,0 +1,5 @@
+
+1:1: error:
+	 Declaration for foo
+	   not marked implicit at 1:1
+	       marked implicit at 2:1

@@ -1,0 +1,23 @@
+imports
+|
+
+declarations
+|
+`- unit
+   |
+   `- ValueDecl
+      |
+      +- implicit
+      |
+      +- type
+      |  |
+      |  `- Type.Unit
+      |
+      +- params
+      |
+      `- definition
+         |
+         `- Exp.Lit
+            |
+            `- Lit.Unit
+

@@ -42,13 +42,15 @@ syn match algstCon "\<[A-Z]\k*\>"
 syn match algstCon "\<End[!?]"
 syn match algstVar "\<\([a-z]\k*\|_\k\+\)\>" contained
 
-syn region algstVarDef matchgroup=algstVar start="^\k\+" end="=\@1=" 
-      \ contains=algstBrackets
-syn match algstSignature "^\k\+\(\n*\s\)*:"
-      \ contains=algstVar,algstOperator
-
 syn match algstOperator "[!?.|&:=\-+<>*\\/→⊸λ]\+"
 syn match algstOperator "-o"
+
+syn match algstImplicitName "^?\?\k\+" contained
+      \ contains=algstOperator,algstVar
+syn region algstVarDef start=/^?\?\k\+/ end=/=\@1=/
+      \ contains=algstImplicitName,algstBrackets,algstOperator
+syn match algstSignature "^?\?\k\+\(\n*\s\)*:"
+      \ contains=algstVar,algstOperator
 
 syn match algstDelim ","
 syn region algstParens matchgroup=algstDelim
