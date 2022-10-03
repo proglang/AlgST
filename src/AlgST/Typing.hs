@@ -433,7 +433,7 @@ checkAlignedBinds fullTy allVs e = go fullTy fullTy allVs
     go :: TcType -> TcType -> [Located (ANameG TcStage)] -> TypeM TcExp
     go _ t [] = tycheck e t
     go _ (T.Arrow k mul t u) (p :@ Right pv : vs) = do
-      withProgVarBind (unrestrictedLoc k mul) p pv t do
+      withProgVarBinds_ (unrestrictedLoc k mul) [mkExplicit p pv t] do
         E.Abs ZeroPos . E.Bind ZeroPos mul pv (Just t) <$> go u u vs
     go _ t0@(T.Forall _ (K.Bind _ sigVar k t)) vs0@(p :@ v : vs) = do
       let subBind tv = substituteType @Tc (Map.singleton sigVar (T.Var (p @- k) tv))
@@ -719,46 +719,17 @@ tysynth =
       -- Check for TU is deliberate here. It is unclear if a linear value would
       -- be well behaved.
       ty' <- kicheck ty K.TU
-      withProgVarBind Nothing p v ty' do
+      withProgVarBinds_ Nothing [mkExplicit p v ty'] do
         r' <- checkRecLam r ty'
         pure (E.Rec p v ty' r', ty')
 
-    -- 'let' __without__ a type signature.
-    E.UnLet p v Nothing e body -> do
-      (e', eTy) <- tysynth e
-      withProgVarBind Nothing p v eTy do
-        (body', bodyTy) <- tysynth body
-        let branch =
-              E.CaseBranch
-                { branchPos = p,
-                  branchBinds = Identity (p :@ v),
-                  branchExp = body'
-                }
-        let caseMap =
-              E.CaseMap
-                { E.casesWildcard = Just branch,
-                  E.casesPatterns = Map.empty
-                }
-        pure (E.Exp $ ValueCase p e' caseMap, bodyTy)
+    --
+    E.UnLet p v mty e body -> do
+      checkOrSynthLet (mkExplicit p v) mty e body Nothing
 
-    -- 'let' __with__ a type signature.
-    E.UnLet p v (Just ty) e body -> do
-      ty' <- kicheck ty K.TL
-      e' <- tycheck e ty'
-      withProgVarBind Nothing p v ty' do
-        (body', bodyTy) <- tysynth body
-        let branch =
-              E.CaseBranch
-                { branchPos = p,
-                  branchBinds = Identity (p :@ v),
-                  branchExp = body'
-                }
-        let caseMap =
-              E.CaseMap
-                { E.casesWildcard = Just branch,
-                  E.casesPatterns = Map.empty
-                }
-        pure (E.Exp $ ValueCase p e' caseMap, bodyTy)
+    --
+    E.ILet p mv mty e body -> do
+      checkOrSynthLet (mkImplicit p mv) mty e body Nothing
 
     --
     E.PatLet p c vs e body -> do
@@ -1086,7 +1057,7 @@ checkCaseExpr loc allowWild cmap patTy mExpectedTy typedBinds = etaTcM do
         -- types.
         binds <- typedBinds con fields branch
         -- Check the branch expression in the context of the typed bindings.
-        (e, eTy) <- withProgVarBinds Nothing (toList binds) do
+        (e, eTy) <- withProgVarBinds_ Nothing (uncurry mkExplicitL <$> toList binds) do
           checkOrSynth (E.branchExp branch) mty
         pure (branch {E.branchExp = e, E.branchBinds = fst <$> binds}, eTy)
 
@@ -1097,7 +1068,7 @@ checkCaseExpr loc allowWild cmap patTy mExpectedTy typedBinds = etaTcM do
         errorIf (not hasMissingBranches) $ Error.unnecessaryWildcard (pos branch)
         errorIf (not allowWild) $ Error.wildcardNotAllowed (pos branch) loc
         let binds = (,originalPatternType patTy) <$> E.branchBinds branch
-        (e, eTy) <- withProgVarBinds Nothing (toList binds) do
+        (e, eTy) <- withProgVarBinds_ Nothing (uncurry mkExplicitL <$> toList binds) do
           checkOrSynth (E.branchExp branch) mty
         pure (branch {E.branchExp = e, E.branchBinds = fst <$> binds}, eTy)
 
@@ -1139,9 +1110,39 @@ data BranchSt r = forall b.
 -- | A variable consumed in a branch.
 data BranchConsumed = forall b. Error.BranchSpec b => BranchConsumed !b !Var !Pos
 
-checkOrSynth :: RnExp -> Maybe TcType -> TypeM (TcExp, TcType)
+type ContextType = TcType
+
+checkOrSynth :: RnExp -> Maybe ContextType -> TypeM (TcExp, TcType)
 checkOrSynth e Nothing = tysynth e
 checkOrSynth e (Just t) = (,t) <$> tycheck e t
+
+checkOrSynthLet ::
+  (TcType -> Binding) ->
+  Maybe RnType ->
+  RnExp ->
+  RnExp ->
+  Maybe ContextType ->
+  TypeM (TcExp, TcType)
+checkOrSynthLet mkBind mty e body mctxt = do
+  -- If there is a type for 'e' given, check it against TL. With the result we
+  -- can invoke 'checkOrSynth' on 'e'.
+  meTy <- maybe (pure Nothing) (\ty -> Just <$> kicheck ty K.TL) mty
+  (e', eTy) <- checkOrSynth e meTy
+  withProgVarBinds Nothing (Identity (mkBind eTy)) \(Identity (vid, var)) -> do
+    (body', bodyTy) <- checkOrSynth body mctxt
+    let !loc = pos var
+    let branch =
+          E.CaseBranch
+            { branchPos = loc,
+              branchBinds = Identity (loc @- vid),
+              branchExp = body'
+            }
+    let caseMap =
+          E.CaseMap
+            { E.casesWildcard = Just branch,
+              E.casesPatterns = Map.empty
+            }
+    pure (E.Exp $ ValueCase loc e' caseMap, bodyTy)
 
 -- | Typecheck a single branch.
 --
@@ -1277,7 +1278,11 @@ tysynthBind absLoc (E.Bind p _ v Nothing _) = do
   Error.fatal $ Error.synthUntypedLambda absLoc p v
 tysynthBind absLoc (E.Bind p m v (Just ty) e) = do
   ty' <- kicheck ty K.TL
-  (e', eTy) <- withProgVarBind (unrestrictedLoc absLoc m) p v ty' (tysynth e)
+  (e', eTy) <-
+    withProgVarBinds_
+      (unrestrictedLoc absLoc m)
+      [mkExplicit p v ty']
+      (tysynth e)
 
   -- Construct the resulting type.
   let funTy = T.Arrow absLoc m ty' eTy
@@ -1299,7 +1304,11 @@ tycheckBind absLoc bind@(E.Bind p m v mVarTy e) bindTy =
       -- relative to each other.
       requireSubtype absExpr (T.Arrow p m varTy u) bindTy
       -- Check the binding's body.
-      e' <- withProgVarBind (unrestrictedLoc absLoc m) p v varTy (tycheck e u)
+      e' <-
+        withProgVarBinds_
+          (unrestrictedLoc absLoc m)
+          [mkExplicit p v varTy]
+          (tycheck e u)
       pure $ E.Bind p m v (Just varTy) e'
     Nothing -> do
       Error.fatal $ Error.noArrowType absExpr bindTy
@@ -1350,6 +1359,40 @@ unrestrictedLoc _ K.Lin = Nothing
 freshLocal :: String -> TcM env st (TcName scope)
 freshLocal = liftFresh . freshResolved . Name (ModuleName "") . Unqualified
 
+newtype Binding = Binding {runBinding :: TypeM (ProgVar TcStage, Var)}
+
+mkBinding :: Bool -> Pos -> ProgVar TcStage -> TcType -> Binding
+mkBinding implicit p v ty = Binding $ etaTcM do
+  let ki = typeKind ty
+  usage <- case K.multiplicity ki of
+    Just K.Lin
+      | isWild v -> UnUsage <$ Error.add (Error.linearWildcard p ty)
+      | otherwise -> pure LinUnunsed
+    Just K.Un -> pure UnUsage
+    Nothing -> UnUsage <$ Error.add (Error.unexpectedKind ty ki [K.TL])
+  let var =
+        Var
+          { varUsage = usage,
+            varType = ty,
+            varLocation = p,
+            varImplicit = implicit
+          }
+  pure (v, var)
+
+mkExplicit :: HasPos p => p -> ProgVar TcStage -> TcType -> Binding
+mkExplicit = mkBinding {- implicit= -} False . pos
+
+mkExplicitL :: Located (ProgVar TcStage) -> TcType -> Binding
+mkExplicitL (p :@ v) = mkBinding {- implicit= -} False p v
+
+mkImplicit :: HasPos p => p -> Maybe (ProgVar TcStage) -> TcType -> Binding
+mkImplicit p mv ty = Binding do
+  v <- maybe (freshLocal "implicit") pure mv
+  runBinding $ mkBinding {- implicit= -} True (pos p) v ty
+
+withProgVarBinds_ :: Traversable f => Maybe Pos -> f Binding -> TypeM a -> TypeM a
+withProgVarBinds_ mp fs = withProgVarBinds mp fs . const
+
 -- | Establishes a set of bindings for a nested scope.
 --
 -- If the nested scope establishes an unrestricted context (such as an
@@ -1359,28 +1402,17 @@ freshLocal = liftFresh . freshResolved . Name (ModuleName "") . Unqualified
 -- introduces the /unrestricted/ context. 'unrestrictedLoc' can be used as a
 -- helper function.
 withProgVarBinds ::
-  Maybe Pos -> [(Located (ProgVar TcStage), TcType)] -> TypeM a -> TypeM a
-withProgVarBinds !mUnArrLoc vtys action = etaTcM do
-  let mkVar (p :@ v, ty) = etaTcM do
-        let ki = typeKind ty
-        usage <- case K.multiplicity ki of
-          Just K.Lin
-            | isWild v -> UnUsage <$ Error.add (Error.linearWildcard p ty)
-            | otherwise -> pure LinUnunsed
-          Just K.Un -> pure UnUsage
-          Nothing -> UnUsage <$ Error.add (Error.unexpectedKind ty ki [K.TL])
-        let var =
-              Var
-                { varUsage = usage,
-                  varType = ty,
-                  varLocation = p
-                }
-        pure (v, var)
-
+  Traversable f =>
+  Maybe Pos ->
+  f Binding ->
+  (f (ProgVar TcStage, Var) -> TypeM a) ->
+  TypeM a
+withProgVarBinds !mUnArrLoc bindings action = etaTcM do
   outerVars <- gets tcTypeEnv
-  newVars <- Map.fromList <$> traverse mkVar vtys
+  bindings' <- traverse runBinding bindings
+  let newVars = Map.fromList $ toList bindings'
   tcTypeEnvL <>= newVars
-  a <- action
+  a <- action bindings'
   resultVars <- gets tcTypeEnv
 
   whenJust mUnArrLoc \arrLoc -> do
@@ -1403,12 +1435,7 @@ withProgVarBinds !mUnArrLoc vtys action = etaTcM do
   tcTypeEnvL .= resultVars `Map.difference` newVars
   pure a
 
--- | Like 'withProgVarBinds' but for a single binding.
-withProgVarBind ::
-  Maybe Pos -> Pos -> ProgVar TcStage -> TcType -> TypeM a -> TypeM a
-withProgVarBind mp varLoc pv ty = withProgVarBinds mp [(varLoc :@ pv, ty)]
-
-tycheck :: RnExp -> TcType -> TypeM TcExp
+tycheck :: RnExp -> ContextType -> TypeM TcExp
 tycheck e u = case e of
   --
   E.Abs p bnd -> do
@@ -1433,23 +1460,14 @@ tycheck e u = case e of
     pure (E.Pair p e1' e2')
 
   --
-  E.UnLet p v mty e body | bodyTy <- u -> do
-    mty' <- maybe (pure Nothing) (\ty -> Just <$> kicheck ty K.TL) mty
-    (e', ty') <- checkOrSynth e mty'
-    withProgVarBind Nothing p v ty' do
-      body' <- tycheck body bodyTy
-      let branch =
-            E.CaseBranch
-              { branchPos = p,
-                branchBinds = Identity (p :@ v),
-                branchExp = body'
-              }
-      let caseMap =
-            E.CaseMap
-              { E.casesWildcard = Just branch,
-                E.casesPatterns = Map.empty
-              }
-      pure (E.Exp $ ValueCase p e' caseMap)
+  E.UnLet p v mty e body -> do
+    (expr, _) <- checkOrSynthLet (mkExplicit p v) mty e body (Just u)
+    pure expr
+
+  --
+  E.ILet p mv mty e body -> do
+    (expr, _) <- checkOrSynthLet (mkImplicit p mv) mty e body (Just u)
+    pure expr
 
   --
   E.PatLet p c vs e body | bodyTy <- u -> do

@@ -127,6 +127,14 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (E.Ex
             labeledTree e1,
             labeledTree e2
           ]
+      E.ILet x mv mty e1 e2 ->
+        tree
+          ("Exp.ILet ?" ++ foldMap describeName mv)
+          [ labeledTree x,
+            foldMap labeledTree mty,
+            labeledTree e1,
+            labeledTree e2
+          ]
       E.PatLet x c vs e1 e2 ->
         tree
           ("Exp.PatLet " ++ unwords (describeName . unL <$> c : vs))

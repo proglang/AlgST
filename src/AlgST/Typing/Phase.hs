@@ -88,20 +88,19 @@ instance Equivalence TcStage TypeRef where
   alpha proxy w m r1 r2 =
     and $
       (typeRefName r1 == typeRefName r2)
-        :
         -- Given that both 'TypeRef's have the same name they must have the same
         -- number of arguments.
-        zipWith (alpha proxy w m) (typeRefArgs r1) (typeRefArgs r2)
+        : zipWith (alpha proxy w m) (typeRefArgs r1) (typeRefArgs r2)
 
 instance Subtype TcStage TypeRef where
   beta proxy w m r1 r2 =
     and $
       (typeRefName r1 == typeRefName r2)
-        :
         -- Given that both 'TypeRef's have the same name they must have the same
         -- number of arguments.
-        -- deliberately reverting to alpha to enforce invariance!
-        zipWith (alpha proxy w m) (typeRefArgs r1) (typeRefArgs r2)
+        --
+        -- Deliberately reverting to 'alpha' to enforce invariance!
+        : zipWith (alpha proxy w m) (typeRefArgs r1) (typeRefArgs r2)
 
 instance SynTraversable TypeRef Tc TypeRef Tc where
   traverseSyntax proxy ref = do
@@ -181,6 +180,7 @@ type instance E.XCase   Tc = Void     -- E.Exp ValueCase / E.Exp RecvCase
 type instance E.XTAbs   Tc = Pos
 type instance E.XTApp   Tc = Pos
 type instance E.XUnLet  Tc = Void     -- Desugared to 'Case'.
+type instance E.XILet   Tc = Void     -- Turned into an explicit binding, desugard to 'Case'.
 type instance E.XPatLet Tc = Void     -- Desugared to 'Case'.
 type instance E.XRec    Tc = Pos
 type instance E.XNew    Tc = Pos

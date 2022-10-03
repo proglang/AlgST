@@ -31,7 +31,8 @@ import Lens.Family2
 data Var = Var
   { varType :: TcType,
     varUsage :: !Usage,
-    varLocation :: Pos
+    varLocation :: !Pos,
+    varImplicit :: !Bool
   }
 
 instance HasPos Var where

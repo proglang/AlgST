@@ -212,28 +212,13 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Exp x) where
       s3 = bracket (unparse e3) Op.R inRator
   -- Unary Let
   unparse (E.UnLet _ x Nothing (E.Rec _ x' ty e1) e2)
-    | x == x' =
-        (inRator, "let rec " ++ pprName x ++ " : " ++ show ty ++ " = " ++ l ++ " in " ++ r)
-    where
-      l = bracket (unparse (E.RecAbs e1)) Op.L inRator
-      r = bracket (unparse e2) Op.R inRator
+    | x == x' = unparseLet ["rec", pprName x] (show ty) (E.RecAbs e1) e2
   unparse (E.UnLet _ x mty e1 e2) =
-    (inRator, "let " ++ pprName x ++ annot ++ " = " ++ l ++ " in " ++ r)
-    where
-      annot = case mty of
-        Nothing -> ""
-        Just ty -> " : " ++ show ty
-      l = bracket (unparse e1) Op.L inRator
-      r = bracket (unparse e2) Op.R inRator
+    unparseLet [pprName x] (foldMap show mty) e1 e2
+  unparse (E.ILet _ mv mty e1 e2) =
+    unparseLet ['?' : foldMap pprName mv] (foldMap show mty) e1 e2
   unparse (E.PatLet _ x xs e1 e2) =
-    (inRator, unwords s)
-    where
-      s =
-        "let"
-          : (pprName . unL <$> x : xs)
-          ++ ["=", l, "in", r]
-      l = bracket (unparse e1) Op.L inRator
-      r = bracket (unparse e2) Op.R inRator
+    unparseLet (pprName . unL <$> x : xs) "" e1 e2
   unparse (E.Rec _ x ty r) =
     (inRator, "rec " ++ pprName x ++ " : " ++ show ty ++ " = " ++ show (E.RecAbs r))
   -- Session expressions
@@ -244,6 +229,17 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Exp x) where
   unparse (E.Fork_ _ e) = unparseApp "fork_" [e]
   -- Extensions
   unparse (E.Exp x) = unparse x
+
+unparseLet :: Unparse a => [String] -> String -> a -> a -> Fragment
+unparseLet names annot val body = (inRator, unwords s)
+  where
+    s =
+      "let"
+        : names
+        ++ (if null annot then [] else [":", annot])
+        ++ ["=", l, "in", r]
+    l = bracket (unparse val) Op.L inRator
+    r = bracket (unparse body) Op.R inRator
 
 instance Unparse E.Lit where
   unparse =

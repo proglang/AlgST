@@ -36,6 +36,7 @@ module AlgST.Syntax.Expression
     XTAbs,
     XTApp,
     XUnLet,
+    XILet,
     XPatLet,
     XRec,
     XNew,
@@ -75,6 +76,7 @@ type family XTAbs x
 type family XTApp x
 type family XRec x
 type family XUnLet x
+type family XILet x
 type family XPatLet x
 type family XNew x
 type family XSelect x
@@ -97,6 +99,7 @@ type ForallX c x =
     c (XTApp x),
     c (XRec x),
     c (XUnLet x),
+    c (XILet x),
     c (XPatLet x),
     c (XNew x),
     c (XSelect x),
@@ -119,6 +122,7 @@ type SameX x y =
     XTApp x ~ XTApp y,
     XRec x ~ XRec y,
     XUnLet x ~ XUnLet y,
+    XILet x ~ XILet y,
     XPatLet x ~ XPatLet y,
     XNew x ~ XNew y,
     XSelect x ~ XSelect y,
@@ -158,6 +162,16 @@ data Exp x
   | -- | > UnLet _ x Nothing  e₁ e₂   ~ let x     = e₁ in e₂
     --   > UnLet _ x (Just t) e₁ e₂   ~ let x : t = e₁ in e₂
     UnLet (XUnLet x) !(XProgVar x) (Maybe (T.Type x)) (Exp x) (Exp x)
+  | -- | “implicit let”
+    --
+    -- > ILet _ (Just x) (Just t) e₁ e₂   ~ let ?x     = e₁ in e₂
+    -- > ILet _ (Just x) Nothing  e₁ e₂   ~ let ?x : t = e₁ in e₂
+    -- > ILet _ (Just x) (Just t) e₁ e₂   ~ let ?      = e₁ in e₂
+    -- > ILet _ (Just x) (Just t) e₁ e₂   ~ let ?  : t = e₁ in e₂
+    --
+    -- TODO: When introducing a richer pattern syntax turn @ILet@s into a kind
+    -- of pattern.
+    ILet (XILet x) !(Maybe (XProgVar x)) !(Maybe (T.Type x)) (Exp x) (Exp x)
   | -- | > PatLet _ c [x̅] e₁ e₂       ~ let c x̅ = e₁ in e₂
     --
     -- The first 'ProgVar' should be the constructor name, the remaining
@@ -250,6 +264,7 @@ instance ForallX HasPos x => HasPos (Exp x) where
   pos (Con x _) = pos x
   pos (Abs x _) = pos x
   pos (UnLet x _ _ _ _) = pos x
+  pos (ILet x _ _ _ _) = pos x
   pos (Rec x _ _ _) = pos x
   pos (App x _ _) = pos x
   pos (TypeApp x _ _) = pos x

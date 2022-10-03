@@ -391,6 +391,13 @@ instance
         <$> traverse (traverseSyntax pxy) mty
         <*> traverseSyntax pxy e
         <*> bindOne pxy v \v' -> (v',) <$> traverseSyntax pxy k
+    E.ILet x mv mty e k -> do
+      let ilet mty' e' (mv', k') =
+            E.ILet x mv' mty' e' k'
+      ilet
+        <$> traverse (traverseSyntax pxy) mty
+        <*> traverseSyntax pxy e
+        <*> bind pxy mv \mv' -> (mv',) <$> traverseSyntax pxy k
     E.PatLet x v vs e k -> do
       let patLet v' e' (vs', k') =
             E.PatLet x (v @- v') vs' e' k'

@@ -70,6 +70,7 @@ type instance E.XCase   Parse = Pos
 type instance E.XTAbs   Parse = Pos
 type instance E.XTApp   Parse = Pos
 type instance E.XUnLet  Parse = Pos
+type instance E.XILet   Parse = Pos
 type instance E.XPatLet Parse = Pos
 type instance E.XRec    Parse = Pos
 type instance E.XNew    Parse = Void  -- BuiltinNew

@@ -447,6 +447,8 @@ eval =
     --
     E.UnLet x _ _ _ _ -> do
       absurd x
+    E.ILet x _ _ _ _ -> do
+      absurd x
     E.PatLet x _ _ _ _ -> do
       absurd x
 

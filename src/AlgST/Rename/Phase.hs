@@ -42,6 +42,7 @@ type instance E.XCase   Rn = Pos
 type instance E.XTAbs   Rn = Pos
 type instance E.XTApp   Rn = Pos
 type instance E.XUnLet  Rn = Pos
+type instance E.XILet   Rn = Pos
 type instance E.XPatLet Rn = Pos
 type instance E.XRec    Rn = Pos
 type instance E.XNew    Rn = Void  -- BuiltinNew
