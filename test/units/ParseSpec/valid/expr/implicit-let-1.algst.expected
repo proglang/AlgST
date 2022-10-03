@@ -1,0 +1,12 @@
+Exp.ILet ?abc
+|
++- Type.Con Int
+|
++- Exp.Lit
+|  |
+|  `- Lit.Int 42
+|
+`- Exp.Lit
+   |
+   `- Lit.Unit
+

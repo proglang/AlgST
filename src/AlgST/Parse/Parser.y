@@ -372,8 +372,9 @@ RecExp :: { forall a. (Pos -> ProgVar PStage -> PType -> E.RecLam Parse -> a) ->
     }
 
 LetBind :: { Pos -> PExp -> PExp -> PExp }
-  : ProgVarWild opt(TySig)        { \p -> E.UnLet p (unL $1) $2 }
-  | Pattern                       { \p -> uncurry (E.PatLet p) $1 }
+  : ProgVarWild opt(TySig)          { \p -> E.UnLet p (unL $1) $2 }
+  | '?' opt(ProgVarWild) opt(TySig) { \p -> E.ILet p (fmap unL $2) $3 }
+  | Pattern                         { \p -> uncurry (E.PatLet p) $1 }
 
 LamExp :: { PExp }
   : lambda Abs Arrow Exp {% do
