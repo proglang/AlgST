@@ -531,8 +531,8 @@ instance
   traverseSyntax pxy = \case
     T.Unit x ->
       pure (T.Unit x)
-    T.Arrow x m t u ->
-      T.Arrow x m
+    T.Arrow x s m t u ->
+      T.Arrow x s m
         <$> traverseSyntax pxy t
         <*> traverseSyntax pxy u
     T.Pair x t u ->

@@ -432,7 +432,7 @@ checkAlignedBinds fullTy allVs e = go fullTy fullTy allVs
   where
     go :: TcType -> TcType -> [Located (ANameG TcStage)] -> TypeM TcExp
     go _ t [] = tycheck e t
-    go _ (T.Arrow k mul t u) (p :@ Right pv : vs) = do
+    go _ (T.Arrow k s mul t u) (p :@ Right pv : vs) = do
       withProgVarBinds_ (unrestrictedLoc k mul) [mkExplicit p pv t] do
         E.Abs ZeroPos . E.Bind ZeroPos mul pv (Just t) <$> go u u vs
     go _ t0@(T.Forall _ (K.Bind _ sigVar k t)) vs0@(p :@ v : vs) = do
@@ -568,14 +568,14 @@ kisynth =
     T.App _ t u -> do
       (p, c, args) <- typeAppBase t (pure u)
       kisynthTypeCon p c args
-    T.Arrow p m t1 t2 -> do
+    T.Arrow p s m t1 t2 -> do
       (t1', t2') <-
         -- Applicatively to get error messages from both branches.
         (,)
           <$> kicheck t1 K.TL
           <*> kicheck t2 K.TL
       let k = K.Kind K.Top m
-      pure (T.Arrow p m t1' t2', k)
+      pure (T.Arrow p s m t1' t2', k)
     T.Forall _ (K.Bind p v k t) -> do
       local (bindTyVar v k) do
         (t', tyk) <- kisynth t
@@ -807,7 +807,7 @@ buildSelectType p params t us = do
   let foralls = buildForallType params . buildForallType [(p :@ varS, kiS)]
   let arrLhs = buildSessionType ZeroPos T.Out [t]
       arrRhs = buildSessionType ZeroPos T.Out us
-  let ty = foralls $ T.Arrow p K.Un (arrLhs tyS) (arrRhs tyS)
+  let ty = foralls $ T.Arrow p T.Explicit K.Un (arrLhs tyS) (arrRhs tyS)
   pure ty
 
 data PatternType
@@ -900,7 +900,7 @@ appArrow :: TcType -> Maybe (TcType, TcType)
 appArrow = go id Set.empty
   where
     go prependPushed pushed = \case
-      T.Arrow _ _ t u
+      T.Arrow _ s _ t u
         | not (liftNameSet pushed `anyFree` t) ->
             Just (t, prependPushed u)
       T.Forall x (K.Bind x' v k t) ->
@@ -917,8 +917,8 @@ appTArrow = go id
     go prependArrows = \case
       T.Forall _ (K.Bind x' v k t) ->
         Just (K.Bind x' v k $ prependArrows t)
-      T.Arrow x m t u ->
-        go (prependArrows . T.Arrow x m t) u
+      T.Arrow x s m t u ->
+        go (prependArrows . T.Arrow x s m t) u
       _ ->
         Nothing
 
@@ -992,7 +992,11 @@ buildDataConType ::
 buildDataConType p name decl mul items = do
   (params, ref) <- instantiateDeclRef p name decl
   let subs = typeRefSubstitutions decl ref
-  let conArrow = foldr (T.Arrow ZeroPos mul) (T.Type ref) (applySubstitutions subs <$> items)
+  let conArrow =
+        foldr
+          (T.Arrow ZeroPos T.Explicit mul)
+          (T.Type ref)
+          (applySubstitutions subs <$> items)
   pure $ buildForallType params conArrow
 
 buildSessionType :: Pos -> T.Polarity -> [TcType] -> TcType -> TcType
@@ -1284,8 +1288,9 @@ tysynthBind absLoc (E.Bind p m v (Just ty) e) = do
       [mkExplicit p v ty']
       (tysynth e)
 
-  -- Construct the resulting type.
-  let funTy = T.Arrow absLoc m ty' eTy
+  -- Construct the resulting type. Binds always correspond to explicit
+  -- functions.
+  let funTy = T.Arrow absLoc T.Explicit m ty' eTy
   pure (E.Bind p m v (Just ty') e', funTy)
 
 tycheckBind :: Pos -> E.Bind Rn -> TcType -> TypeM (E.Bind Tc)
@@ -1302,7 +1307,9 @@ tycheckBind absLoc bind@(E.Bind p m v mVarTy e) bindTy =
       --
       -- This checkes that the linearities of the arrows are well behaved
       -- relative to each other.
-      requireSubtype absExpr (T.Arrow p m varTy u) bindTy
+      --
+      -- TODO: verify that 'Explicit' is the specificity we want.
+      requireSubtype absExpr (T.Arrow p T.Explicit m varTy u) bindTy
       -- Check the binding's body.
       e' <-
         withProgVarBinds_
@@ -1450,7 +1457,7 @@ tycheck e u = case e of
   --
   E.App p e1 e2 -> do
     (e2', t2) <- tysynth e2
-    e1' <- tycheck e1 (T.Arrow p K.Lin t2 u)
+    e1' <- tycheck e1 (T.Arrow p T.Explicit K.Lin t2 u)
     pure (E.App p e1' e2')
 
   --

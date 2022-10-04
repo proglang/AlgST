@@ -134,7 +134,7 @@ instance LabeledTree TypeRef where
 typeKind :: TcType -> K.Kind
 typeKind t = case t of
   T.Unit _ -> K.MU
-  T.Arrow _ m _ _ -> K.Kind K.Top m
+  T.Arrow _ _ m _ _ -> K.Kind K.Top m
   T.Pair _ t u ->
     K.leastUpperBound (typeKind t) (typeKind u)
   T.Session {} -> K.SL

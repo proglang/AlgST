@@ -73,6 +73,7 @@ import AlgST.Syntax.Name
 import AlgST.Syntax.Operators
 import AlgST.Syntax.Pos
 import AlgST.Syntax.Tree qualified as T
+import AlgST.Syntax.Type qualified as T
 import AlgST.Util.ErrorMessage
 import AlgST.Util.Lenses qualified as L
 import Control.Arrow
@@ -201,7 +202,7 @@ data PartialValueDecl = PartialValueDecl
   { partialPos :: Pos,
     partialName :: PName Values,
     partialType :: PType,
-    partialImplicit :: Bool
+    partialSpec :: T.Specificity
   }
 
 instance HasPos PartialValueDecl where
@@ -226,21 +227,21 @@ completePrevious = Kleisli \p -> do
       sigs <- lift $ insertNoDuplicates partialName decl (moduleSigs p)
       pure p {moduleSigs = sigs}
 
-moduleValueDecl :: Pos -> ProgVar PStage -> Bool -> PType -> ModuleBuilder
-moduleValueDecl loc valueName implicit ty =
+moduleValueDecl :: Pos -> ProgVar PStage -> T.Specificity -> PType -> ModuleBuilder
+moduleValueDecl loc valueName spec ty =
   completePrevious >>> Kleisli \p -> do
     put . Just $
       PartialValueDecl
         { partialPos = loc,
           partialName = valueName,
           partialType = ty,
-          partialImplicit = implicit
+          partialSpec = spec
         }
     pure p
 
 moduleValueBinding ::
-  Pos -> ProgVar PStage -> Bool -> [Located AName] -> PExp -> ModuleBuilder
-moduleValueBinding loc valueName implicit params e = Kleisli \p0 -> do
+  Pos -> ProgVar PStage -> T.Specificity -> [Located AName] -> PExp -> ModuleBuilder
+moduleValueBinding loc valueName spec params e = Kleisli \p0 -> do
   mpartial <- get
   p <-
     if
@@ -252,14 +253,14 @@ moduleValueBinding loc valueName implicit params e = Kleisli \p0 -> do
         -- A top level implicit must be marked as such both in the type
         -- signature and the definition.
         | Just pd <- mpartial,
-          partialImplicit pd /= implicit -> do
+          partialSpec pd /= spec -> do
             lift $
               addErrors
                 [ implicitDeclInconsistent
                     (pos pd)
-                    (partialImplicit pd)
+                    (partialSpec pd)
                     loc
-                    implicit
+                    spec
                     valueName
                 ]
             pure p0
@@ -283,7 +284,7 @@ moduleValueBinding loc valueName implicit params e = Kleisli \p0 -> do
             ValueDecl
               { valuePos = partialPos,
                 valueType = partialType,
-                valueImplicit = implicit || partialImplicit,
+                valueSpecificity = T.eitherImplicit partialSpec spec,
                 valueParams = params,
                 valueBody = e
               }
@@ -296,7 +297,8 @@ moduleValueBinding loc valueName implicit params e = Kleisli \p0 -> do
         addErrors [errorImportShadowed loc valueName]
       pure p {moduleValues = parsedValues'}
 
-implicitDeclInconsistent :: Pos -> Bool -> Pos -> Bool -> PName Values -> Diagnostic
+implicitDeclInconsistent ::
+  Pos -> T.Specificity -> Pos -> T.Specificity -> PName Values -> Diagnostic
 implicitDeclInconsistent p1 i1 p2 i2 name =
   PosError
     p1
@@ -310,8 +312,8 @@ implicitDeclInconsistent p1 i1 p2 i2 name =
       Error p2
     ]
   where
-    marking True = "      marked implicit at"
-    marking False = "  not marked implicit at"
+    marking T.Implicit = "      marked implicit at"
+    marking T.Explicit = "  not marked implicit at"
 
 moduleTypeDecl :: TypeVar PStage -> TypeDecl Parse -> ModuleBuilder
 moduleTypeDecl v tydecl =

@@ -51,10 +51,10 @@ nfs = go
         let (t', _) = go t
             (u', _) = go u
          in (Pair k <$> t' <*> u', Nothing)
-      Arrow k m a b ->
+      Arrow k s m a b ->
         let (a', _) = go a
             (b', _) = go b
-         in (Arrow k m <$> a' <*> b', Nothing)
+         in (Arrow k s m <$> a' <*> b', Nothing)
       End x p ->
         (Just (End x p), Just (End x (flipPolarity p)))
       Session k p a b ->
@@ -68,11 +68,11 @@ nfs = go
       Negate x t ->
         negate x t
       Forall tyK (K.Bind p' v k t)
-        | (prepend', vs, Arrow arrK m t u) <- collectForalls t,
+        | (prepend', vs, Arrow arrK s m t u) <- collectForalls t,
           not (liftNameSet (Set.insert v vs) `anyFree` t) ->
             let (t1, _) = go t
                 (u1, _) = go (prepend (prepend' u))
-             in (Arrow arrK m <$> t1 <*> u1, Nothing)
+             in (Arrow arrK s m <$> t1 <*> u1, Nothing)
         | otherwise ->
             unwrap $ prepend <$> wrap (go t)
         where

@@ -1,0 +1,6 @@
+Type.Arrow ? L
+|
++- Type.Con T
+|
+`- Type.Con U
+

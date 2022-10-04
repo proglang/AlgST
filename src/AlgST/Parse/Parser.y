@@ -210,22 +210,24 @@ ImportScope :: { Pos -> Located Scope }
 -- Declarations
 -------------------------------------------------------------------------------
 
+Spec :: { forall a. HasPos a => a -> Located T.Specificity }
+  : '?'           { \_ -> $1 @- T.Implicit }
+  | {- empty -}   { \a -> a  @- T.Explicit }
+
 Decls :: { ModuleBuilder }
   : Decl          { $1 }
   | Decls nl Decl { $1 >>> $3 }
 
 Decl :: { ModuleBuilder }
   -- Function signature
-  : opt('?') ProgVar TySig { do
-      let !loc = maybe (pos $2) pos $1
-      let !implicit = isJust $1
-      moduleValueDecl loc (unL $2) implicit $3
+  : Spec ProgVar TySig { do
+      let loc :@ spec = $1 $2
+      moduleValueDecl loc (unL $2) spec $3
     }
   -- Function declaration
-  | opt('?') ProgVar ValueParams '=' Exp { do
-      let !loc = maybe (pos $2) pos $1
-      let !implicit = isJust $1
-      moduleValueBinding loc (unL $2) implicit $3 $5
+  | Spec ProgVar ValueParams '=' Exp { do
+      let loc :@ spec = $1 $2
+      moduleValueBinding loc (unL $2) spec $3 $5
     }
   -- Type abbreviation
   | type KindedTVar TypeParams '=' Type { do
@@ -384,7 +386,7 @@ LetBind :: { Pos -> PExp -> PExp -> PExp }
 LamExp :: { PExp }
   : lambda Abs Arrow Exp {% do
       let (build, Any anyTermAbs) = $2
-      let (arrPos, arrMul) = $3
+      let arrPos :@ arrMul = $3
       when (arrMul == K.Lin && not anyTermAbs) do
         addErrors [errorNoTermLinLambda (pos $1) arrPos]
       pure $ appEndo (build (pos $1) arrMul) $4
@@ -518,7 +520,8 @@ Type4 :: { PType }
 
 Type5 :: { PType }
   : Type4                         { $1 }
-  | Type4 Arrow Type5             { uncurry T.Arrow $2 $1 $3 }
+  | Type4 Arrow Type5             { T.Arrow (pos $2) T.Explicit (unL $2) $1 $3 }
+  | Type4 '?' Arrow Type5         { T.Arrow (pos $2) T.Implicit (unL $3) $1 $4 }
   | Forall Type5                  { $1 $2 }
 
 Type :: { PType }
@@ -534,9 +537,9 @@ TupleType :: { PType }
   : Type               { $1 }
   | Type ',' TupleType { T.Pair (pos $1) $1 $3 }
 
-Arrow :: { (Pos, K.Multiplicity) }
-  : '->' { (pos $1, K.Un) }
-  | '-o' { (pos $1, K.Lin) }
+Arrow :: { Located K.Multiplicity }
+  : '->' { $1 @- K.Un }
+  | '-o' { $1 @- K.Lin }
 
 Polarity :: { (Pos, T.Polarity) }
   : '!' { (pos $1, T.Out) }

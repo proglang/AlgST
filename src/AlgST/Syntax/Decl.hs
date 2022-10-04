@@ -136,7 +136,7 @@ data ValueDecl x = ValueDecl
     valueType :: T.Type x,
     valueParams :: [Located (ANameG (XStage x))],
     valueBody :: E.Exp x,
-    valueImplicit :: Bool
+    valueSpecificity :: T.Specificity
   }
 
 deriving stock instance (E.ForallX Lift x, T.ForallX Lift x) => Lift (ValueDecl x)

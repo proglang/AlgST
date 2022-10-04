@@ -178,10 +178,14 @@ instance T.ForallX LabeledTree x => LabeledTree (T.Type x) where
         tree
           "Type.Unit"
           [labeledTree x]
-      T.Arrow x m t1 t2 ->
+      T.Arrow x s m t1 t2 ->
         tree
-          ("Type.Arrow " ++ show m)
+          ("Type.Arrow " ++ noteIfImplicit ++ show m)
           [labeledTree x, labeledTree t1, labeledTree t2]
+        where
+          noteIfImplicit = case s of
+            T.Explicit -> ""
+            T.Implicit -> "? "
       T.Pair x t1 t2 ->
         tree
           "Type.Pair"
@@ -277,7 +281,7 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (D.Va
       ]
     where
       noteImplicit
-        | D.valueImplicit vd = (leaf "implicit" :)
+        | D.valueSpecificity vd == T.Implicit = (leaf "implicit" :)
         | otherwise = id
       param (Left tvar) = "[" ++ describeName tvar ++ "]"
       param (Right pvar) = describeName pvar

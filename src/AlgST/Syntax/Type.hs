@@ -12,9 +12,11 @@ module AlgST.Syntax.Type
   ( -- * Types
     Type (..),
 
-    -- ** Polarity
+    -- ** Annotations
     Polarity (..),
     flipPolarity,
+    Specificity (..),
+    eitherImplicit,
 
     -- ** Extension families
     XUnit,
@@ -99,12 +101,24 @@ type SameX x y =
     XNegate x ~ XNegate y
   )
 
+data Specificity
+  = Explicit
+  | Implicit
+  deriving stock (Show, Eq, Lift)
+
+eitherImplicit :: Specificity -> Specificity -> Specificity
+eitherImplicit Implicit _ = Implicit
+eitherImplicit _ Implicit = Implicit
+eitherImplicit _ _ = Explicit
+
 data Type x
   = -- | > Unit _                     ~ ()
     Unit (XUnit x)
-  | -- | > Arrow _ Un  t₁ t₂          ~ t₁ -> t₂
-    --   > Arrow _ Lin t₁ t₂          ~ t₁ -o t₂
-    Arrow (XArrow x) !K.Multiplicity (Type x) (Type x)
+  | -- | > Arrow _ Explicit Un  t₁ t₂          ~ t₁ -> t₂
+    --   > Arrow _ Explicit Lin t₁ t₂          ~ t₁ -o t₂
+    --   > Arrow _ Implicit Un  t₁ t₂          ~ t₁ ?-> t₂
+    --   > Arrow _ Implicit Lin t₁ t₂          ~ t₁ ?-o t₂
+    Arrow (XArrow x) !Specificity !K.Multiplicity (Type x) (Type x)
   | -- | > Pair _ t₁ t₂               ~ (t₁, t₂)
     Pair (XPair x) (Type x) (Type x)
   | -- | > Session _ In  t s          ~ ?t.s
@@ -133,7 +147,7 @@ deriving stock instance ForallX Lift x => Lift (Type x)
 
 instance ForallX HasPos x => HasPos (Type x) where
   pos (Unit x) = pos x
-  pos (Arrow x _ _ _) = pos x
+  pos (Arrow x _ _ _ _) = pos x
   pos (Pair x _ _) = pos x
   pos (Session x _ _ _) = pos x
   pos (End x _) = pos x

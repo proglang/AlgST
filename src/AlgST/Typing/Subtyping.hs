@@ -46,9 +46,10 @@ instance
     where
       go !_ _ (T.Unit _) (T.Unit _) =
         True
-      go w m (T.Arrow _ m1 t1 u1) (T.Arrow _ m2 t2 u2) =
+      go w m (T.Arrow _ s1 m1 t1 u1) (T.Arrow _ s2 m2 t2 u2) =
         and
-          [ m1 <= m2,
+          [ s1 == s2,
+            m1 <= m2,
             go w m t2 t1,
             go w m u1 u2
           ]
