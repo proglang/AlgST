@@ -127,6 +127,10 @@ instance LabeledTree TypeRef where
       leaf (pprName (typeRefName ref))
         : concatMap labeledTree (typeRefArgs ref)
 
+instance T.MakeExplicit TypeRef where
+  -- FIXME: How does the S* transformation look for a type ref?
+  makeExplicit = id -- probably not correct
+
 -- | Returns the types kind.
 --
 -- This function does no checking but assumes that the given type is well

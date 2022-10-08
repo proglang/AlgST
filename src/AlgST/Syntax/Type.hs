@@ -33,11 +33,15 @@ module AlgST.Syntax.Type
     XType,
     ForallX,
     SameX,
+
+    -- * Operations
+    MakeExplicit (..),
   )
 where
 
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Phases
+import Data.Void
 import Language.Haskell.TH.Syntax (Lift)
 
 data Polarity
@@ -158,3 +162,28 @@ instance ForallX HasPos x => HasPos (Type x) where
   pos (Negate x _) = pos x
   pos (Dualof x _) = pos x
   pos (Type x) = pos x
+
+class MakeExplicit a where
+  -- | The S* transformation from Odersky et al. 2018.
+  makeExplicit :: a -> a
+
+instance MakeExplicit Void where
+  makeExplicit = absurd
+
+instance MakeExplicit (XType x) => MakeExplicit (Type x) where
+  -- TODO: Verify translation of
+  --   + pairs (T,U)*
+  --   + session types (§T.U)*
+  makeExplicit = \case
+    Unit x -> Unit x
+    Arrow x _ m t u -> Arrow x Explicit m (makeExplicit t) (makeExplicit u)
+    Pair x t u -> Pair x (makeExplicit t) (makeExplicit u)
+    Session x p t u -> Session x p (makeExplicit t) (makeExplicit u)
+    End x -> End x
+    Forall x (K.Bind p v k t) -> Forall x $ K.Bind p v k $ makeExplicit t
+    Var x n -> Var x n
+    Con x n -> Con x n
+    App x t u -> App x (makeExplicit t) (makeExplicit u)
+    Dualof x t -> Dualof x (makeExplicit t)
+    Negate x t -> Negate x (makeExplicit t)
+    Type x -> Type (makeExplicit x)

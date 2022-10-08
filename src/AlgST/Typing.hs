@@ -1443,6 +1443,12 @@ withProgVarBinds !mUnArrLoc bindings action = etaTcM do
   pure a
 
 tycheck :: RnExp -> ContextType -> TypeM TcExp
+-- TODO: Do we have to apply the forall-isomorphism?
+tycheck e (T.Arrow _ T.Implicit m t u) = do
+  let !loc = pos e
+  let bind = mkImplicit loc Nothing t
+  withProgVarBinds (unrestrictedLoc loc m) (Identity bind) \(Identity (y, _)) ->
+    E.Abs (pos e) . E.Bind (pos e) m y (Just t) <$> tycheck e u
 tycheck e u = case e of
   --
   E.Abs p bnd -> do
