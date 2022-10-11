@@ -433,7 +433,7 @@ checkAlignedBinds fullTy allVs e = go fullTy fullTy allVs
     go :: TcType -> TcType -> [Located (ANameG TcStage)] -> TypeM TcExp
     go _ t [] = tycheck e t
     go _ (T.Arrow k s mul t u) (p :@ Right pv : vs) = do
-      withProgVarBinds_ (unrestrictedLoc k mul) [mkExplicit p pv t] do
+      withProgVarBinds_ (unrestrictedLoc k mul) [mkBinding s p pv t] do
         E.Abs ZeroPos . E.Bind ZeroPos mul pv (Just t) <$> go u u vs
     go _ t0@(T.Forall _ (K.Bind _ sigVar k t)) vs0@(p :@ v : vs) = do
       let subBind tv = substituteType @Tc (Map.singleton sigVar (T.Var (p @- k) tv))
@@ -690,14 +690,18 @@ tysynth =
       pure (E.Fork_ p e', T.Unit p)
 
     --
-    E.App p e1 e2 -> do
+    E.App appLoc e1 e2 -> do
       (e1', t1) <- tysynth e1
-      (t, u) <-
+      (s, t, u) <-
         Error.ifNothing
           (Error.noArrowType e1 t1)
           (appArrow t1)
+      when (s /= T.Explicit) do
+        Error.internal
+          appLoc
+          [Error "unexpected implicit arrow in application:", Error t1]
       e2' <- tycheck e2 t
-      pure (E.App p e1' e2', u)
+      pure (E.App appLoc e1' e2', u)
 
     --
     E.TypeApp _ (E.Exp (BuiltinNew p)) t -> do
@@ -896,13 +900,13 @@ instantiateDeclRef p name decl = do
 -- | Tries to destructure a type into into domain and codomain of an arrow.
 -- This includes applying the forall isomorphism to push quantified type
 -- variables further down if allowed.
-appArrow :: TcType -> Maybe (TcType, TcType)
+appArrow :: TcType -> Maybe (T.Specificity, TcType, TcType)
 appArrow = go id Set.empty
   where
     go prependPushed pushed = \case
       T.Arrow _ s _ t u
         | not (liftNameSet pushed `anyFree` t) ->
-            Just (t, prependPushed u)
+            Just (s, t, prependPushed u)
       T.Forall x (K.Bind x' v k t) ->
         go
           (prependPushed . T.Forall x . K.Bind x' v k)
@@ -1296,19 +1300,26 @@ tysynthBind absLoc (E.Bind p m v (Just ty) e) = do
 tycheckBind :: Pos -> E.Bind Rn -> TcType -> TypeM (E.Bind Tc)
 tycheckBind absLoc bind@(E.Bind p m v mVarTy e) bindTy =
   case appArrow bindTy of
-    Just (t, u) -> do
+    Just (T.Implicit, _, _) -> do
+      Error.internal
+        absLoc
+        [Error "unexpected implicit function", Error bindTy]
+    Just (_, t, u) -> do
       -- Check the type annotation's kind.
       mVarTy' <- traverse (`kicheck` K.TL) mVarTy
       -- Give the bound variable the type from the annoation if available and
       -- fall back to the arrows domain.
       let varTy = t `fromMaybe` mVarTy'
+      -- The returned bind uses the explicit type.
+      let varTy' = T.makeExplicit varTy
       -- Check that the arrow type constructed from `varTy` and the context
       -- type's codomain is a subtype of the context type.
       --
       -- This checkes that the linearities of the arrows are well behaved
       -- relative to each other.
       --
-      -- TODO: verify that 'Explicit' is the specificity we want.
+      -- This branch can only be taken when we are checking against an explicit
+      -- arrow.
       requireSubtype absExpr (T.Arrow p T.Explicit m varTy u) bindTy
       -- Check the binding's body.
       e' <-
@@ -1316,7 +1327,7 @@ tycheckBind absLoc bind@(E.Bind p m v mVarTy e) bindTy =
           (unrestrictedLoc absLoc m)
           [mkExplicit p v varTy]
           (tycheck e u)
-      pure $ E.Bind p m v (Just varTy) e'
+      pure $ E.Bind p m v (Just varTy') e'
     Nothing -> do
       Error.fatal $ Error.noArrowType absExpr bindTy
   where
@@ -1368,8 +1379,8 @@ freshLocal = liftFresh . freshResolved . Name (ModuleName "") . Unqualified
 
 newtype Binding = Binding {runBinding :: TypeM (ProgVar TcStage, Var)}
 
-mkBinding :: Bool -> Pos -> ProgVar TcStage -> TcType -> Binding
-mkBinding implicit p v ty = Binding $ etaTcM do
+mkBinding :: T.Specificity -> Pos -> ProgVar TcStage -> TcType -> Binding
+mkBinding spec p v ty = Binding $ etaTcM do
   let ki = typeKind ty
   usage <- case K.multiplicity ki of
     Just K.Lin
@@ -1382,22 +1393,22 @@ mkBinding implicit p v ty = Binding $ etaTcM do
           { varUsage = usage,
             varType = ty,
             varLocation = p,
-            varImplicit = implicit
+            varSpecific = spec
           }
   pure (v, var)
 
 mkExplicit :: HasPos p => p -> ProgVar TcStage -> TcType -> Binding
-mkExplicit = mkBinding {- implicit= -} False . pos
+mkExplicit = mkBinding T.Explicit . pos
 
 mkExplicitL :: Located (ProgVar TcStage) -> TcType -> Binding
-mkExplicitL (p :@ v) = mkBinding {- implicit= -} False p v
+mkExplicitL (p :@ v) = mkBinding T.Explicit p v
 
 mkImplicit :: HasPos p => p -> Maybe (ProgVar TcStage) -> TcType -> Binding
 mkImplicit p mv ty = Binding do
   v <- maybe (freshLocal "implicit") pure mv
-  runBinding $ mkBinding {- implicit= -} True (pos p) v ty
+  runBinding $ mkBinding T.Implicit (pos p) v ty
 
-withProgVarBinds_ :: Traversable f => Maybe Pos -> f Binding -> TypeM a -> TypeM a
+withProgVarBinds_ :: Maybe Pos -> [Binding] -> TypeM a -> TypeM a
 withProgVarBinds_ mp fs = withProgVarBinds mp fs . const
 
 -- | Establishes a set of bindings for a nested scope.
@@ -1449,6 +1460,7 @@ tycheck e (T.Arrow _ T.Implicit m t u) = do
   let bind = mkImplicit loc Nothing t
   withProgVarBinds (unrestrictedLoc loc m) (Identity bind) \(Identity (y, _)) ->
     E.Abs (pos e) . E.Bind (pos e) m y (Just t) <$> tycheck e u
+-- tycheck (E.Abs l bind) (T.Arrow _ T.Explicit m t u) = do
 tycheck e u = case e of
   --
   E.Abs p bnd -> do
@@ -1515,6 +1527,8 @@ tycheck e u = case e of
     requireSubtype e t u
     pure e'
 
+-- | @requireSubtype e t1 t2@ checks that @t1@ is a subtype of @t2@. @e@ is
+-- only used to blame a mismatch on.
 requireSubtype :: MonadValidate Errors m => RnExp -> TcType -> TcType -> m ()
 requireSubtype e t1 t2 = do
   nf1 <- normalize t1

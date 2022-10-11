@@ -28,6 +28,7 @@ import Data.List.NonEmpty qualified as NE
 import Data.Singletons
 import Data.These
 import Data.Void
+import GHC.Stack
 import Prelude hiding (truncate)
 
 add :: MonadValidate Errors m => Diagnostic -> m ()
@@ -40,6 +41,16 @@ adds = maybe (pure ()) (dispute . This . DNE.fromNonEmpty) . nonEmpty
 
 fatal :: MonadValidate Errors m => Diagnostic -> m a
 fatal !e = refute $ This $ DNE.singleton e
+
+internal :: (HasCallStack, MonadValidate Errors m) => Pos -> [ErrorMessage] -> m a
+internal p msg = fatal $ PosError p $ heading ++ context
+  where
+    heading =
+      Error "INTERNAL ERROR" : ErrLine : ErrLine : msg
+    context =
+      ErrLine : ErrLine : List.intersperse ErrLine (Error <$> callStackLines)
+    callStackLines =
+      lines (prettyCallStack callStack)
 
 ifNothing :: MonadValidate Errors m => Diagnostic -> Maybe a -> m a
 ifNothing e = maybe (fatal e) pure

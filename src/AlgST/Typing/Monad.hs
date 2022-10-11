@@ -12,6 +12,7 @@ import AlgST.Syntax.Decl
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
+import AlgST.Syntax.Type (Specificity)
 import AlgST.Typing.Phase
 import AlgST.Util.ErrorMessage (Diagnostic)
 import AlgST.Util.Lenses
@@ -32,7 +33,7 @@ data Var = Var
   { varType :: TcType,
     varUsage :: !Usage,
     varLocation :: !Pos,
-    varImplicit :: !Bool
+    varSpecific :: !Specificity
   }
 
 instance HasPos Var where
