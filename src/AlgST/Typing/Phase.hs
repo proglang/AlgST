@@ -178,6 +178,7 @@ type instance E.XVar    Tc = Pos
 type instance E.XCon    Tc = Pos
 type instance E.XAbs    Tc = Pos
 type instance E.XApp    Tc = Pos
+type instance E.XIApp   Tc = Void     -- All implicits are transformed to explicits.
 type instance E.XPair   Tc = Pos
 type instance E.XCond   Tc = Void     -- Desugared to @'E.Exp' ('ValueCase' _ _)@.
 type instance E.XCase   Tc = Void     -- E.Exp ValueCase / E.Exp RecvCase

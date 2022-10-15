@@ -380,6 +380,10 @@ instance
       E.App x
         <$> traverseSyntax pxy e1
         <*> traverseSyntax pxy e2
+    E.IApp x e1 e2 ->
+      E.IApp x
+        <$> traverseSyntax pxy e1
+        <*> traverseSyntax pxy e2
     E.Pair x e1 e2 ->
       E.Pair x
         <$> traverseSyntax pxy e1

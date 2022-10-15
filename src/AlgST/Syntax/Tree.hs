@@ -108,6 +108,8 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (E.Ex
          in tree label [labeledTree x1, labeledTree x2, labeledTree t, labeledTree e]
       E.App x e1 e2 ->
         tree "Exp.App" [labeledTree x, labeledTree e1, labeledTree e2]
+      E.IApp x e1 e2 ->
+        tree "Exp.IApp" [labeledTree x, labeledTree e1, labeledTree e2]
       E.Pair x e1 e2 ->
         tree "Exp.Pair" [labeledTree x, labeledTree e1, labeledTree e2]
       E.Cond x e1 e2 e3 ->

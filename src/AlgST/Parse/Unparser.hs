@@ -196,6 +196,10 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Exp x) where
     where
       l = bracket (unparse e1) Op.L appRator
       r = bracket (unparse e2) Op.R appRator
+  unparse (E.IApp _ e1 e2) = (appRator, l ++ " {" ++ r ++ "}")
+    where
+      l = bracket (unparse e1) Op.L appRator
+      r = show e2
   -- Pair intro and elim
   unparse (E.Pair _ e1 e2) = (maxRator, "(" ++ l ++ ", " ++ r ++ ")")
     where

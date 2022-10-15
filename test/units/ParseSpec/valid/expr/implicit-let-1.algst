@@ -1,1 +1,1 @@
-let ?abc : Int = 42 in ()
+let {abc} : Int = 42 in ()

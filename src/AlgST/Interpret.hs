@@ -427,6 +427,10 @@ eval =
       f (e2 @- x)
 
     --
+    E.IApp x _ _ -> do
+      absurd x
+
+    --
     E.Pair _ e1 e2 -> do
       v1 <- eval e1
       v2 <- eval e2

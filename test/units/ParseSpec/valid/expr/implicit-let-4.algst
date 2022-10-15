@@ -1,1 +1,1 @@
-let ? : Int = 42 in ()
+let {_} : Int = 42 in ()

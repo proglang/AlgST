@@ -629,174 +629,188 @@ checkSubkind :: MonadValidate Errors m => RnType -> K.Kind -> K.Kind -> m ()
 checkSubkind t k1 k2 = errorIf (not (k1 <=? k2)) (Error.unexpectedKind t k1 [k2])
 
 tysynth :: RnExp -> TypeM (TcExp, TcType)
-tysynth =
-  etaTcM . \case
-    E.Lit p l -> do
-      let t = litType p l
-      pure (E.Lit p l, t)
+tysynth = tysynth' True
 
-    --
-    E.Pair p e1 e2 -> do
-      ((e1', t1), (e2', t2)) <-
-        (,)
-          <$> tysynth e1
-          <*> tysynth e2
+tysynth' :: Bool -> RnExp -> TypeM (TcExp, TcType)
+tysynth' elimImplicits e0 = etaTcM case e0 of
+  E.Lit p l -> do
+    let t = litType p l
+    pure (E.Lit p l, t)
 
-      let t = T.Pair p t1 t2
-      pure (E.Pair p e1' e2', t)
+  --
+  E.Pair p e1 e2 -> do
+    ((e1', t1), (e2', t2)) <-
+      (,)
+        <$> tysynth e1
+        <*> tysynth e2
 
-    --
-    E.Var p v -> do
-      synthVariable p v >>= Error.ifNothing (Error.unboundVar p v)
+    let t = T.Pair p t1 t2
+    pure (E.Pair p e1' e2', t)
 
-    --
-    E.Con p v -> do
-      synthVariable p v >>= Error.ifNothing (Error.undeclaredCon p v)
+  --
+  E.Var p v -> do
+    synthVariable elimImplicits p v
+      >>= Error.ifNothing (Error.unboundVar p v)
 
-    --
-    E.Abs p bnd -> do
-      (bnd', ty) <- tysynthBind p bnd
-      pure (E.Abs p bnd', ty)
+  --
+  E.Con p v -> do
+    synthVariable elimImplicits p v
+      >>= Error.ifNothing (Error.undeclaredCon p v)
 
-    --
-    E.TypeAbs p bnd -> do
-      (bnd', ty) <- tysynthTyBind tysynth p bnd
-      pure (E.TypeAbs p bnd', ty)
+  --
+  E.Abs p bnd -> do
+    (bnd', ty) <- tysynthBind p bnd
+    pure (E.Abs p bnd', ty)
 
-    --
-    E.App p (E.Exp (BuiltinFork _)) e -> do
-      -- TODO: Desugar to `fork_`. The hard part is getting the reference to
-      -- `send` correct since it is not more than a "imported" signature which
-      -- might be shadowed.
-      (e', ty) <- tysynth e
-      let k = typeKind ty
-      when (not (k <=? K.ML)) do
-        Error.add $ Error.unexpectedForkKind "fork" e ty k K.ML
-      -- Here we can choose between T.In and T.Out: should an expression
-      --    fork 1
-      -- should have type ?Int.End? or ?Int.End!  ? For now I have decided upon
-      -- the former. In theory, this allows the `fork` machinery to eagerly
-      -- close the connection. In practice this does not make much of a
-      -- difference.
-      let resultTy = buildSessionType p T.In [ty] $ T.End p T.In
-      pure (E.Fork p e', resultTy)
+  --
+  E.TypeAbs p bnd -> do
+    (bnd', ty) <- tysynthTyBind tysynth p bnd
+    pure (E.TypeAbs p bnd', ty)
 
-    --
-    E.App p (E.Exp (BuiltinFork_ _)) e -> do
-      (e', ty) <- tysynth e
-      let k = typeKind ty
-      when (not (k <=? K.TU)) do
-        Error.add $ Error.unexpectedForkKind "fork_" e ty k K.TU
-      pure (E.Fork_ p e', T.Unit p)
+  --
+  E.App p (E.Exp (BuiltinFork _)) e -> do
+    -- TODO: Desugar to `fork_`. The hard part is getting the reference to
+    -- `send` correct since it is not more than a "imported" signature which
+    -- might be shadowed.
+    (e', ty) <- tysynth e
+    let k = typeKind ty
+    when (not (k <=? K.ML)) do
+      Error.add $ Error.unexpectedForkKind "fork" e ty k K.ML
+    -- Here we can choose between T.In and T.Out: should an expression
+    --    fork 1
+    -- should have type ?Int.End? or ?Int.End!  ? For now I have decided upon
+    -- the former. In theory, this allows the `fork` machinery to eagerly
+    -- close the connection. In practice this does not make much of a
+    -- difference.
+    let resultTy = buildSessionType p T.In [ty] $ T.End p T.In
+    pure (E.Fork p e', resultTy)
 
-    --
-    E.App appLoc e1 e2 -> do
-      (e1', t1) <- tysynth e1
-      (s, t, u) <-
-        Error.ifNothing
-          (Error.noArrowType e1 t1)
-          (appArrow t1)
-      when (s /= T.Explicit) do
-        Error.internal
-          appLoc
-          [Error "unexpected implicit arrow in application:", Error t1]
-      e2' <- tycheck e2 t
-      pure (E.App appLoc e1' e2', u)
+  --
+  E.App p (E.Exp (BuiltinFork_ _)) e -> do
+    (e', ty) <- tysynth e
+    let k = typeKind ty
+    when (not (k <=? K.TU)) do
+      Error.add $ Error.unexpectedForkKind "fork_" e ty k K.TU
+    pure (E.Fork_ p e', T.Unit p)
 
-    --
-    E.TypeApp _ (E.Exp (BuiltinNew p)) t -> do
-      t' <- kicheck t K.SL
-      let newT = T.Pair p t' (T.Dualof p t')
-      pure (E.New p t', newT)
-    E.TypeApp p e t -> do
-      (e', eTy) <- tysynth e
-      K.Bind _ v k u <-
-        Error.ifNothing
-          (Error.noForallType e eTy)
-          (appTArrow eTy)
-      t' <- kicheck t k
-      let u' = substituteType (Map.singleton v t') u
-      pure (E.TypeApp p e' t', u')
+  --
+  E.App appLoc e1 e2 -> do
+    (e1', t1) <- tysynth e1
+    (s, t, u) <-
+      Error.ifNothing
+        (Error.noArrowType e1 t1)
+        (appArrow t1)
+    when (s /= T.Explicit) do
+      Error.internal
+        appLoc
+        [Error "unexpected implicit arrow in application:", Error t1]
+    e2' <- tycheck e2 t
+    pure (E.App appLoc e1' e2', u)
 
-    --
-    E.Rec p v ty r -> do
-      -- Check for TU is deliberate here. It is unclear if a linear value would
-      -- be well behaved.
-      ty' <- kicheck ty K.TU
-      withProgVarBinds_ Nothing [mkExplicit p v ty'] do
-        r' <- checkRecLam r ty'
-        pure (E.Rec p v ty' r', ty')
+  --
+  E.IApp loc e1 e2 -> do
+    -- Synthesize the type of e1 but don't fill in implicit arguments.
+    (e1', t1) <- tysynth' False e1
+    (s, t, u) <- Error.ifNothing (Error.noArrowType e1 t1) (appArrow t1)
+    when (s /= T.Implicit) do
+      Error.add $ Error.implicitAppExplicitArrow e0 t1
+    e2' <- tycheck e2 t
+    pure (E.App loc e1' e2', u)
 
-    --
-    E.UnLet p v mty e body -> do
-      checkOrSynthLet (mkExplicit p v) mty e body Nothing
+  --
+  E.TypeApp _ (E.Exp (BuiltinNew p)) t -> do
+    t' <- kicheck t K.SL
+    let newT = T.Pair p t' (T.Dualof p t')
+    pure (E.New p t', newT)
+  E.TypeApp p e t -> do
+    (e', eTy) <- tysynth e
+    K.Bind _ v k u <-
+      Error.ifNothing
+        (Error.noForallType e eTy)
+        (appTArrow eTy)
+    t' <- kicheck t k
+    let u' = substituteType (Map.singleton v t') u
+    pure (E.TypeApp p e' t', u')
 
-    --
-    E.ILet p mv mty e body -> do
-      checkOrSynthLet (mkImplicit p mv) mty e body Nothing
+  --
+  E.Rec p v ty r -> do
+    -- Check for TU is deliberate here. It is unclear if a linear value would
+    -- be well behaved.
+    ty' <- kicheck ty K.TU
+    withProgVarBinds_ Nothing [mkExplicit p v ty'] do
+      r' <- checkRecLam r ty'
+      pure (E.Rec p v ty' r', ty')
 
-    --
-    E.PatLet p c vs e body -> do
-      (e', eTy) <- tysynth e
-      pat <- extractMatchableType "Pattern let expression" (pos e) eTy
-      let branch =
-            E.CaseBranch
-              { branchPos = pos c,
-                branchExp = body,
-                branchBinds = vs
-              }
-      let cases =
-            E.CaseMap
-              { casesPatterns = Map.singleton (unL c) branch,
-                casesWildcard = Nothing
-              }
-      checkPatternExpr p e' cases pat Nothing
+  --
+  E.UnLet p v mty e body -> do
+    checkOrSynthLet (mkExplicit p v) mty e body Nothing
 
-    --
-    E.Cond p e eThen eElse -> do
-      checkIfExpr p e eThen eElse Nothing
+  --
+  E.ILet p mv mty e body -> do
+    checkOrSynthLet (mkImplicit p mv) mty e body Nothing
 
-    --
-    E.Case p e cases -> do
-      (e', eTy) <- tysynth e
-      pat <- extractMatchableType "Case expression scrutinee" (pos e) eTy
-      checkPatternExpr p e' cases pat Nothing
+  --
+  E.PatLet p c vs e body -> do
+    (e', eTy) <- tysynth e
+    pat <- extractMatchableType "Pattern let expression" (pos e) eTy
+    let branch =
+          E.CaseBranch
+            { branchPos = pos c,
+              branchExp = body,
+              branchBinds = vs
+            }
+    let cases =
+          E.CaseMap
+            { casesPatterns = Map.singleton (unL c) branch,
+              casesWildcard = Nothing
+            }
+    checkPatternExpr p e' cases pat Nothing
 
-    --
-    E.Select p lcon@(_ :@ con) | con == conPair -> do
-      v1 <- freshLocal "a"
-      v2 <- freshLocal "b"
-      let tyX = T.Var @Tc (p @- kiX)
-          kiX = K.TL
-      let params = [(p :@ v1, kiX), (p :@ v2, kiX)]
-          pairTy = T.Pair ZeroPos (tyX v1) (tyX v2)
-      ty <- buildSelectType p params pairTy [tyX v1, tyX v2]
-      pure (E.Select p lcon, ty)
+  --
+  E.Cond p e eThen eElse -> do
+    checkIfExpr p e eThen eElse Nothing
 
-    --
-    E.Select p lcon@(_ :@ con) -> do
-      let findConDecl = runMaybeT do
-            ValueCon conDecl <- MaybeT $ asks $ tcCheckedValues >>> Map.lookup con
-            parentDecl <- MaybeT $ asks $ tcCheckedTypes >>> Map.lookup (conParent conDecl)
-            pure (conDecl, parentDecl)
-      (conDecl, parentDecl) <- Error.ifNothing (uncurryL Error.undeclaredCon lcon) =<< findConDecl
-      (params, ref) <- instantiateDeclRef ZeroPos (conParent conDecl) parentDecl
-      let sub = applySubstitutions (typeRefSubstitutions parentDecl ref)
-      ty <- buildSelectType p params (T.Type ref) (sub <$> conItems conDecl)
-      pure (E.Select p lcon, ty)
+  --
+  E.Case p e cases -> do
+    (e', eTy) <- tysynth e
+    pat <- extractMatchableType "Case expression scrutinee" (pos e) eTy
+    checkPatternExpr p e' cases pat Nothing
 
-    --
-    e@(E.Exp (BuiltinNew _)) -> do
-      Error.fatal $ Error.builtinMissingApp e "a type application"
-    e@(E.Exp (BuiltinFork _)) -> do
-      Error.fatal $ Error.builtinMissingApp e "an expression"
-    e@(E.Exp (BuiltinFork_ _)) -> do
-      Error.fatal $ Error.builtinMissingApp e "an expression"
+  --
+  E.Select p lcon@(_ :@ con) | con == conPair -> do
+    v1 <- freshLocal "a"
+    v2 <- freshLocal "b"
+    let tyX = T.Var @Tc (p @- kiX)
+        kiX = K.TL
+    let params = [(p :@ v1, kiX), (p :@ v2, kiX)]
+        pairTy = T.Pair ZeroPos (tyX v1) (tyX v2)
+    ty <- buildSelectType p params pairTy [tyX v1, tyX v2]
+    pure (E.Select p lcon, ty)
 
-    --
-    E.New x _ -> absurd x
-    E.Fork x _ -> absurd x
-    E.Fork_ x _ -> absurd x
+  --
+  E.Select p lcon@(_ :@ con) -> do
+    let findConDecl = runMaybeT do
+          ValueCon conDecl <- MaybeT $ asks $ tcCheckedValues >>> Map.lookup con
+          parentDecl <- MaybeT $ asks $ tcCheckedTypes >>> Map.lookup (conParent conDecl)
+          pure (conDecl, parentDecl)
+    (conDecl, parentDecl) <- Error.ifNothing (uncurryL Error.undeclaredCon lcon) =<< findConDecl
+    (params, ref) <- instantiateDeclRef ZeroPos (conParent conDecl) parentDecl
+    let sub = applySubstitutions (typeRefSubstitutions parentDecl ref)
+    ty <- buildSelectType p params (T.Type ref) (sub <$> conItems conDecl)
+    pure (E.Select p lcon, ty)
+
+  --
+  e@(E.Exp (BuiltinNew _)) -> do
+    Error.fatal $ Error.builtinMissingApp e "a type application"
+  e@(E.Exp (BuiltinFork _)) -> do
+    Error.fatal $ Error.builtinMissingApp e "an expression"
+  e@(E.Exp (BuiltinFork_ _)) -> do
+    Error.fatal $ Error.builtinMissingApp e "an expression"
+
+  --
+  E.New x _ -> absurd x
+  E.Fork x _ -> absurd x
+  E.Fork_ x _ -> absurd x
 
 buildSelectType ::
   Pos ->
@@ -861,9 +875,16 @@ extractMatchableType s p t = etaTcM do
 
 -- | Looks up the type for the given 'ProgVar'. This function works correctly
 -- for local variables, globals and constructors.
+--
+-- The first argument specifies whether implicit arguments in the variables
+-- definition should be filled in automatically.
 synthVariable ::
-  Pos -> ProgVar TcStage -> TypeM (Maybe (TcExp, TcType))
-synthVariable p name = runMaybeT (useLocal <|> useGlobal)
+  Bool -> Pos -> ProgVar TcStage -> TypeM (Maybe (TcExp, TcType))
+synthVariable elimImplicits p name = runMaybeT do
+  (varE, varT) <- useLocal <|> useGlobal
+  if elimImplicits
+    then lift $ elim varT varE varT
+    else pure (varE, varT)
   where
     useLocal = do
       info <- MaybeT $ gets $ tcTypeEnv >>> Map.lookup name
@@ -882,6 +903,52 @@ synthVariable p name = runMaybeT (useLocal <|> useGlobal)
           pure (E.Con p name, ty)
         ValueCon (ProtocolCon _ parent _ _) ->
           Error.fatal $ Error.protocolConAsValue p name parent
+
+    -- Eliminate immediate implicit arguments when the variable resolves to a
+    -- function type.
+    elim :: TcType -> TcExp -> TcType -> TypeM (TcExp, TcType)
+    elim ty0 e ty | Just (T.Implicit, t, u) <- appArrow ty = etaTcM do
+      possibleImplicits <- filterImplicits p t
+      chosenImplicit <- case possibleImplicits of
+        [(_, mkI)] -> mkI
+        [] -> Error.fatal $ Error.noImplicitFound p name ty0 t
+        _ -> Error.fatal $ Error.manyImplicitsFound p t (nf t) (fst <$> possibleImplicits)
+      -- i <- Error.ifNothing err =<< queryImplicit p t
+      elim ty0 (E.App (pos e) e chosenImplicit) u
+    elim _ e ty = pure (e, ty)
+
+-- | Filters the set of available implicits down to the ones matching the given
+-- target type. The returned expression include
+filterImplicits :: Pos -> TcType -> TypeM [((ProgVar TcStage, Var), TypeM TcExp)]
+filterImplicits loc target = do
+  st <- get
+  env <- ask
+  ctxt <- gets tcTypeEnv
+  let check :: (Name TcStage 'Values, Var) -> Maybe ((ProgVar TcStage, Var), TypeM TcExp)
+      check (n, v) = do
+        guard $ varSpecific v == T.Implicit
+        let chk =
+              tycheck (E.Var loc n) target
+                & runValidateT
+                & flip runStateT st
+                & flip runReaderT env
+        undefined
+  pure $ mapMaybe check $ Map.toList ctxt
+  where
+    --  (name, var) <- case filter (matchingVar targetNF . snd) (Map.toList ctxt) of
+    --    [] -> empty
+    --    [a] -> pure a
+    --    nvs -> undefined
+    --  -- Register usage of variable.
+    --  usedVar <- useVar loc name var
+    --  modify $ tcTypeEnvL %~ Map.insert name usedVar
+    --  -- Construct accessing expression.
+    --  pure $ E.Var loc name
+
+    matchingVar :: TcType -> Var -> Bool
+    matchingVar tNF v = isJust do
+      vNF <- nf (varType v)
+      guard $ Eq.Alpha vNF <= Eq.Alpha tNF
 
 instantiateDeclRef ::
   Pos -> TypeVar TcStage -> TypeDecl Tc -> TcM env st (Params TcStage, TypeRef)

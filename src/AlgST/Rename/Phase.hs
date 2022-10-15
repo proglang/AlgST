@@ -36,6 +36,7 @@ type instance E.XVar    Rn = Pos
 type instance E.XCon    Rn = Pos
 type instance E.XAbs    Rn = Pos
 type instance E.XApp    Rn = Pos
+type instance E.XIApp   Rn = Pos
 type instance E.XPair   Rn = Pos
 type instance E.XCond   Rn = Pos
 type instance E.XCase   Rn = Pos

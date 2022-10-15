@@ -30,6 +30,7 @@ module AlgST.Syntax.Expression
     XCon,
     XAbs,
     XApp,
+    XIApp,
     XPair,
     XCond,
     XCase,
@@ -69,6 +70,7 @@ type family XVar x
 type family XCon x
 type family XAbs x
 type family XApp x
+type family XIApp x
 type family XPair x
 type family XCond x
 type family XCase x
@@ -92,6 +94,7 @@ type ForallX c x =
     c (XCon x),
     c (XAbs x),
     c (XApp x),
+    c (XIApp x),
     c (XPair x),
     c (XCond x),
     c (XCase x),
@@ -115,6 +118,7 @@ type SameX x y =
     XCon x ~ XCon y,
     XAbs x ~ XAbs y,
     XApp x ~ XApp y,
+    XIApp x ~ XIApp y,
     XPair x ~ XPair y,
     XCond x ~ XCond y,
     XCase x ~ XCase y,
@@ -149,6 +153,8 @@ data Exp x
     Abs (XAbs x) (Bind x)
   | -- | > App _ e₁ e₂                ~ e₁ e₂
     App (XApp x) (Exp x) (Exp x)
+  | -- | > IApp _ e₁ e₂               ~ e₁ {e₂}
+    IApp (XIApp x) (Exp x) (Exp x)
   | -- | > Pair _ e₁ e₂               ~ (e₁, e₂)
     Pair (XPair x) (Exp x) (Exp x)
   | -- | > Cond _ e₁ e₂ e₃            ~ if e₁ then e₂ else e₃
@@ -267,6 +273,7 @@ instance ForallX HasPos x => HasPos (Exp x) where
   pos (ILet x _ _ _ _) = pos x
   pos (Rec x _ _ _) = pos x
   pos (App x _ _) = pos x
+  pos (IApp x _ _) = pos x
   pos (TypeApp x _ _) = pos x
   pos (TypeAbs x _) = pos x
   pos (Cond x _ _ _) = pos x

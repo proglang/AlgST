@@ -64,6 +64,7 @@ type instance E.XVar    Parse = Pos
 type instance E.XCon    Parse = Pos
 type instance E.XAbs    Parse = Pos
 type instance E.XApp    Parse = Pos
+type instance E.XIApp   Parse = Pos
 type instance E.XPair   Parse = Pos
 type instance E.XCond   Parse = Pos
 type instance E.XCase   Parse = Pos

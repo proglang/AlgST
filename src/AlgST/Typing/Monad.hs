@@ -129,6 +129,9 @@ data ExpansionEntry = ExpansionEntry
   deriving stock (Lift)
 
 {- ORMOLU_DISABLE -}
+makeLenses ['varUsage] ''Var
+varUsageL :: Lens' Var Usage
+
 makeLenses ''KiTypingEnv
 tcKindEnvL :: Lens' KiTypingEnv KindEnv
 tcExpansionStackL :: Lens' KiTypingEnv (Seq ExpansionEntry)

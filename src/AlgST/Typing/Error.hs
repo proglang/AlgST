@@ -17,6 +17,7 @@ import AlgST.Syntax.Name
 import AlgST.Syntax.Type qualified as T
 import AlgST.Typing.Equality qualified as Eq
 import AlgST.Typing.Monad
+import AlgST.Typing.NormalForm
 import AlgST.Typing.Phase
 import AlgST.Util
 import AlgST.Util.ErrorMessage
@@ -51,6 +52,7 @@ internal p msg = fatal $ PosError p $ heading ++ context
       ErrLine : ErrLine : List.intersperse ErrLine (Error <$> callStackLines)
     callStackLines =
       lines (prettyCallStack callStack)
+{-# NOINLINE internal #-}
 
 ifNothing :: MonadValidate Errors m => Diagnostic -> Maybe a -> m a
 ifNothing e = maybe (fatal e) pure
@@ -492,6 +494,44 @@ synthUntypedLambda lamLoc varLoc var =
       Error "Please provide a type annotation."
     ]
 {-# NOINLINE synthUntypedLambda #-}
+
+implicitAppExplicitArrow :: RnExp -> TcType -> Diagnostic
+implicitAppExplicitArrow e funTy =
+  PosError (pos e) . errUnline $
+    [ [Error "Function has type"],
+      showType funTy (nf funTy),
+      [Error "which does not expect an implicit argument."],
+      [Error "In implicit application", Error e]
+    ]
+{-# NOINLINE implicitAppExplicitArrow #-}
+
+noImplicitFound :: Pos -> ProgVar TcStage -> TcType -> TcType -> Diagnostic
+noImplicitFound varLoc varName varType impTy =
+  PosError
+    varLoc
+    [ Error "No implicit of type",
+      ErrLine,
+      indent,
+      Error impTy,
+      ErrLine,
+      Error "bound at reference to",
+      Error varName,
+      Error "of type",
+      ErrLine,
+      indent,
+      Error varType
+    ]
+{-# NOINLINE noImplicitFound #-}
+
+manyImplicitsFound :: Pos -> TcType -> Maybe TcType -> [(ProgVar TcStage, Var)] -> Diagnostic
+manyImplicitsFound loc ty tyNF choices =
+  PosError loc . errUnline $
+    [Error "Multiple chocies for implicit of type"]
+      : showType ty tyNF
+      : [ Error "•" : Error name : ErrLine : showType t (nf t)
+          | (name, Var {varType = t}) <- choices
+        ]
+{-# NOINLINE manyImplicitsFound #-}
 
 showType :: TcType -> Maybe TcType -> [ErrorMessage]
 showType t mNF

@@ -210,24 +210,20 @@ ImportScope :: { Pos -> Located Scope }
 -- Declarations
 -------------------------------------------------------------------------------
 
-Spec :: { forall a. HasPos a => a -> Located T.Specificity }
-  : '?'           { \_ -> $1 @- T.Implicit }
-  | {- empty -}   { \a -> a  @- T.Explicit }
-
 Decls :: { ModuleBuilder }
   : Decl          { $1 }
   | Decls nl Decl { $1 >>> $3 }
 
 Decl :: { ModuleBuilder }
   -- Function signature
-  : Spec ProgVar TySig { do
-      let loc :@ spec = $1 $2
-      moduleValueDecl loc (unL $2) spec $3
+  : ProgVarSpec TySig { do
+      let (loc, name, spec) = $1
+      moduleValueDecl loc name spec $2
     }
   -- Function declaration
-  | Spec ProgVar ValueParams '=' Exp { do
-      let loc :@ spec = $1 $2
-      moduleValueBinding loc (unL $2) spec $3 $5
+  | ProgVarSpec ValueParams '=' Exp { do
+      let (loc, name, spec) = $1
+      moduleValueBinding loc name spec $2 $4
     }
   -- Type abbreviation
   | type KindedTVar TypeParams '=' Type { do
@@ -379,8 +375,9 @@ RecExp :: { forall a. (Pos -> ProgVar PStage -> PType -> E.RecLam Parse -> a) ->
     }
 
 LetBind :: { Pos -> PExp -> PExp -> PExp }
-  : ProgVarWild opt(TySig)          { \p -> E.UnLet p (unL $1) $2 }
-  | '?' opt(ProgVarWild) opt(TySig) { \p -> E.ILet p (fmap unL $2) $3 }
+  : ProgVarWild     opt(TySig)      { \p -> E.UnLet p (unL $1) $2 }
+  | '{' '_' '}'     opt(TySig)      { \p -> E.ILet p Nothing $4 }
+  | '{' ProgVar '}' opt(TySig)      { \p -> E.ILet p (Just (unL $2)) $4 }
   | Pattern                         { \p -> uncurry (E.PatLet p) $1 }
 
 LamExp :: { PExp }
@@ -520,8 +517,8 @@ Type4 :: { PType }
 
 Type5 :: { PType }
   : Type4                         { $1 }
-  | Type4 Arrow Type5             { T.Arrow (pos $2) T.Explicit (unL $2) $1 $3 }
-  | Type4 '?' Arrow Type5         { T.Arrow (pos $2) T.Implicit (unL $3) $1 $4 }
+  | Type4        Arrow Type5      { T.Arrow (pos $2) T.Explicit (unL $2) $1 $3 }
+  | '{' Type '}' Arrow Type5      { T.Arrow (pos $4) T.Implicit (unL $4) $2 $5 }
   | Forall Type5                  { $1 $2 }
 
 Type :: { PType }
@@ -610,6 +607,10 @@ Constructor :: { Located (ProgVar PStage) }
 
 ProgVarWild :: { Located (ProgVar PStage) }
   : wildcard(ProgVar)   { $1 }
+
+ProgVarSpec :: { (Pos, ProgVar PStage, T.Specificity) }
+  : ProgVar             { (pos $1, unL $1, T.Explicit) }
+  | '{' ProgVar '}'     { (pos $1, unL $2, T.Implicit) }
 
 TypeVar :: { Located (TypeVar PStage) }
   : NameVar { scopeName `fmap` $1 }
