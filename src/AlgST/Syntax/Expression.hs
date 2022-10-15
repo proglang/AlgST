@@ -27,6 +27,7 @@ module AlgST.Syntax.Expression
     -- ** Extension families
     XLit,
     XVar,
+    XImp,
     XCon,
     XAbs,
     XApp,
@@ -40,6 +41,7 @@ module AlgST.Syntax.Expression
     XILet,
     XPatLet,
     XRec,
+    XSig,
     XNew,
     XSelect,
     XFork,
@@ -67,6 +69,7 @@ import Language.Haskell.TH.Syntax (Lift)
 {- ORMOLU_DISABLE -}
 type family XLit x
 type family XVar x
+type family XImp x
 type family XCon x
 type family XAbs x
 type family XApp x
@@ -77,6 +80,7 @@ type family XCase x
 type family XTAbs x
 type family XTApp x
 type family XRec x
+type family XSig x
 type family XUnLet x
 type family XILet x
 type family XPatLet x
@@ -91,6 +95,7 @@ type ForallX :: CAll
 type ForallX c x =
   ( c (XLit x),
     c (XVar x),
+    c (XImp x),
     c (XCon x),
     c (XAbs x),
     c (XApp x),
@@ -101,6 +106,7 @@ type ForallX c x =
     c (XTAbs x),
     c (XTApp x),
     c (XRec x),
+    c (XSig x),
     c (XUnLet x),
     c (XILet x),
     c (XPatLet x),
@@ -115,6 +121,7 @@ type ForallX c x =
 type SameX :: CSame
 type SameX x y =
   ( XLit x ~ XLit y,
+    XImp x ~ XImp y,
     XCon x ~ XCon y,
     XAbs x ~ XAbs y,
     XApp x ~ XApp y,
@@ -125,6 +132,7 @@ type SameX x y =
     XTAbs x ~ XTAbs y,
     XTApp x ~ XTApp y,
     XRec x ~ XRec y,
+    XSig x ~ XSig y,
     XUnLet x ~ XUnLet y,
     XILet x ~ XILet y,
     XPatLet x ~ XPatLet y,
@@ -146,6 +154,10 @@ data Exp x
   = Lit (XLit x) !Lit
   | -- | > Var _ v                    ~ v
     Var (XVar x) !(XProgVar x)
+  | -- | > Imp x                      ~ _
+    --
+    -- Explicitly resolve an implicit.
+    Imp (XImp x)
   | -- | > Con _ c                    ~ c
     Con (XCon x) !(XProgVar x)
   | -- | > Abs _ (Bind _ Un  x t e)   ~ \(x:t) -> e
@@ -185,6 +197,8 @@ data Exp x
     PatLet (XPatLet x) !(Located (XProgVar x)) [Located (XProgVar x)] (Exp x) (Exp x)
   | -- | > Rec _ x t r                ~ rec x : t = r
     Rec (XRec x) !(XProgVar x) (T.Type x) (RecLam x)
+  | -- | > Sig _ e t                  ~ e : t
+    Sig (XSig x) (Exp x) (T.Type x)
   | -- | > New _ t                    ~ new [t]
     New (XNew x) (T.Type x)
   | -- | > Select _ c                 ~ select c
@@ -267,11 +281,13 @@ instance HasPos (CaseBranch f x) where
 instance ForallX HasPos x => HasPos (Exp x) where
   pos (Lit x _) = pos x
   pos (Var x _) = pos x
+  pos (Imp x) = pos x
   pos (Con x _) = pos x
   pos (Abs x _) = pos x
   pos (UnLet x _ _ _ _) = pos x
   pos (ILet x _ _ _ _) = pos x
   pos (Rec x _ _ _) = pos x
+  pos (Sig x _ _) = pos x
   pos (App x _ _) = pos x
   pos (IApp x _ _) = pos x
   pos (TypeApp x _ _) = pos x

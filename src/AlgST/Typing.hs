@@ -648,6 +648,10 @@ tysynth' elimImplicits e0 = etaTcM case e0 of
     pure (E.Pair p e1' e2', t)
 
   --
+  E.Imp p -> do
+    Error.fatal $ Error.synthImplicit p
+
+  --
   E.Var p v -> do
     synthVariable elimImplicits p v
       >>= Error.ifNothing (Error.unboundVar p v)
@@ -740,6 +744,12 @@ tysynth' elimImplicits e0 = etaTcM case e0 of
     withProgVarBinds_ Nothing [mkExplicit p v ty'] do
       r' <- checkRecLam r ty'
       pure (E.Rec p v ty' r', ty')
+
+  --
+  E.Sig _ e t -> do
+    t' <- kicheck t K.TL
+    e' <- tycheck e t'
+    pure (e', t')
 
   --
   E.UnLet p v mty e body -> do
@@ -1528,7 +1538,12 @@ tycheck e (T.Arrow _ T.Implicit m t u) = do
   withProgVarBinds (unrestrictedLoc loc m) (Identity bind) \(Identity (y, _)) ->
     E.Abs (pos e) . E.Bind (pos e) m y (Just t) <$> tycheck e u
 -- tycheck (E.Abs l bind) (T.Arrow _ T.Explicit m t u) = do
-tycheck e u = case e of
+tycheck e0 u = case e0 of
+  --
+  E.Imp _p -> do
+    -- TODO: Lookup the implicit of the matching type.
+    undefined
+
   --
   E.Abs p bnd -> do
     bnd' <- tycheckBind p bnd u
@@ -1536,7 +1551,7 @@ tycheck e u = case e of
 
   --
   E.TypeAbs p bnd -> do
-    bnd' <- tycheckTyBind tycheck e bnd u
+    bnd' <- tycheckTyBind tycheck e0 bnd u
     pure (E.TypeAbs p bnd')
 
   --
@@ -1590,8 +1605,8 @@ tycheck e u = case e of
 
   -- fallback
   _ -> do
-    (e', t) <- tysynth e
-    requireSubtype e t u
+    (e', t) <- tysynth e0
+    requireSubtype e0 t u
     pure e'
 
 -- | @requireSubtype e t1 t2@ checks that @t1@ is a subtype of @t2@. @e@ is

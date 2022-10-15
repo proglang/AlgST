@@ -77,6 +77,8 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Show (E.Bind x) where
 
 data Precedence
   = PMin
+  | -- | > e : t
+    PSig
   | -- | @in@, @else@, @case@, @rec@ (expressions)
     PIn
   | POpMin
@@ -105,7 +107,8 @@ operatorRator op@ResolvedName {} =
 operatorRator _ =
   Nothing
 
-minRator, inRator, opMinRator, dotRator, arrowRator, dualofRator, appRator, maxRator :: Rator
+sigRator, minRator, inRator, opMinRator, dotRator, arrowRator, dualofRator, appRator, maxRator :: Rator
+sigRator = (PSig, Op.NA)
 inRator = (PIn, Op.R)
 opMinRator = (POpMin, Op.NA)
 dotRator = (PDot, Op.R)
@@ -184,6 +187,7 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Exp x) where
   -- Basic values
   unparse (E.Lit _ l) = unparse l
   unparse (E.Var _ x) = (maxRator, pprName x)
+  unparse (E.Imp _) = (maxRator, "_")
   unparse (E.Con _ x) = (maxRator, pprName x)
   -- Abstraction intro and elim
   unparse (E.Abs _ b) = (arrowRator, '\\' : show b)
@@ -230,6 +234,11 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Exp x) where
     unparseLet (pprName . unL <$> x : xs) "" e1 e2
   unparse (E.Rec _ x ty r) =
     (inRator, "rec " ++ pprName x ++ " : " ++ show ty ++ " = " ++ show (E.RecAbs r))
+  unparse (E.Sig _ e t) =
+    (sigRator, l ++ " : " ++ r)
+    where
+      l = bracket (unparse e) Op.L sigRator
+      r = show t
   -- Session expressions
   unparse (E.New _ t) = (appRator, "new [" ++ show t ++ "]")
   unparse (E.Select _ (_ :@ con)) = (appRator, "select " ++ pprName con)

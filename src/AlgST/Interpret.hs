@@ -414,6 +414,8 @@ eval =
       lookupEnv p v
     E.Con p c -> do
       lookupEnv p c
+    E.Imp x -> do
+      absurd x
 
     --
     E.Abs _ bind -> do
@@ -463,6 +465,10 @@ eval =
       let env' = Map.insert v (Right val) env
           val = bindClosure env' $ recBody rl
       pure val
+
+    --
+    E.Sig x _ _ -> do
+      absurd x
 
     -- Creates a new channel and returns a pair of the two endpoints.
     E.New _ _ -> do

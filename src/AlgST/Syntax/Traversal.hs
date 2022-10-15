@@ -370,6 +370,8 @@ instance
       pure (E.Lit x l)
     E.Var x v ->
       valueVariable pxy x v
+    E.Imp x ->
+      pure $ E.Imp x
     E.Con x c ->
       E.Con x
         <$> useConstructor pxy (pos x) c
@@ -415,6 +417,10 @@ instance
       expRec
         <$> traverseSyntax pxy ty
         <*> bindOne pxy v \v' -> (v',) <$> traverseSyntax pxy e
+    E.Sig x e t -> do
+      E.Sig x
+        <$> traverseSyntax pxy e
+        <*> traverseSyntax pxy t
     E.Cond x eCond eThen eElse ->
       E.Cond x
         <$> traverseSyntax pxy eCond

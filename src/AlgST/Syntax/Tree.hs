@@ -101,6 +101,8 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (E.Ex
         tree "Exp.Lit" [labeledTree x, labeledTree l]
       E.Var x v ->
         tree ("Exp.Var " ++ describeName v) [labeledTree x]
+      E.Imp x ->
+        tree "Exp.Imp" [labeledTree x]
       E.Con x v ->
         tree ("Exp.Con " ++ describeName v) [labeledTree x]
       E.Abs x1 (E.Bind x2 m v t e) ->
@@ -151,6 +153,8 @@ instance (T.ForallX LabeledTree x, E.ForallX LabeledTree x) => LabeledTree (E.Ex
             labeledTree ty,
             labeledTree (E.RecAbs e)
           ]
+      E.Sig x e t ->
+        tree "Exp.Sig" [labeledTree x, labeledTree e, labeledTree t]
       E.New x t ->
         tree "Exp.New" [labeledTree x, labeledTree t]
       E.Select x (_ :@ c) ->

@@ -175,6 +175,7 @@ type instance XStage    Tc = TcStage
 
 type instance E.XLit    Tc = Pos
 type instance E.XVar    Tc = Pos
+type instance E.XImp    Tc = Void     -- Implicits have become explicit.
 type instance E.XCon    Tc = Pos
 type instance E.XAbs    Tc = Pos
 type instance E.XApp    Tc = Pos
@@ -188,6 +189,7 @@ type instance E.XUnLet  Tc = Void     -- Desugared to 'Case'.
 type instance E.XILet   Tc = Void     -- Turned into an explicit binding, desugard to 'Case'.
 type instance E.XPatLet Tc = Void     -- Desugared to 'Case'.
 type instance E.XRec    Tc = Pos
+type instance E.XSig    Tc = Void     -- Not needed any more.
 type instance E.XNew    Tc = Pos
 type instance E.XSelect Tc = Pos
 type instance E.XFork   Tc = Pos      -- TODO: Could be desugared to 'New' + 'Fork_' + ...

@@ -33,6 +33,7 @@ type instance XStage    Rn = RnStage
 
 type instance E.XLit    Rn = Pos
 type instance E.XVar    Rn = Pos
+type instance E.XImp    Rn = Pos
 type instance E.XCon    Rn = Pos
 type instance E.XAbs    Rn = Pos
 type instance E.XApp    Rn = Pos
@@ -46,6 +47,7 @@ type instance E.XUnLet  Rn = Pos
 type instance E.XILet   Rn = Pos
 type instance E.XPatLet Rn = Pos
 type instance E.XRec    Rn = Pos
+type instance E.XSig    Rn = Pos
 type instance E.XNew    Rn = Void  -- BuiltinNew
 type instance E.XSelect Rn = Pos
 type instance E.XFork   Rn = Void  -- BuiltinFork

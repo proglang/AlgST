@@ -495,6 +495,19 @@ synthUntypedLambda lamLoc varLoc var =
     ]
 {-# NOINLINE synthUntypedLambda #-}
 
+synthImplicit :: Pos -> Diagnostic
+synthImplicit p =
+  PosError
+    p
+    [ Error "Cannot deduce type of implicit.",
+      ErrLine,
+      Error "Please provide a type signature, e.g.",
+      ErrLine,
+      indent,
+      Error "(_ :: Int)"
+    ]
+{-# NOINLINE synthImplicit #-}
+
 implicitAppExplicitArrow :: RnExp -> TcType -> Diagnostic
 implicitAppExplicitArrow e funTy =
   PosError (pos e) . errUnline $

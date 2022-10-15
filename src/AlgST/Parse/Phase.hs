@@ -61,6 +61,7 @@ type instance XStage    Parse = PStage
 
 type instance E.XLit    Parse = Pos
 type instance E.XVar    Parse = Pos
+type instance E.XImp    Parse = Pos
 type instance E.XCon    Parse = Pos
 type instance E.XAbs    Parse = Pos
 type instance E.XApp    Parse = Pos
@@ -74,6 +75,7 @@ type instance E.XUnLet  Parse = Pos
 type instance E.XILet   Parse = Pos
 type instance E.XPatLet Parse = Pos
 type instance E.XRec    Parse = Pos
+type instance E.XSig    Parse = Pos
 type instance E.XNew    Parse = Void  -- BuiltinNew
 type instance E.XSelect Parse = Pos
 type instance E.XFork   Parse = Void  -- BuiltinFork
