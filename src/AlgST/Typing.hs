@@ -69,6 +69,7 @@ import AlgST.Parse.Phase
 import AlgST.Rename
 import AlgST.Rename.Fresh
 import AlgST.Syntax.Decl
+import AlgST.Syntax.Destructure qualified as Ds
 import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind ((<=?))
 import AlgST.Syntax.Kind qualified as K
@@ -82,6 +83,7 @@ import AlgST.Typing.Monad
 import AlgST.Typing.NormalForm
 import AlgST.Typing.Phase
 import AlgST.Typing.Subtyping ()
+import AlgST.Typing.Variables
 import AlgST.Util
 import AlgST.Util.ErrorMessage
 import Control.Applicative
@@ -222,16 +224,6 @@ checkModule ctxt p = checkWithModule ctxt p \_ -> pure -- `const pure` does not 
 checkResultAsRnM :: ValidateT Errors Fresh a -> RnM a
 checkResultAsRnM = mapValidateT lift >>> mapErrors runErrors
 
-useVar :: MonadValidate Errors m => Pos -> ProgVar TcStage -> Var -> m Var
-useVar loc name v = case varUsage v of
-  UnUsage ->
-    pure v
-  LinUnunsed ->
-    pure v {varUsage = LinUsed loc}
-  LinUsed ppos -> do
-    Error.add (Error.linVarUsedTwice ppos loc name v)
-    pure v
-
 checkTypeDecls :: (HasKiEnv env, HasKiSt st) => TypesMap Rn -> TcM env st (TypesMap Tc)
 checkTypeDecls = Map.traverseMaybeWithKey checkTypeDecl
 
@@ -318,7 +310,12 @@ applyTypeCon loc name con args = case con of
       let ty = substituteType (Map.fromList subs) (aliasType ta)
       pure (ty, k)
 
-expandTypeAlias :: (HasKiEnv env, HasKiSt st) => NameR Types -> Pos -> TypeAlias Rn -> TcM env st (TypeAlias Tc, K.Kind)
+expandTypeAlias ::
+  (HasKiEnv env, HasKiSt st) =>
+  NameR Types ->
+  Pos ->
+  TypeAlias Rn ->
+  TcM env st (TypeAlias Tc, K.Kind)
 expandTypeAlias name defLoc alias = do
   depth <- asks $ view kiEnvL >>> tcExpansionStack >>> length
   -- Mark the alias as being expanded.
@@ -500,10 +497,7 @@ kisynthTypeCon loc name args = do
   mcon <- gets $ view $ kiStL . tcTypeConsL . at' name
   case mcon of
     Nothing ->
-      error $
-        show loc
-          ++ ": internal error: unknown type constructor "
-          ++ pprName name
+      Error.internal loc [Error "unknown type constructor", Error name]
     Just con ->
       applyTypeCon loc name con args
 
@@ -628,11 +622,15 @@ kicheck t k = do
 checkSubkind :: MonadValidate Errors m => RnType -> K.Kind -> K.Kind -> m ()
 checkSubkind t k1 k2 = errorIf (not (k1 <=? k2)) (Error.unexpectedKind t k1 [k2])
 
+-- | @tysynth e@ synthesizes the type of @e@ and applies all immediate implicit
+-- arguments.
 tysynth :: RnExp -> TypeM (TcExp, TcType)
-tysynth = tysynth' True
+tysynth = tysynthNoImpl >=> runQuery . uncurry eliminateImplicits
 
-tysynth' :: Bool -> RnExp -> TypeM (TcExp, TcType)
-tysynth' elimImplicits e0 = etaTcM case e0 of
+-- | @tysynthNoImpl e@ synthesizes the type of @e@ without filling any implicit
+-- arguments.
+tysynthNoImpl :: RnExp -> TypeM (TcExp, TcType)
+tysynthNoImpl e0 = etaTcM case e0 of
   E.Lit p l -> do
     let t = litType p l
     pure (E.Lit p l, t)
@@ -653,12 +651,12 @@ tysynth' elimImplicits e0 = etaTcM case e0 of
 
   --
   E.Var p v -> do
-    synthVariable elimImplicits p v
+    synthVariable p v
       >>= Error.ifNothing (Error.unboundVar p v)
 
   --
   E.Con p v -> do
-    synthVariable elimImplicits p v
+    synthVariable p v
       >>= Error.ifNothing (Error.undeclaredCon p v)
 
   --
@@ -700,10 +698,7 @@ tysynth' elimImplicits e0 = etaTcM case e0 of
   --
   E.App appLoc e1 e2 -> do
     (e1', t1) <- tysynth e1
-    (s, t, u) <-
-      Error.ifNothing
-        (Error.noArrowType e1 t1)
-        (appArrow t1)
+    (s, _, t, u) <- Error.ifNothing (Error.noArrowType e1 t1) (Ds.appArrow t1)
     when (s /= T.Explicit) do
       Error.internal
         appLoc
@@ -714,8 +709,8 @@ tysynth' elimImplicits e0 = etaTcM case e0 of
   --
   E.IApp loc e1 e2 -> do
     -- Synthesize the type of e1 but don't fill in implicit arguments.
-    (e1', t1) <- tysynth' False e1
-    (s, t, u) <- Error.ifNothing (Error.noArrowType e1 t1) (appArrow t1)
+    (e1', t1) <- tysynthNoImpl e1
+    (s, _, t, u) <- Error.ifNothing (Error.noArrowType e1 t1) (Ds.appArrow t1)
     when (s /= T.Implicit) do
       Error.add $ Error.implicitAppExplicitArrow e0 t1
     e2' <- tycheck e2 t
@@ -728,10 +723,7 @@ tysynth' elimImplicits e0 = etaTcM case e0 of
     pure (E.New p t', newT)
   E.TypeApp p e t -> do
     (e', eTy) <- tysynth e
-    K.Bind _ v k u <-
-      Error.ifNothing
-        (Error.noForallType e eTy)
-        (appTArrow eTy)
+    K.Bind _ v k u <- Error.ifNothing (Error.noForallType e eTy) (Ds.appTArrow eTy)
     t' <- kicheck t k
     let u' = substituteType (Map.singleton v t') u
     pure (E.TypeApp p e' t', u')
@@ -886,15 +878,11 @@ extractMatchableType s p t = etaTcM do
 -- | Looks up the type for the given 'ProgVar'. This function works correctly
 -- for local variables, globals and constructors.
 --
--- The first argument specifies whether implicit arguments in the variables
--- definition should be filled in automatically.
+-- In contrast to Odersky et al. we do not eliminate implicits immediately but
+-- only if required at a later stage.
 synthVariable ::
-  Bool -> Pos -> ProgVar TcStage -> TypeM (Maybe (TcExp, TcType))
-synthVariable elimImplicits p name = runMaybeT do
-  (varE, varT) <- useLocal <|> useGlobal
-  if elimImplicits
-    then lift $ elim varT varE varT
-    else pure (varE, varT)
+  Pos -> ProgVar TcStage -> TypeM (Maybe (TcExp, TcType))
+synthVariable p name = runMaybeT $ useLocal <|> useGlobal
   where
     useLocal = do
       info <- MaybeT $ gets $ tcTypeEnv >>> Map.lookup name
@@ -914,52 +902,6 @@ synthVariable elimImplicits p name = runMaybeT do
         ValueCon (ProtocolCon _ parent _ _) ->
           Error.fatal $ Error.protocolConAsValue p name parent
 
-    -- Eliminate immediate implicit arguments when the variable resolves to a
-    -- function type.
-    elim :: TcType -> TcExp -> TcType -> TypeM (TcExp, TcType)
-    elim ty0 e ty | Just (T.Implicit, t, u) <- appArrow ty = etaTcM do
-      possibleImplicits <- filterImplicits p t
-      chosenImplicit <- case possibleImplicits of
-        [(_, mkI)] -> mkI
-        [] -> Error.fatal $ Error.noImplicitFound p name ty0 t
-        _ -> Error.fatal $ Error.manyImplicitsFound p t (nf t) (fst <$> possibleImplicits)
-      -- i <- Error.ifNothing err =<< queryImplicit p t
-      elim ty0 (E.App (pos e) e chosenImplicit) u
-    elim _ e ty = pure (e, ty)
-
--- | Filters the set of available implicits down to the ones matching the given
--- target type. The returned expression include
-filterImplicits :: Pos -> TcType -> TypeM [((ProgVar TcStage, Var), TypeM TcExp)]
-filterImplicits loc target = do
-  st <- get
-  env <- ask
-  ctxt <- gets tcTypeEnv
-  let check :: (Name TcStage 'Values, Var) -> Maybe ((ProgVar TcStage, Var), TypeM TcExp)
-      check (n, v) = do
-        guard $ varSpecific v == T.Implicit
-        let chk =
-              tycheck (E.Var loc n) target
-                & runValidateT
-                & flip runStateT st
-                & flip runReaderT env
-        undefined
-  pure $ mapMaybe check $ Map.toList ctxt
-  where
-    --  (name, var) <- case filter (matchingVar targetNF . snd) (Map.toList ctxt) of
-    --    [] -> empty
-    --    [a] -> pure a
-    --    nvs -> undefined
-    --  -- Register usage of variable.
-    --  usedVar <- useVar loc name var
-    --  modify $ tcTypeEnvL %~ Map.insert name usedVar
-    --  -- Construct accessing expression.
-    --  pure $ E.Var loc name
-
-    matchingVar :: TcType -> Var -> Bool
-    matchingVar tNF v = isJust do
-      vNF <- nf (varType v)
-      guard $ Eq.Alpha vNF <= Eq.Alpha tNF
-
 instantiateDeclRef ::
   Pos -> TypeVar TcStage -> TypeDecl Tc -> TcM env st (Params TcStage, TypeRef)
 instantiateDeclRef p name decl = do
@@ -973,35 +915,6 @@ instantiateDeclRef p name decl = do
           typeRefArgs = (\(p :@ tv, k) -> T.Var (p @- k) tv) <$> params
         }
     )
-
--- | Tries to destructure a type into into domain and codomain of an arrow.
--- This includes applying the forall isomorphism to push quantified type
--- variables further down if allowed.
-appArrow :: TcType -> Maybe (T.Specificity, TcType, TcType)
-appArrow = go id Set.empty
-  where
-    go prependPushed pushed = \case
-      T.Arrow _ s _ t u
-        | not (liftNameSet pushed `anyFree` t) ->
-            Just (s, t, prependPushed u)
-      T.Forall x (K.Bind x' v k t) ->
-        go
-          (prependPushed . T.Forall x . K.Bind x' v k)
-          (Set.insert v pushed)
-          t
-      _ ->
-        Nothing
-
-appTArrow :: TcType -> Maybe (K.Bind TcStage TcType)
-appTArrow = go id
-  where
-    go prependArrows = \case
-      T.Forall _ (K.Bind x' v k t) ->
-        Just (K.Bind x' v k $ prependArrows t)
-      T.Arrow x s m t u ->
-        go (prependArrows . T.Arrow x s m t) u
-      _ ->
-        Nothing
 
 checkIfExpr :: Pos -> RnExp -> RnExp -> RnExp -> Maybe TcType -> TypeM (TcExp, TcType)
 checkIfExpr loc eCond eThen eElse mExpectedTy = do
@@ -1017,7 +930,7 @@ checkIfExpr loc eCond eThen eElse mExpectedTy = do
     (,)
       <$> checkBranch (Error.CondThen (pos eThen)) (checkOrSynth eThen)
       <*> checkBranch (Error.CondElse (pos eElse)) (checkOrSynth eElse)
-  let resTy = error "checkIfExpr: no result type" `fromMaybe` mresTy
+  resTy <- maybe (Error.internal loc [Error "no result type"]) pure mresTy
 
   let branches =
         Map.fromList
@@ -1375,40 +1288,49 @@ tysynthBind absLoc (E.Bind p m v (Just ty) e) = do
   pure (E.Bind p m v (Just ty') e', funTy)
 
 tycheckBind :: Pos -> E.Bind Rn -> TcType -> TypeM (E.Bind Tc)
-tycheckBind absLoc bind@(E.Bind p m v mVarTy e) bindTy =
-  case appArrow bindTy of
-    Just (T.Implicit, _, _) -> do
-      Error.internal
-        absLoc
-        [Error "unexpected implicit function", Error bindTy]
-    Just (_, t, u) -> do
-      -- Check the type annotation's kind.
-      mVarTy' <- traverse (`kicheck` K.TL) mVarTy
-      -- Give the bound variable the type from the annoation if available and
-      -- fall back to the arrows domain.
-      let varTy = t `fromMaybe` mVarTy'
-      -- The returned bind uses the explicit type.
-      let varTy' = T.makeExplicit varTy
-      -- Check that the arrow type constructed from `varTy` and the context
-      -- type's codomain is a subtype of the context type.
-      --
-      -- This checkes that the linearities of the arrows are well behaved
-      -- relative to each other.
-      --
-      -- This branch can only be taken when we are checking against an explicit
-      -- arrow.
-      requireSubtype absExpr (T.Arrow p T.Explicit m varTy u) bindTy
-      -- Check the binding's body.
-      e' <-
-        withProgVarBinds_
-          (unrestrictedLoc absLoc m)
-          [mkExplicit p v varTy]
-          (tycheck e u)
-      pure $ E.Bind p m v (Just varTy') e'
-    Nothing -> do
-      Error.fatal $ Error.noArrowType absExpr bindTy
+tycheckBind absLoc _bind bindTy@(Ds.Arrow T.Implicit _ _ _) = do
+  -- Implicit functions types should have been handled by the first clause of
+  -- `tycheck`.
+  --
+  -- TODO: `tycheckBind` can be called from `checkRecLam`. Verify that this
+  -- precondition holds then as well.
+  Error.internal
+    absLoc
+    [ Error "unexpectedly checking bind against an implicit function type:",
+      ErrLine,
+      Error.indent,
+      Error bindTy
+    ]
+tycheckBind absLoc bind@(E.Bind p m v mVarTy e) bindTy@(Ds.Arrow T.Explicit _ t u) = do
+  -- Check the type annotation's kind.
+  mVarTy' <- traverse (`kicheck` K.TL) mVarTy
+  -- Give the bound variable the type from the annoation if available and
+  -- fall back to the arrows domain.
+  let varTy = t `fromMaybe` mVarTy'
+  -- The returned bind uses the explicit type.
+  let varTy' = T.makeExplicit varTy
+  -- Check that the arrow type constructed from `varTy` and the context
+  -- type's codomain is a subtype of the context type.
+  --
+  -- This checkes that the linearities of the arrows are well behaved
+  -- relative to each other.
+  --
+  -- This branch can only be taken when we are checking against an explicit
+  -- arrow.
+  requireSubtype absExpr (T.Arrow p T.Explicit m varTy u) bindTy
+  -- Check the binding's body.
+  e' <-
+    withProgVarBinds_
+      (unrestrictedLoc absLoc m)
+      [mkExplicit p v varTy]
+      (tycheck e u)
+  pure $ E.Bind p m v (Just varTy') e'
   where
     absExpr = E.Abs p bind
+tycheckBind _ bind bindTy = do
+  Error.fatal $ Error.noArrowType absExpr bindTy
+  where
+    absExpr = E.Abs (pos bind) bind
 
 -- | Synthesizes the 'T.Forall' type of a @"AlgST.Syntax.Kind".'K.Bind' a@. The
 -- type of @a@ is synthesized with the provided function.
@@ -1429,15 +1351,14 @@ tycheckTyBind ::
   K.Bind TcStage a ->
   TcType ->
   TcM env st (K.Bind TcStage b)
-tycheckTyBind check bindExpr b@(K.Bind p v k a) t =
-  case appTArrow t of
-    Just (K.Bind p' v' k' t') | k == k' -> do
+tycheckTyBind check _bindExpr (K.Bind p v k a) (Ds.TArrow (K.Bind p' v' k' t'))
+  | k == k' = do
       let substMap = Map.singleton v' $ T.Var (p' @- k') v
       let tSubst = substituteType @Tc substMap t'
       local (bindTyVar v k) do
         K.Bind p v k <$> check a tSubst
-    _ -> do
-      Error.fatal $ Error.typeMismatchBind b t bindExpr
+tycheckTyBind _check bindExpr b t =
+  Error.fatal $ Error.typeMismatchBind b t bindExpr
 
 checkRecLam :: E.RecLam Rn -> TcType -> TypeM (E.RecLam Tc)
 checkRecLam = go
@@ -1482,7 +1403,7 @@ mkExplicitL (p :@ v) = mkBinding T.Explicit p v
 
 mkImplicit :: HasPos p => p -> Maybe (ProgVar TcStage) -> TcType -> Binding
 mkImplicit p mv ty = Binding do
-  v <- maybe (freshLocal "implicit") pure mv
+  v <- maybe (freshLocal "«implicit-arg»") pure mv
   runBinding $ mkBinding T.Implicit (pos p) v ty
 
 withProgVarBinds_ :: Maybe Pos -> [Binding] -> TypeM a -> TypeM a
@@ -1531,18 +1452,20 @@ withProgVarBinds !mUnArrLoc bindings action = etaTcM do
   pure a
 
 tycheck :: RnExp -> ContextType -> TypeM TcExp
--- TODO: Do we have to apply the forall-isomorphism?
-tycheck e (T.Arrow _ T.Implicit m t u) = do
+-- Special handling when we check against an implicit arrow: We build a lambda
+-- abstraction which binds the implicit argument.
+--
+-- TODO: Is the forall-isomorphism (matching against `Ds.Arrow`, instead of
+-- `T.Arrow`) here helpful, or maybe even bad?
+tycheck e (Ds.Arrow T.Implicit m t u) = do
   let !loc = pos e
   let bind = mkImplicit loc Nothing t
   withProgVarBinds (unrestrictedLoc loc m) (Identity bind) \(Identity (y, _)) ->
     E.Abs (pos e) . E.Bind (pos e) m y (Just t) <$> tycheck e u
--- tycheck (E.Abs l bind) (T.Arrow _ T.Explicit m t u) = do
 tycheck e0 u = case e0 of
   --
-  E.Imp _p -> do
-    -- TODO: Lookup the implicit of the matching type.
-    undefined
+  E.Imp p -> do
+    runQuery $ queryImplicit p u
 
   --
   E.Abs p bnd -> do

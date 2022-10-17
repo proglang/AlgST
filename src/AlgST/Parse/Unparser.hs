@@ -47,11 +47,9 @@ instance Show K.Multiplicity where
   show K.Un = "U"
   show K.Lin = "L"
 
-showArrow :: T.Specificity -> K.Multiplicity -> String
-showArrow T.Explicit K.Un = " -> "
-showArrow T.Explicit K.Lin = " -o "
-showArrow T.Implicit K.Un = " ?-> "
-showArrow T.Implicit K.Lin = " ?-o "
+showArrow :: K.Multiplicity -> String
+showArrow K.Un = " -> "
+showArrow K.Lin = " -o "
 
 type Brackets = (Char, Char)
 
@@ -72,19 +70,19 @@ showForall :: Unparse (T.XType x) => K.Bind (XStage x) (T.Type x) -> String
 showForall (K.Bind _ a k t) = "forall " ++ showKind bracketsRound a k ". " t
 
 instance (Unparse (E.XExp x), Unparse (T.XType x)) => Show (E.Bind x) where
-  show (E.Bind _ m x Nothing e) = pprName x ++ showArrow T.Explicit m ++ show e
-  show (E.Bind _ m x (Just t) e) = showKind bracketsRound x t (showArrow T.Explicit m) e
+  show (E.Bind _ m x Nothing e) = pprName x ++ showArrow m ++ show e
+  show (E.Bind _ m x (Just t) e) = showKind bracketsRound x t (showArrow m) e
 
 data Precedence
   = PMin
-  | -- | > e : t
-    PSig
-  | -- | @in@, @else@, @case@, @rec@ (expressions)
-    PIn
-  | POpMin
-  | POp Op.Precedence
   | -- | @λ … -> e@ in expressions,  @… -> …@ in types.
     PArrow
+  | -- | @in@, @else@, @case@, @rec@ (expressions)
+    PIn
+  | -- | > e : t
+    PSig
+  | POpMin
+  | POp Op.Precedence
   | -- | @T1 . T2@
     PDot
   | -- | @dualof T@
@@ -159,9 +157,11 @@ instance Unparse (T.XType x) => Unparse (T.Type x) where
       t' = bracket (unparse t) Op.L dotRator
       u' = bracket (unparse u) Op.R dotRator
   unparse (T.End _ p) = (maxRator, "End" ++ show p)
-  unparse (T.Arrow _ s m t u) = (arrowRator, l ++ showArrow s m ++ r)
+  unparse (T.Arrow _ s m t u) = (arrowRator, l ++ showArrow m ++ r)
     where
-      l = bracket (unparse t) Op.L arrowRator
+      l = case s of
+        T.Explicit -> bracket (unparse t) Op.L arrowRator
+        T.Implicit -> "{" ++ show t ++ "}"
       r = bracket (unparse u) Op.R arrowRator
   unparse (T.Pair _ t u) = (maxRator, "(" ++ l ++ ", " ++ r ++ ")")
     where

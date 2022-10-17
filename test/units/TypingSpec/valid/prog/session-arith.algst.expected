@@ -240,7 +240,7 @@ arithServer#M.3
                   |                       |  |  |
                   |                       |  |  +- Exp.TypeApp
                   |                       |  |  |  |
-                  |                       |  |  |  +- Exp.Var send#Builtin.34
+                  |                       |  |  |  +- Exp.Var send#Builtin.35
                   |                       |  |  |  |
                   |                       |  |  |  `- Type.Type
                   |                       |  |  |     |
@@ -308,7 +308,7 @@ arithServer#M.3
                                  |  |  |
                                  |  |  +- Exp.TypeApp
                                  |  |  |  |
-                                 |  |  |  +- Exp.Var send#Builtin.34
+                                 |  |  |  +- Exp.Var send#Builtin.35
                                  |  |  |  |
                                  |  |  |  `- Type.Type
                                  |  |  |     |

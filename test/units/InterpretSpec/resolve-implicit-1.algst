@@ -1,0 +1,4 @@
+main : Int
+main =
+  let {x} = 42 in
+  _

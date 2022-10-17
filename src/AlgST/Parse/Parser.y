@@ -67,6 +67,27 @@ import           AlgST.Util.Error
 import           AlgST.Util.ErrorMessage
 }
 
+{- Expected S/R conflicts
+   ~~~~~~~~~~~~~~~~~~~~~~
+
+* Type signatures in expressions.
+
+    GIVEN:  if x then y else z :: T
+        A:  if x then y else (z :: T)
+        B:  (if x then y else z) :: T
+
+  We want choice A which is taken by resolving the S/R conflict to a SHIFT.
+  Resolving this case seems complicated because of the handling regarding
+  application and operator sequences:
+
+     GIVEN: f x y :: T
+    WANTED: (f x y) :: T
+
+     GIVEN: f x let z = e in z :: T
+    WANTED: f x let z = e in (z :: T)
+-}
+%expect 1
+
 %name parseModule_  Module
 %name parseImports_ Imports
 %name parseDecls_   Decls
@@ -303,14 +324,15 @@ TyVarList :: { DL.DList (Located AName) }
 -------------------------------------------------------------------------------
 
 EAtom :: { PExp }
-  : INT                            { E.Lit (pos $1) $ E.Int    (unL $1) }
+  : '_'                            { E.Imp (pos $1) }
+  | INT                            { E.Lit (pos $1) $ E.Int    (unL $1) }
   | CHAR                           { E.Lit (pos $1) $ E.Char   (unL $1) }
   | STR                            { E.Lit (pos $1) $ E.String (unL $1) }
   | '()'                           { E.Lit (pos $1) E.Unit }
   | '(,)'                          {% fatalError $ errorMisplacedPairCon @Values (pos $1) Proxy }
   | ProgVar                        { uncurryL E.Var $1 }
   | Constructor                    { uncurryL E.Con $1 }
-  | '(' ExpInner ')'               {% $2 InParens }
+  | '(' ExpSig ')'                 {% $2 InParens }
   | '(' Exp ',' Exp ')'            { E.Pair (pos $1) $2 $4 }
   | case Exp of Cases              { E.Case (pos $1) $2 $4 }
   | new                            { E.Exp $ Left $ BuiltinNew (pos $1) }
@@ -360,8 +382,15 @@ ExpInner :: { Parenthesized -> ParseM PExp }
   : EOps                           { $1 }
   | EAppTail                       { const (pure $1) }
 
+ExpSig :: { Parenthesized -> ParseM PExp }
+  : ExpInner                       { $1 }
+  | ExpInner TySig                 { \p -> do
+      e <- $1 p
+      pure $ E.Sig (pos e) e $2
+    }
+
 Exp :: { PExp }
-  : ExpInner                       {% $1 TopLevel }
+  : ExpSig                         {% $1 TopLevel }
 
 TypeApps :: { DL.DList PType }
   : Type                           { DL.singleton $1 }

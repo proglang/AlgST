@@ -452,7 +452,7 @@ sum#M.9
             |                 |                          |  |  |  |
             |                 |                          |  |  |  +- Exp.TypeApp
             |                 |                          |  |  |  |  |
-            |                 |                          |  |  |  |  +- Exp.Var send#Builtin.34
+            |                 |                          |  |  |  |  +- Exp.Var send#Builtin.35
             |                 |                          |  |  |  |  |
             |                 |                          |  |  |  |  `- Type.Type
             |                 |                          |  |  |  |     |
@@ -510,7 +510,7 @@ sum#M.9
             |                 |                                   |  |  |  |
             |                 |                                   |  |  |  +- Exp.TypeApp
             |                 |                                   |  |  |  |  |
-            |                 |                                   |  |  |  |  +- Exp.Var send#Builtin.34
+            |                 |                                   |  |  |  |  +- Exp.Var send#Builtin.35
             |                 |                                   |  |  |  |  |
             |                 |                                   |  |  |  |  `- Type.Type
             |                 |                                   |  |  |  |     |

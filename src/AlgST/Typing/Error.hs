@@ -518,32 +518,28 @@ implicitAppExplicitArrow e funTy =
     ]
 {-# NOINLINE implicitAppExplicitArrow #-}
 
-noImplicitFound :: Pos -> ProgVar TcStage -> TcType -> TcType -> Diagnostic
-noImplicitFound varLoc varName varType impTy =
-  PosError
-    varLoc
-    [ Error "No implicit of type",
-      ErrLine,
-      indent,
-      Error impTy,
-      ErrLine,
-      Error "bound at reference to",
-      Error varName,
-      Error "of type",
-      ErrLine,
-      indent,
-      Error varType
-    ]
+noImplicitFound :: Pos -> TcType -> Maybe TcType -> Diagnostic
+noImplicitFound loc impTy impNF =
+  PosError loc $
+    Error "No implicit available of type"
+      : ErrLine
+      : showType impTy impNF
 {-# NOINLINE noImplicitFound #-}
 
-manyImplicitsFound :: Pos -> TcType -> Maybe TcType -> [(ProgVar TcStage, Var)] -> Diagnostic
-manyImplicitsFound loc ty tyNF choices =
+manyImplicitsFound :: Pos -> TcType -> [(ProgVar TcStage, Maybe Pos)] -> Diagnostic
+manyImplicitsFound loc ty choices =
   PosError loc . errUnline $
-    [Error "Multiple chocies for implicit of type"]
-      : showType ty tyNF
-      : [ Error "•" : Error name : ErrLine : showType t (nf t)
-          | (name, Var {varType = t}) <- choices
-        ]
+    [Error "Multiple chocies for implicit of type", Error ty]
+      : fmap showChoice choices
+  where
+    showLoc n Nothing = [Error "imported from", Error (nameResolvedModule n)]
+    showLoc _ (Just defLoc) = [Error "bound at", Error defLoc]
+    showChoice (name, mdefLoc) =
+      Error "  •"
+        : Error name
+        : ErrLine
+        : Error "   "
+        : showLoc name mdefLoc
 {-# NOINLINE manyImplicitsFound #-}
 
 showType :: TcType -> Maybe TcType -> [ErrorMessage]

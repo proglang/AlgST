@@ -179,7 +179,7 @@ instance MakeExplicit (XType x) => MakeExplicit (Type x) where
     Arrow x _ m t u -> Arrow x Explicit m (makeExplicit t) (makeExplicit u)
     Pair x t u -> Pair x (makeExplicit t) (makeExplicit u)
     Session x p t u -> Session x p (makeExplicit t) (makeExplicit u)
-    End x -> End x
+    End x p -> End x p
     Forall x (K.Bind p v k t) -> Forall x $ K.Bind p v k $ makeExplicit t
     Var x n -> Var x n
     Con x n -> Con x n
