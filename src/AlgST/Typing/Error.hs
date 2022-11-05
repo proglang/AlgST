@@ -504,7 +504,7 @@ synthImplicit p =
       Error "Please provide a type signature, e.g.",
       ErrLine,
       indent,
-      Error "(_ :: Int)"
+      Error "(_ : Int)"
     ]
 {-# NOINLINE synthImplicit #-}
 
