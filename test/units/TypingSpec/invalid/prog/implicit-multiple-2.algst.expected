@@ -1,0 +1,14 @@
+
+8:26: error:
+	 Multiple chocies for implicit of type Int
+	   • «implicit-arg»
+	     bound at 8:26
+	   • a
+	     imported from M
+
+12:9: error:
+	 Multiple chocies for implicit of type Int
+	   • «implicit-arg»
+	     bound at 12:9
+	   • a
+	     imported from M

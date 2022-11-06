@@ -132,7 +132,15 @@ fromMaybe#M.3
                         |
                         `- Exp.App
                            |
-                           +- Exp.Var makeA#M.7
+                           +- Exp.Abs L ()#M.12
+                           |  |
+                           |  +- Type.Unit
+                           |  |
+                           |  `- Exp.App
+                           |     |
+                           |     +- Exp.Var makeA#M.7
+                           |     |
+                           |     `- Exp.Var ()#M.12
                            |
                            `- Exp.Lit
                               |

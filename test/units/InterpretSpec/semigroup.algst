@@ -1,0 +1,55 @@
+data Sum = Sum Int
+
+type Semigroup a = a -> a -> a
+
+append : ∀a. {Semigroup a} -> a -> a -> a
+append [a] = implicit[Semigroup a]
+
+type Monoid a = (a, Semigroup a)
+
+{semigroupSum} : Semigroup Sum
+{semigroupSum} x y =
+  let Sum x' = x in
+  let Sum y' = y in
+  Sum (x' + y')
+
+{monoidSum} : Monoid Sum
+{monoidSum} = (Sum 0, semigroupSum)
+
+{monoidParent} : ∀a. {Monoid a} -> Semigroup a
+{monoidParent} [a] = snd [a, Semigroup a] (implicit [Monoid a])
+
+mempty : ∀a. {Monoid a} -> a
+mempty [a] = fst [a, Semigroup a] (implicit [Monoid a])
+
+data List a = Nil | Cons a (List a)
+
+fold : ∀a. List a -> {Monoid a} -> a
+fold [a] as =
+  let {monoidParent'} =
+        monoidParent [a]
+  in
+  case as of {
+    Nil -> mempty [a],
+    Cons a as' -> append [a] a (fold [a] as')
+  }
+
+map : ∀a b. (a -> b) -> List a -> List b
+map [a, b] f as = case as of {
+  Nil -> Nil [b],
+  Cons a as' -> Cons [b] (f a) (map [a,b] f as'),
+}
+
+foldMap : ∀a b. (a -> b) -> List a -> {Monoid b} -> b
+foldMap [a, b] f as = let r = fold [b] (map [a,b] f as) in r
+
+range : Int -> Int -> List Int
+range start end' =
+  if start >= end' then
+    Nil[Int]
+  else
+    Cons [Int] start <| range (start + 1) end'
+
+-- Sum the numbers [0,10)
+main : Sum
+main = foldMap [Int, Sum] Sum (range 0 10)

@@ -200,33 +200,65 @@ altLength#M.3
             |                    |  |
             |                    |  `- Exp.App
             |                    |     |
-            |                    |     +- Exp.App
+            |                    |     +- Exp.Abs L xs#M.22
             |                    |     |  |
-            |                    |     |  +- Exp.TypeApp
+            |                    |     |  +- Type.Type
             |                    |     |  |  |
-            |                    |     |  |  +- Exp.TypeApp
-            |                    |     |  |  |  |
-            |                    |     |  |  |  +- Exp.Var go#M.14
-            |                    |     |  |  |  |
-            |                    |     |  |  |  `- Type.Var b#M.16
-            |                    |     |  |  |     |
-            |                    |     |  |  |     `- TU
-            |                    |     |  |  |
-            |                    |     |  |  `- Type.Var a#M.15
+            |                    |     |  |  `- TypeRef
             |                    |     |  |     |
-            |                    |     |  |     `- TU
+            |                    |     |  |     +- AltList
+            |                    |     |  |     |
+            |                    |     |  |     +- Type.Var b#M.16
+            |                    |     |  |     |  |
+            |                    |     |  |     |  `- TU
+            |                    |     |  |     |
+            |                    |     |  |     `- Type.Var a#M.15
+            |                    |     |  |        |
+            |                    |     |  |        `- TU
             |                    |     |  |
             |                    |     |  `- Exp.App
             |                    |     |     |
             |                    |     |     +- Exp.App
             |                    |     |     |  |
-            |                    |     |     |  +- Exp.Var (+)#Builtin.19
+            |                    |     |     |  +- Exp.TypeApp
+            |                    |     |     |  |  |
+            |                    |     |     |  |  +- Exp.TypeApp
+            |                    |     |     |  |  |  |
+            |                    |     |     |  |  |  +- Exp.Var go#M.14
+            |                    |     |     |  |  |  |
+            |                    |     |     |  |  |  `- Type.Var b#M.16
+            |                    |     |     |  |  |     |
+            |                    |     |     |  |  |     `- TU
+            |                    |     |     |  |  |
+            |                    |     |     |  |  `- Type.Var a#M.15
+            |                    |     |     |  |     |
+            |                    |     |     |  |     `- TU
             |                    |     |     |  |
-            |                    |     |     |  `- Exp.Var acc#M.17
+            |                    |     |     |  `- Exp.App
+            |                    |     |     |     |
+            |                    |     |     |     +- Exp.Abs L 1#M.23
+            |                    |     |     |     |  |
+            |                    |     |     |     |  +- Type.Type
+            |                    |     |     |     |  |  |
+            |                    |     |     |     |  |  `- TypeRef
+            |                    |     |     |     |  |     |
+            |                    |     |     |     |  |     `- Int
+            |                    |     |     |     |  |
+            |                    |     |     |     |  `- Exp.App
+            |                    |     |     |     |     |
+            |                    |     |     |     |     +- Exp.App
+            |                    |     |     |     |     |  |
+            |                    |     |     |     |     |  +- Exp.Var (+)#Builtin.19
+            |                    |     |     |     |     |  |
+            |                    |     |     |     |     |  `- Exp.Var acc#M.17
+            |                    |     |     |     |     |
+            |                    |     |     |     |     `- Exp.Var 1#M.23
+            |                    |     |     |     |
+            |                    |     |     |     `- Exp.Lit
+            |                    |     |     |        |
+            |                    |     |     |        `- Lit.Int 1
             |                    |     |     |
-            |                    |     |     `- Exp.Lit
-            |                    |     |        |
-            |                    |     |        `- Lit.Int 1
+            |                    |     |     `- Exp.Var xs#M.22
             |                    |     |
             |                    |     `- Exp.Var xs#M.20
             |                    |
@@ -238,7 +270,19 @@ altLength#M.3
                |
                `- Exp.App
                   |
-                  +- Exp.Var go#M.21
+                  +- Exp.Abs L 0#M.24
+                  |  |
+                  |  +- Type.Type
+                  |  |  |
+                  |  |  `- TypeRef
+                  |  |     |
+                  |  |     `- Int
+                  |  |
+                  |  `- Exp.App
+                  |     |
+                  |     +- Exp.Var go#M.21
+                  |     |
+                  |     `- Exp.Var 0#M.24
                   |
                   `- Exp.Lit
                      |

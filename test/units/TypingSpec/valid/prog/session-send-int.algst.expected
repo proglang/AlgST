@@ -50,27 +50,45 @@ sendInt1#M.0
             |
             `- Exp.App
                |
-               +- Exp.App
+               +- Exp.Abs L c#M.4
                |  |
-               |  +- Exp.TypeApp
+               |  +- Type.Session (!)
                |  |  |
-               |  |  +- Exp.TypeApp
+               |  |  +- Type.Type
                |  |  |  |
-               |  |  |  +- Exp.Var send#Builtin.35
-               |  |  |  |
-               |  |  |  `- Type.Type
+               |  |  |  `- TypeRef
                |  |  |     |
-               |  |  |     `- TypeRef
-               |  |  |        |
-               |  |  |        `- Int
+               |  |  |     `- Int
                |  |  |
                |  |  `- Type.Var s#M.1
                |  |     |
                |  |     `- SL
                |  |
-               |  `- Exp.Lit
+               |  `- Exp.App
                |     |
-               |     `- Lit.Int 1
+               |     +- Exp.App
+               |     |  |
+               |     |  +- Exp.TypeApp
+               |     |  |  |
+               |     |  |  +- Exp.TypeApp
+               |     |  |  |  |
+               |     |  |  |  +- Exp.Var send#Builtin.35
+               |     |  |  |  |
+               |     |  |  |  `- Type.Type
+               |     |  |  |     |
+               |     |  |  |     `- TypeRef
+               |     |  |  |        |
+               |     |  |  |        `- Int
+               |     |  |  |
+               |     |  |  `- Type.Var s#M.1
+               |     |  |     |
+               |     |  |     `- SL
+               |     |  |
+               |     |  `- Exp.Lit
+               |     |     |
+               |     |     `- Lit.Int 1
+               |     |
+               |     `- Exp.Var c#M.4
                |
                `- Exp.Var c#M.2
 

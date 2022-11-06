@@ -1,0 +1,160 @@
+calc#M.2
+|
+`- SignatureDecl
+   |
+   `- type
+      |
+      `- Type.Arrow U
+         |
+         +- Type.Type
+         |  |
+         |  `- TypeRef
+         |     |
+         |     `- Int
+         |
+         `- Type.Type
+            |
+            `- TypeRef
+               |
+               `- Int
+
+check#M.0
+|
+`- ValueDecl
+   |
+   +- type
+   |  |
+   |  `- Type.Type
+   |     |
+   |     `- TypeRef
+   |        |
+   |        `- Int
+   |
+   +- params
+   |
+   `- definition
+      |
+      `- Exp.Exp
+         |
+         `- TcExpX.ValueCase
+            |
+            +- Exp.Lit
+            |  |
+            |  `- Lit.Int 42
+            |
+            `- number#M.3
+               |
+               `- Exp.App
+                  |
+                  +- Exp.Abs L implicit [Int] + 10#M.6
+                  |  |
+                  |  +- Type.Type
+                  |  |  |
+                  |  |  `- TypeRef
+                  |  |     |
+                  |  |     `- Int
+                  |  |
+                  |  `- Exp.App
+                  |     |
+                  |     +- Exp.Var calc#M.2
+                  |     |
+                  |     `- Exp.Var implicit [Int] + 10#M.6
+                  |
+                  `- Exp.App
+                     |
+                     +- Exp.App
+                     |  |
+                     |  +- Exp.Var (+)#Builtin.19
+                     |  |
+                     |  `- Exp.App
+                     |     |
+                     |     +- Exp.TypeApp
+                     |     |  |
+                     |     |  +- Exp.Var implicit#Builtin.32
+                     |     |  |
+                     |     |  `- Type.Type
+                     |     |     |
+                     |     |     `- TypeRef
+                     |     |        |
+                     |     |        `- Int
+                     |     |
+                     |     `- Exp.Var number#M.3
+                     |
+                     `- Exp.Lit
+                        |
+                        `- Lit.Int 10
+
+synth#M.1
+|
+`- ValueDecl
+   |
+   +- type
+   |  |
+   |  `- Type.Type
+   |     |
+   |     `- TypeRef
+   |        |
+   |        `- Int
+   |
+   +- params
+   |
+   `- definition
+      |
+      `- Exp.Exp
+         |
+         `- TcExpX.ValueCase
+            |
+            +- Exp.Lit
+            |  |
+            |  `- Lit.Int 42
+            |
+            `- number#M.4
+               |
+               `- Exp.Exp
+                  |
+                  `- TcExpX.ValueCase
+                     |
+                     +- Exp.App
+                     |  |
+                     |  +- Exp.Var calc#M.2
+                     |  |
+                     |  `- Exp.App
+                     |     |
+                     |     +- Exp.Abs L 10#M.7
+                     |     |  |
+                     |     |  +- Type.Type
+                     |     |  |  |
+                     |     |  |  `- TypeRef
+                     |     |  |     |
+                     |     |  |     `- Int
+                     |     |  |
+                     |     |  `- Exp.App
+                     |     |     |
+                     |     |     +- Exp.App
+                     |     |     |  |
+                     |     |     |  +- Exp.Var (+)#Builtin.19
+                     |     |     |  |
+                     |     |     |  `- Exp.App
+                     |     |     |     |
+                     |     |     |     +- Exp.TypeApp
+                     |     |     |     |  |
+                     |     |     |     |  +- Exp.Var implicit#Builtin.32
+                     |     |     |     |  |
+                     |     |     |     |  `- Type.Type
+                     |     |     |     |     |
+                     |     |     |     |     `- TypeRef
+                     |     |     |     |        |
+                     |     |     |     |        `- Int
+                     |     |     |     |
+                     |     |     |     `- Exp.Var number#M.4
+                     |     |     |
+                     |     |     `- Exp.Var 10#M.7
+                     |     |
+                     |     `- Exp.Lit
+                     |        |
+                     |        `- Lit.Int 10
+                     |
+                     `- r#M.5
+                        |
+                        `- Exp.Var r#M.5
+

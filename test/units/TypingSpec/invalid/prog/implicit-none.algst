@@ -1,0 +1,13 @@
+-- Compare with
+--
+--   * valid/prog/implicit-top-level.aglst
+--   * valid/prog/implicit-local.algst
+--   * valid/prog/implicit-higher-order-call.algst
+--
+-- which all share the same structure but provide the requested implicit `Int`
+-- on different levels.
+
+calc : Int -> Int
+
+f : Int
+f = calc (implicit[Int] + 10)

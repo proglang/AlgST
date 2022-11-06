@@ -1,0 +1,7 @@
+
+11:5: error:
+	 Multiple chocies for implicit of type Int
+	   • a
+	     imported from M
+	   • b
+	     imported from M

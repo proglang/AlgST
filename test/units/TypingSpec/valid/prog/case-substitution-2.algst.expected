@@ -192,11 +192,19 @@ empty_head#M.7
             |  |
             |  `- Exp.App
             |     |
-            |     +- Exp.TypeApp
+            |     +- Exp.Abs L x#M.19
             |     |  |
-            |     |  +- Exp.Con Just#M.3
+            |     |  +- Type.Unit
             |     |  |
-            |     |  `- Type.Unit
+            |     |  `- Exp.App
+            |     |     |
+            |     |     +- Exp.TypeApp
+            |     |     |  |
+            |     |     |  +- Exp.Con Just#M.3
+            |     |     |  |
+            |     |     |  `- Type.Unit
+            |     |     |
+            |     |     `- Exp.Var x#M.19
             |     |
             |     `- Exp.Var x#M.16
             |

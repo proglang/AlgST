@@ -1274,18 +1274,25 @@ litType p = \case
 tysynthBind :: Pos -> E.Bind Rn -> TypeM (E.Bind Tc, TcType)
 tysynthBind absLoc (E.Bind p _ v Nothing _) = do
   Error.fatal $ Error.synthUntypedLambda absLoc p v
-tysynthBind absLoc (E.Bind p m v (Just ty) e) = do
-  ty' <- kicheck ty K.TL
-  (e', eTy) <-
-    withProgVarBinds_
-      (unrestrictedLoc absLoc m)
-      [mkExplicit p v ty']
-      (tysynth e)
+tysynthBind absLoc bind@(E.Bind _ m _ (Just argTy) _) = do
+  argTy' <- kicheck argTy K.TL
+  (bind, resTy) <- tysynthTypedBind absLoc argTy' bind
 
   -- Construct the resulting type. Binds always correspond to explicit
   -- functions.
-  let funTy = T.Arrow absLoc T.Explicit m ty' eTy
-  pure (E.Bind p m v (Just ty') e', funTy)
+  let funTy = T.Arrow absLoc T.Explicit m argTy' resTy
+  pure (bind, funTy)
+
+-- | Synthesizes the result type of a @"AlgST.Syntax.Expression".'Bind'@ when
+-- the argument type is known.
+tysynthTypedBind :: Pos -> TcType -> E.Bind Rn -> TypeM (E.Bind Tc, TcType)
+tysynthTypedBind absLoc argTy (E.Bind p m v _ e) = do
+  (e', eTy) <-
+    withProgVarBinds_
+      (unrestrictedLoc absLoc m)
+      [mkExplicit p v argTy]
+      (tysynth e)
+  pure (E.Bind p m v (Just argTy) e', eTy)
 
 tycheckBind :: Pos -> E.Bind Rn -> TcType -> TypeM (E.Bind Tc)
 tycheckBind absLoc _bind bindTy@(Ds.Arrow T.Implicit _ _ _) = do
@@ -1478,10 +1485,27 @@ tycheck e0 u = case e0 of
     pure (E.TypeAbs p bnd')
 
   --
-  E.App p e1 e2 -> do
-    (e2', t2) <- tysynth e2
-    e1' <- tycheck e1 (T.Arrow p T.Explicit K.Lin t2 u)
-    pure (E.App p e1' e2')
+  E.App p fun arg -> do
+    -- Synthesize the argument type. Don't query for implicit arguments yet.
+    (tcArg, tyArg) <- tysynthNoImpl arg
+
+    -- Build an eta expansion of `fun`.
+    etaName <- freshLocal (show arg)
+    let etaBind =
+          E.Bind p K.Lin etaName Nothing
+            . E.App p fun
+            $ E.Var p etaName
+
+    -- Synthesize the result type. This will lead to pending implicits being
+    -- queried.
+    (tcEta, tyEta) <- tysynthTypedBind p tyArg etaBind
+    -- Check that the result type matches the expected type.
+    requireSubtype e0 tyEta u
+
+    -- Build the final result. The synth'd argument is applied to the eta
+    -- expanded function.
+    let tcApp = E.App @Tc p (E.Abs p tcEta) tcArg
+    pure tcApp
 
   --
   E.Pair p e1 e2 | T.Pair _ t1 t2 <- u -> do

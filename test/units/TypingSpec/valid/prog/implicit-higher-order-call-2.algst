@@ -1,0 +1,19 @@
+calc : ({Int} -> Int) -> Int
+
+-- TODO: It would be great if the following would work as well, but this seems
+-- quite hard with our custom function application checking rule.
+--
+-- check : Int
+-- check = calc (implicit[Int] + 10)
+
+check2 : Int
+check2 =
+  let inner : {Int} -> Int =
+        implicit[Int] + 10
+  in 
+  calc inner
+
+synth : Int
+synth =
+  let r = calc (implicit[Int] + 10) in
+  r

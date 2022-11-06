@@ -32,11 +32,23 @@ double#M.0
          |
          `- Exp.App
             |
-            +- Exp.App
+            +- Exp.Abs L 2#M.2
             |  |
-            |  +- Exp.Var (*)#Builtin.21
+            |  +- Type.Type
+            |  |  |
+            |  |  `- TypeRef
+            |  |     |
+            |  |     `- Int
             |  |
-            |  `- Exp.Var x#M.1
+            |  `- Exp.App
+            |     |
+            |     +- Exp.App
+            |     |  |
+            |     |  +- Exp.Var (*)#Builtin.21
+            |     |  |
+            |     |  `- Exp.Var x#M.1
+            |     |
+            |     `- Exp.Var 2#M.2
             |
             `- Exp.Lit
                |

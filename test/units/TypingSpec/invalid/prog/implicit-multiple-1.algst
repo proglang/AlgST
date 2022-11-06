@@ -1,0 +1,11 @@
+-- TODO: the error should mention where these are defined if they come from the
+-- current module.
+
+{a} : Int
+{a} = 10
+
+{b} : Int
+{b} = 20
+
+c : Int
+c = _

@@ -1,0 +1,12 @@
+calc : ({Int} -> Int) -> Int
+
+{a} : Int
+{a} = 10
+
+synth : Int
+synth =
+  let r = calc (implicit[Int]) in
+  r
+
+check : Int
+check = calc (implicit[Int])
