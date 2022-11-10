@@ -362,29 +362,13 @@ sendBTree#M.3
                                        |
                                        `- Exp.App
                                           |
-                                          +- Exp.Abs L c#M.26
+                                          +- Exp.TypeApp
                                           |  |
-                                          |  +- Type.Session (!)
-                                          |  |  |
-                                          |  |  +- Type.Var a#M.7
-                                          |  |  |  |
-                                          |  |  |  `- TU
-                                          |  |  |
-                                          |  |  `- Type.Var s#M.10
-                                          |  |     |
-                                          |  |     `- SL
+                                          |  +- Exp.Var sendA#M.8
                                           |  |
-                                          |  `- Exp.App
+                                          |  `- Type.Var s#M.10
                                           |     |
-                                          |     +- Exp.TypeApp
-                                          |     |  |
-                                          |     |  +- Exp.Var sendA#M.8
-                                          |     |  |
-                                          |     |  `- Type.Var s#M.10
-                                          |     |     |
-                                          |     |     `- SL
-                                          |     |
-                                          |     `- Exp.Var c#M.26
+                                          |     `- SL
                                           |
                                           `- Exp.Var c#M.21
 

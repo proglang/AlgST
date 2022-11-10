@@ -1,0 +1,4 @@
+-- FIXME: if we could get this to work, this would be great. However, this
+-- conflicts with implicit resolution.
+double : Int -> Int
+double x = (\i -> i * 2) x

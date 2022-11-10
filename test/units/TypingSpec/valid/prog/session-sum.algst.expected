@@ -588,37 +588,15 @@ sum#M.9
             |                 |                                               |
             |                 |                                               `- Exp.App
             |                 |                                                  |
-            |                 |                                                  +- Exp.Abs L c#M.33
+            |                 |                                                  +- Exp.App
             |                 |                                                  |  |
-            |                 |                                                  |  +- Type.Session (!)
+            |                 |                                                  |  +- Exp.App
             |                 |                                                  |  |  |
-            |                 |                                                  |  |  +- Type.Type
-            |                 |                                                  |  |  |  |
-            |                 |                                                  |  |  |  `- TypeRef
-            |                 |                                                  |  |  |     |
-            |                 |                                                  |  |  |     +- Repeat
-            |                 |                                                  |  |  |     |
-            |                 |                                                  |  |  |     `- Type.Type
-            |                 |                                                  |  |  |        |
-            |                 |                                                  |  |  |        `- TypeRef
-            |                 |                                                  |  |  |           |
-            |                 |                                                  |  |  |           `- Arith
+            |                 |                                                  |  |  +- Exp.Var go#M.16
             |                 |                                                  |  |  |
-            |                 |                                                  |  |  `- Type.End!
+            |                 |                                                  |  |  `- Exp.Var acc'#M.26
             |                 |                                                  |  |
-            |                 |                                                  |  `- Exp.App
-            |                 |                                                  |     |
-            |                 |                                                  |     +- Exp.App
-            |                 |                                                  |     |  |
-            |                 |                                                  |     |  +- Exp.App
-            |                 |                                                  |     |  |  |
-            |                 |                                                  |     |  |  +- Exp.Var go#M.16
-            |                 |                                                  |     |  |  |
-            |                 |                                                  |     |  |  `- Exp.Var acc'#M.26
-            |                 |                                                  |     |  |
-            |                 |                                                  |     |  `- Exp.Var xs#M.21
-            |                 |                                                  |     |
-            |                 |                                                  |     `- Exp.Var c#M.33
+            |                 |                                                  |  `- Exp.Var xs#M.21
             |                 |                                                  |
             |                 |                                                  `- Exp.Var c#M.27
             |                 |
@@ -634,41 +612,19 @@ sum#M.9
             |                          |  |
             |                          |  `- Exp.App
             |                          |     |
-            |                          |     +- Exp.Abs L c#M.34
+            |                          |     +- Exp.TypeApp
             |                          |     |  |
-            |                          |     |  +- Type.Session (!)
+            |                          |     |  +- Exp.TypeApp
             |                          |     |  |  |
-            |                          |     |  |  +- Type.Type
-            |                          |     |  |  |  |
-            |                          |     |  |  |  `- TypeRef
-            |                          |     |  |  |     |
-            |                          |     |  |  |     +- Repeat
-            |                          |     |  |  |     |
-            |                          |     |  |  |     `- Type.Type
-            |                          |     |  |  |        |
-            |                          |     |  |  |        `- TypeRef
-            |                          |     |  |  |           |
-            |                          |     |  |  |           `- Arith
+            |                          |     |  |  +- Exp.Select Quit#M.8
             |                          |     |  |  |
-            |                          |     |  |  `- Type.End!
+            |                          |     |  |  `- Type.Type
+            |                          |     |  |     |
+            |                          |     |  |     `- TypeRef
+            |                          |     |  |        |
+            |                          |     |  |        `- Arith
             |                          |     |  |
-            |                          |     |  `- Exp.App
-            |                          |     |     |
-            |                          |     |     +- Exp.TypeApp
-            |                          |     |     |  |
-            |                          |     |     |  +- Exp.TypeApp
-            |                          |     |     |  |  |
-            |                          |     |     |  |  +- Exp.Select Quit#M.8
-            |                          |     |     |  |  |
-            |                          |     |     |  |  `- Type.Type
-            |                          |     |     |  |     |
-            |                          |     |     |  |     `- TypeRef
-            |                          |     |     |  |        |
-            |                          |     |     |  |        `- Arith
-            |                          |     |     |  |
-            |                          |     |     |  `- Type.End!
-            |                          |     |     |
-            |                          |     |     `- Exp.Var c#M.34
+            |                          |     |  `- Type.End!
             |                          |     |
             |                          |     `- Exp.Var c#M.19
             |                          |
@@ -680,19 +636,7 @@ sum#M.9
                |
                `- Exp.App
                   |
-                  +- Exp.Abs L 0#M.37
-                  |  |
-                  |  +- Type.Type
-                  |  |  |
-                  |  |  `- TypeRef
-                  |  |     |
-                  |  |     `- Int
-                  |  |
-                  |  `- Exp.App
-                  |     |
-                  |     +- Exp.Var go#M.29
-                  |     |
-                  |     `- Exp.Var 0#M.37
+                  +- Exp.Var go#M.29
                   |
                   `- Exp.Lit
                      |

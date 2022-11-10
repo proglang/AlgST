@@ -202,29 +202,7 @@ repeater#M.4
                            |  |
                            |  `- Exp.App
                            |     |
-                           |     +- Exp.Abs L handleOne [?Repeat p.s] c#M.18
-                           |     |  |
-                           |     |  +- Type.Session (?)
-                           |     |  |  |
-                           |     |  |  +- Type.Type
-                           |     |  |  |  |
-                           |     |  |  |  `- TypeRef
-                           |     |  |  |     |
-                           |     |  |  |     +- Repeat
-                           |     |  |  |     |
-                           |     |  |  |     `- Type.Var p#M.10
-                           |     |  |  |        |
-                           |     |  |  |        `- P
-                           |     |  |  |
-                           |     |  |  `- Type.Var s#M.12
-                           |     |  |     |
-                           |     |  |     `- SL
-                           |     |  |
-                           |     |  `- Exp.App
-                           |     |     |
-                           |     |     +- Exp.Var go#M.14
-                           |     |     |
-                           |     |     `- Exp.Var handleOne [?Repeat p.s] c#M.18
+                           |     +- Exp.Var go#M.14
                            |     |
                            |     `- Exp.App
                            |        |

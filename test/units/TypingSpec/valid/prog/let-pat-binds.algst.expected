@@ -32,23 +32,11 @@ foo#M.0
                |
                `- Exp.App
                   |
-                  +- Exp.Abs L 20#M.3
+                  +- Exp.App
                   |  |
-                  |  +- Type.Type
-                  |  |  |
-                  |  |  `- TypeRef
-                  |  |     |
-                  |  |     `- Int
+                  |  +- Exp.Var (+)#Builtin.19
                   |  |
-                  |  `- Exp.App
-                  |     |
-                  |     +- Exp.App
-                  |     |  |
-                  |     |  +- Exp.Var (+)#Builtin.19
-                  |     |  |
-                  |     |  `- Exp.Var theInt#M.1
-                  |     |
-                  |     `- Exp.Var 20#M.3
+                  |  `- Exp.Var theInt#M.1
                   |
                   `- Exp.Lit
                      |

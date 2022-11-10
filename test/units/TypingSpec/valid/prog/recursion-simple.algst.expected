@@ -168,49 +168,21 @@ length#M.3
                |              |  |
                |              |  `- Exp.App
                |              |     |
-               |              |     +- Exp.Abs L xs#M.15
+               |              |     +- Exp.App
                |              |     |  |
-               |              |     |  +- Type.Type
-               |              |     |  |  |
-               |              |     |  |  `- TypeRef
-               |              |     |  |     |
-               |              |     |  |     +- List
-               |              |     |  |     |
-               |              |     |  |     `- Type.Var a#M.7
-               |              |     |  |        |
-               |              |     |  |        `- TU
+               |              |     |  +- Exp.Var go#M.9
                |              |     |  |
                |              |     |  `- Exp.App
                |              |     |     |
                |              |     |     +- Exp.App
                |              |     |     |  |
-               |              |     |     |  +- Exp.Var go#M.9
+               |              |     |     |  +- Exp.Var (+)#Builtin.19
                |              |     |     |  |
-               |              |     |     |  `- Exp.App
-               |              |     |     |     |
-               |              |     |     |     +- Exp.Abs L 1#M.16
-               |              |     |     |     |  |
-               |              |     |     |     |  +- Type.Type
-               |              |     |     |     |  |  |
-               |              |     |     |     |  |  `- TypeRef
-               |              |     |     |     |  |     |
-               |              |     |     |     |  |     `- Int
-               |              |     |     |     |  |
-               |              |     |     |     |  `- Exp.App
-               |              |     |     |     |     |
-               |              |     |     |     |     +- Exp.App
-               |              |     |     |     |     |  |
-               |              |     |     |     |     |  +- Exp.Var (+)#Builtin.19
-               |              |     |     |     |     |  |
-               |              |     |     |     |     |  `- Exp.Var acc#M.10
-               |              |     |     |     |     |
-               |              |     |     |     |     `- Exp.Var 1#M.16
-               |              |     |     |     |
-               |              |     |     |     `- Exp.Lit
-               |              |     |     |        |
-               |              |     |     |        `- Lit.Int 1
+               |              |     |     |  `- Exp.Var acc#M.10
                |              |     |     |
-               |              |     |     `- Exp.Var xs#M.15
+               |              |     |     `- Exp.Lit
+               |              |     |        |
+               |              |     |        `- Lit.Int 1
                |              |     |
                |              |     `- Exp.Var xs#M.13
                |              |
@@ -222,19 +194,7 @@ length#M.3
                   |
                   `- Exp.App
                      |
-                     +- Exp.Abs L 0#M.17
-                     |  |
-                     |  +- Type.Type
-                     |  |  |
-                     |  |  `- TypeRef
-                     |  |     |
-                     |  |     `- Int
-                     |  |
-                     |  `- Exp.App
-                     |     |
-                     |     +- Exp.Var go#M.14
-                     |     |
-                     |     `- Exp.Var 0#M.17
+                     +- Exp.Var go#M.14
                      |
                      `- Exp.Lit
                         |

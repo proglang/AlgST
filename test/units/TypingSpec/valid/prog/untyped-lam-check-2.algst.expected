@@ -48,23 +48,11 @@ add#M.0
             |
             `- Exp.App
                |
-               +- Exp.Abs L y#M.3
+               +- Exp.App
                |  |
-               |  +- Type.Type
-               |  |  |
-               |  |  `- TypeRef
-               |  |     |
-               |  |     `- Int
+               |  +- Exp.Var (+)#Builtin.19
                |  |
-               |  `- Exp.App
-               |     |
-               |     +- Exp.App
-               |     |  |
-               |     |  +- Exp.Var (+)#Builtin.19
-               |     |  |
-               |     |  `- Exp.Var x#M.1
-               |     |
-               |     `- Exp.Var y#M.3
+               |  `- Exp.Var x#M.1
                |
                `- Exp.Var y#M.2
 

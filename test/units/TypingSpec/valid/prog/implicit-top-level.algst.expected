@@ -36,19 +36,7 @@ check#M.0
       |
       `- Exp.App
          |
-         +- Exp.Abs L implicit [Int] + 10#M.5
-         |  |
-         |  +- Type.Type
-         |  |  |
-         |  |  `- TypeRef
-         |  |     |
-         |  |     `- Int
-         |  |
-         |  `- Exp.App
-         |     |
-         |     +- Exp.Var calc#M.3
-         |     |
-         |     `- Exp.Var implicit [Int] + 10#M.5
+         +- Exp.Var calc#M.3
          |
          `- Exp.App
             |
@@ -122,35 +110,23 @@ synth#M.2
             |  |
             |  `- Exp.App
             |     |
-            |     +- Exp.Abs L 10#M.6
+            |     +- Exp.App
             |     |  |
-            |     |  +- Type.Type
-            |     |  |  |
-            |     |  |  `- TypeRef
-            |     |  |     |
-            |     |  |     `- Int
+            |     |  +- Exp.Var (+)#Builtin.19
             |     |  |
             |     |  `- Exp.App
             |     |     |
-            |     |     +- Exp.App
+            |     |     +- Exp.TypeApp
             |     |     |  |
-            |     |     |  +- Exp.Var (+)#Builtin.19
+            |     |     |  +- Exp.Var implicit#Builtin.32
             |     |     |  |
-            |     |     |  `- Exp.App
+            |     |     |  `- Type.Type
             |     |     |     |
-            |     |     |     +- Exp.TypeApp
-            |     |     |     |  |
-            |     |     |     |  +- Exp.Var implicit#Builtin.32
-            |     |     |     |  |
-            |     |     |     |  `- Type.Type
-            |     |     |     |     |
-            |     |     |     |     `- TypeRef
-            |     |     |     |        |
-            |     |     |     |        `- Int
-            |     |     |     |
-            |     |     |     `- Exp.Var number#M.1
+            |     |     |     `- TypeRef
+            |     |     |        |
+            |     |     |        `- Int
             |     |     |
-            |     |     `- Exp.Var 10#M.6
+            |     |     `- Exp.Var number#M.1
             |     |
             |     `- Exp.Lit
             |        |

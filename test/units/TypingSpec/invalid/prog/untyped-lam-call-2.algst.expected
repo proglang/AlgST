@@ -1,0 +1,4 @@
+
+4:13: error:
+	 Cannot deduce type of parameter a in lambda abstraction at 4:12
+	 Please provide a type annotation.

@@ -1485,29 +1485,6 @@ tycheck e0 u = case e0 of
     pure (E.TypeAbs p bnd')
 
   --
-  E.App p fun arg -> do
-    -- Synthesize the argument type. Don't query for implicit arguments yet.
-    (tcArg, tyArg) <- tysynthNoImpl arg
-
-    -- Build an eta expansion of `fun`.
-    etaName <- freshLocal (show arg)
-    let etaBind =
-          E.Bind p K.Lin etaName Nothing
-            . E.App p fun
-            $ E.Var p etaName
-
-    -- Synthesize the result type. This will lead to pending implicits being
-    -- queried.
-    (tcEta, tyEta) <- tysynthTypedBind p tyArg etaBind
-    -- Check that the result type matches the expected type.
-    requireSubtype e0 tyEta u
-
-    -- Build the final result. The synth'd argument is applied to the eta
-    -- expanded function.
-    let tcApp = E.App @Tc p (E.Abs p tcEta) tcArg
-    pure tcApp
-
-  --
   E.Pair p e1 e2 | T.Pair _ t1 t2 <- u -> do
     e1' <- tycheck e1 t1
     e2' <- tycheck e2 t2

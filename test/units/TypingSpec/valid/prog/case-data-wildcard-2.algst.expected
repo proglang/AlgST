@@ -132,29 +132,13 @@ unsafe_head#M.3
                      |
                      `- Exp.App
                         |
-                        +- Exp.Abs L xs'#M.13
+                        +- Exp.TypeApp
                         |  |
-                        |  +- Type.Type
-                        |  |  |
-                        |  |  `- TypeRef
-                        |  |     |
-                        |  |     +- List
-                        |  |     |
-                        |  |     `- Type.Var a#M.7
-                        |  |        |
-                        |  |        `- TU
+                        |  +- Exp.Var unsafe_head#M.3
                         |  |
-                        |  `- Exp.App
+                        |  `- Type.Var a#M.7
                         |     |
-                        |     +- Exp.TypeApp
-                        |     |  |
-                        |     |  +- Exp.Var unsafe_head#M.3
-                        |     |  |
-                        |     |  `- Type.Var a#M.7
-                        |     |     |
-                        |     |     `- TU
-                        |     |
-                        |     `- Exp.Var xs'#M.13
+                        |     `- TU
                         |
                         `- Exp.Var xs'#M.12
 

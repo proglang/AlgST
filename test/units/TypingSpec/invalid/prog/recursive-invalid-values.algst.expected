@@ -1,27 +1,19 @@
 
 9:9: error:
 	 Expression
-	     x
-	 has type
-	     D1
-	 but context demands a subtype of
-	     D2
-
-9:9: error:
-	 Expression
 	     bar x
 	 has type
 	     D2
 	 but context demands a subtype of
 	     D1
 
-12:9: error:
+9:13: error:
 	 Expression
 	     x
 	 has type
-	     D2
-	 but context demands a subtype of
 	     D1
+	 but context demands a subtype of
+	     D2
 
 12:9: error:
 	 Expression
@@ -30,3 +22,11 @@
 	     D1
 	 but context demands a subtype of
 	     D2
+
+12:13: error:
+	 Expression
+	     x
+	 has type
+	     D2
+	 but context demands a subtype of
+	     D1

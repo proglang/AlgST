@@ -6,9 +6,9 @@
 	   • a
 	     imported from M
 
-12:9: error:
+12:24: error:
 	 Multiple chocies for implicit of type Int
 	   • «implicit-arg»
-	     bound at 12:9
+	     bound at 12:24
 	   • a
 	     imported from M

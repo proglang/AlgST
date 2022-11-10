@@ -1,0 +1,4 @@
+-- FIXME: if we could get this to work, this would be great. However, this
+-- conflicts with implicit resolution.
+add : Int -> Int -> Int
+add x y = (\a b  -> a + b) x y

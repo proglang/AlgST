@@ -22,7 +22,7 @@ double#M.0
    |
    `- definition
       |
-      `- Exp.Abs U x#M.1
+      `- Exp.Abs U i#M.1
          |
          +- Type.Type
          |  |
@@ -32,23 +32,11 @@ double#M.0
          |
          `- Exp.App
             |
-            +- Exp.Abs L 2#M.2
+            +- Exp.App
             |  |
-            |  +- Type.Type
-            |  |  |
-            |  |  `- TypeRef
-            |  |     |
-            |  |     `- Int
+            |  +- Exp.Var (*)#Builtin.21
             |  |
-            |  `- Exp.App
-            |     |
-            |     +- Exp.App
-            |     |  |
-            |     |  +- Exp.Var (*)#Builtin.21
-            |     |  |
-            |     |  `- Exp.Var x#M.1
-            |     |
-            |     `- Exp.Var 2#M.2
+            |  `- Exp.Var i#M.1
             |
             `- Exp.Lit
                |

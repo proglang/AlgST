@@ -234,15 +234,19 @@ arithServer#M.3
                   |                    |
                   |                    `- Exp.App
                   |                       |
-                  |                       +- Exp.Abs L c#M.15
+                  |                       +- Exp.App
                   |                       |  |
-                  |                       |  +- Type.Session (!)
+                  |                       |  +- Exp.TypeApp
                   |                       |  |  |
-                  |                       |  |  +- Type.Type
+                  |                       |  |  +- Exp.TypeApp
                   |                       |  |  |  |
-                  |                       |  |  |  `- TypeRef
+                  |                       |  |  |  +- Exp.Var send#Builtin.35
+                  |                       |  |  |  |
+                  |                       |  |  |  `- Type.Type
                   |                       |  |  |     |
-                  |                       |  |  |     `- Int
+                  |                       |  |  |     `- TypeRef
+                  |                       |  |  |        |
+                  |                       |  |  |        `- Int
                   |                       |  |  |
                   |                       |  |  `- Type.Var s#M.4
                   |                       |  |     |
@@ -252,45 +256,11 @@ arithServer#M.3
                   |                       |     |
                   |                       |     +- Exp.App
                   |                       |     |  |
-                  |                       |     |  +- Exp.TypeApp
-                  |                       |     |  |  |
-                  |                       |     |  |  +- Exp.TypeApp
-                  |                       |     |  |  |  |
-                  |                       |     |  |  |  +- Exp.Var send#Builtin.35
-                  |                       |     |  |  |  |
-                  |                       |     |  |  |  `- Type.Type
-                  |                       |     |  |  |     |
-                  |                       |     |  |  |     `- TypeRef
-                  |                       |     |  |  |        |
-                  |                       |     |  |  |        `- Int
-                  |                       |     |  |  |
-                  |                       |     |  |  `- Type.Var s#M.4
-                  |                       |     |  |     |
-                  |                       |     |  |     `- SL
+                  |                       |     |  +- Exp.Var (+)#Builtin.19
                   |                       |     |  |
-                  |                       |     |  `- Exp.App
-                  |                       |     |     |
-                  |                       |     |     +- Exp.Abs L y#M.16
-                  |                       |     |     |  |
-                  |                       |     |     |  +- Type.Type
-                  |                       |     |     |  |  |
-                  |                       |     |     |  |  `- TypeRef
-                  |                       |     |     |  |     |
-                  |                       |     |     |  |     `- Int
-                  |                       |     |     |  |
-                  |                       |     |     |  `- Exp.App
-                  |                       |     |     |     |
-                  |                       |     |     |     +- Exp.App
-                  |                       |     |     |     |  |
-                  |                       |     |     |     |  +- Exp.Var (+)#Builtin.19
-                  |                       |     |     |     |  |
-                  |                       |     |     |     |  `- Exp.Var x#M.8
-                  |                       |     |     |     |
-                  |                       |     |     |     `- Exp.Var y#M.16
-                  |                       |     |     |
-                  |                       |     |     `- Exp.Var y#M.10
+                  |                       |     |  `- Exp.Var x#M.8
                   |                       |     |
-                  |                       |     `- Exp.Var c#M.15
+                  |                       |     `- Exp.Var y#M.10
                   |                       |
                   |                       `- Exp.Var c#M.11
                   |
@@ -332,15 +302,19 @@ arithServer#M.3
                               |
                               `- Exp.App
                                  |
-                                 +- Exp.Abs L c#M.17
+                                 +- Exp.App
                                  |  |
-                                 |  +- Type.Session (!)
+                                 |  +- Exp.TypeApp
                                  |  |  |
-                                 |  |  +- Type.Type
+                                 |  |  +- Exp.TypeApp
                                  |  |  |  |
-                                 |  |  |  `- TypeRef
+                                 |  |  |  +- Exp.Var send#Builtin.35
+                                 |  |  |  |
+                                 |  |  |  `- Type.Type
                                  |  |  |     |
-                                 |  |  |     `- Int
+                                 |  |  |     `- TypeRef
+                                 |  |  |        |
+                                 |  |  |        `- Int
                                  |  |  |
                                  |  |  `- Type.Var s#M.4
                                  |  |     |
@@ -350,47 +324,13 @@ arithServer#M.3
                                  |     |
                                  |     +- Exp.App
                                  |     |  |
-                                 |     |  +- Exp.TypeApp
-                                 |     |  |  |
-                                 |     |  |  +- Exp.TypeApp
-                                 |     |  |  |  |
-                                 |     |  |  |  +- Exp.Var send#Builtin.35
-                                 |     |  |  |  |
-                                 |     |  |  |  `- Type.Type
-                                 |     |  |  |     |
-                                 |     |  |  |     `- TypeRef
-                                 |     |  |  |        |
-                                 |     |  |  |        `- Int
-                                 |     |  |  |
-                                 |     |  |  `- Type.Var s#M.4
-                                 |     |  |     |
-                                 |     |  |     `- SL
+                                 |     |  +- Exp.Var (-)#Builtin.20
                                  |     |  |
-                                 |     |  `- Exp.App
+                                 |     |  `- Exp.Lit
                                  |     |     |
-                                 |     |     +- Exp.Abs L x#M.18
-                                 |     |     |  |
-                                 |     |     |  +- Type.Type
-                                 |     |     |  |  |
-                                 |     |     |  |  `- TypeRef
-                                 |     |     |  |     |
-                                 |     |     |  |     `- Int
-                                 |     |     |  |
-                                 |     |     |  `- Exp.App
-                                 |     |     |     |
-                                 |     |     |     +- Exp.App
-                                 |     |     |     |  |
-                                 |     |     |     |  +- Exp.Var (-)#Builtin.20
-                                 |     |     |     |  |
-                                 |     |     |     |  `- Exp.Lit
-                                 |     |     |     |     |
-                                 |     |     |     |     `- Lit.Int 0
-                                 |     |     |     |
-                                 |     |     |     `- Exp.Var x#M.18
-                                 |     |     |
-                                 |     |     `- Exp.Var x#M.13
+                                 |     |     `- Lit.Int 0
                                  |     |
-                                 |     `- Exp.Var c#M.17
+                                 |     `- Exp.Var x#M.13
                                  |
                                  `- Exp.Var c#M.14
 

@@ -56,35 +56,23 @@ check2#M.0
             |  |
             |  `- Exp.App
             |     |
-            |     +- Exp.Abs L 10#M.6
+            |     +- Exp.App
             |     |  |
-            |     |  +- Type.Type
-            |     |  |  |
-            |     |  |  `- TypeRef
-            |     |  |     |
-            |     |  |     `- Int
+            |     |  +- Exp.Var (+)#Builtin.19
             |     |  |
             |     |  `- Exp.App
             |     |     |
-            |     |     +- Exp.App
+            |     |     +- Exp.TypeApp
             |     |     |  |
-            |     |     |  +- Exp.Var (+)#Builtin.19
+            |     |     |  +- Exp.Var implicit#Builtin.32
             |     |     |  |
-            |     |     |  `- Exp.App
+            |     |     |  `- Type.Type
             |     |     |     |
-            |     |     |     +- Exp.TypeApp
-            |     |     |     |  |
-            |     |     |     |  +- Exp.Var implicit#Builtin.32
-            |     |     |     |  |
-            |     |     |     |  `- Type.Type
-            |     |     |     |     |
-            |     |     |     |     `- TypeRef
-            |     |     |     |        |
-            |     |     |     |        `- Int
-            |     |     |     |
-            |     |     |     `- Exp.Var «implicit-arg»#M.5
+            |     |     |     `- TypeRef
+            |     |     |        |
+            |     |     |        `- Int
             |     |     |
-            |     |     `- Exp.Var 10#M.6
+            |     |     `- Exp.Var «implicit-arg»#M.5
             |     |
             |     `- Exp.Lit
             |        |
@@ -94,41 +82,21 @@ check2#M.0
                |
                `- Exp.App
                   |
-                  +- Exp.Abs L inner#M.7
-                  |  |
-                  |  +- Type.Arrow ? U
-                  |  |  |
-                  |  |  +- Type.Type
-                  |  |  |  |
-                  |  |  |  `- TypeRef
-                  |  |  |     |
-                  |  |  |     `- Int
-                  |  |  |
-                  |  |  `- Type.Type
-                  |  |     |
-                  |  |     `- TypeRef
-                  |  |        |
-                  |  |        `- Int
-                  |  |
-                  |  `- Exp.App
-                  |     |
-                  |     +- Exp.Var calc#M.2
-                  |     |
-                  |     `- Exp.Abs U «implicit-arg»#M.8
-                  |        |
-                  |        +- Type.Type
-                  |        |  |
-                  |        |  `- TypeRef
-                  |        |     |
-                  |        |     `- Int
-                  |        |
-                  |        `- Exp.App
-                  |           |
-                  |           +- Exp.Var inner#M.7
-                  |           |
-                  |           `- Exp.Var «implicit-arg»#M.8
+                  +- Exp.Var calc#M.2
                   |
-                  `- Exp.Var inner#M.3
+                  `- Exp.Abs U «implicit-arg»#M.6
+                     |
+                     +- Type.Type
+                     |  |
+                     |  `- TypeRef
+                     |     |
+                     |     `- Int
+                     |
+                     `- Exp.App
+                        |
+                        +- Exp.Var inner#M.3
+                        |
+                        `- Exp.Var «implicit-arg»#M.6
 
 synth#M.1
 |
@@ -154,7 +122,7 @@ synth#M.1
             |  |
             |  +- Exp.Var calc#M.2
             |  |
-            |  `- Exp.Abs U «implicit-arg»#M.9
+            |  `- Exp.Abs U «implicit-arg»#M.7
             |     |
             |     +- Type.Type
             |     |  |
@@ -164,35 +132,23 @@ synth#M.1
             |     |
             |     `- Exp.App
             |        |
-            |        +- Exp.Abs L 10#M.10
+            |        +- Exp.App
             |        |  |
-            |        |  +- Type.Type
-            |        |  |  |
-            |        |  |  `- TypeRef
-            |        |  |     |
-            |        |  |     `- Int
+            |        |  +- Exp.Var (+)#Builtin.19
             |        |  |
             |        |  `- Exp.App
             |        |     |
-            |        |     +- Exp.App
+            |        |     +- Exp.TypeApp
             |        |     |  |
-            |        |     |  +- Exp.Var (+)#Builtin.19
+            |        |     |  +- Exp.Var implicit#Builtin.32
             |        |     |  |
-            |        |     |  `- Exp.App
+            |        |     |  `- Type.Type
             |        |     |     |
-            |        |     |     +- Exp.TypeApp
-            |        |     |     |  |
-            |        |     |     |  +- Exp.Var implicit#Builtin.32
-            |        |     |     |  |
-            |        |     |     |  `- Type.Type
-            |        |     |     |     |
-            |        |     |     |     `- TypeRef
-            |        |     |     |        |
-            |        |     |     |        `- Int
-            |        |     |     |
-            |        |     |     `- Exp.Var «implicit-arg»#M.9
+            |        |     |     `- TypeRef
+            |        |     |        |
+            |        |     |        `- Int
             |        |     |
-            |        |     `- Exp.Var 10#M.10
+            |        |     `- Exp.Var «implicit-arg»#M.7
             |        |
             |        `- Exp.Lit
             |           |
