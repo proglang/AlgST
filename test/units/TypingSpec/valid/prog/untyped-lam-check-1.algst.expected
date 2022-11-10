@@ -1,0 +1,44 @@
+double#M.0
+|
+`- ValueDecl
+   |
+   +- type
+   |  |
+   |  `- Type.Arrow U
+   |     |
+   |     +- Type.Type
+   |     |  |
+   |     |  `- TypeRef
+   |     |     |
+   |     |     `- Int
+   |     |
+   |     `- Type.Type
+   |        |
+   |        `- TypeRef
+   |           |
+   |           `- Int
+   |
+   +- params
+   |
+   `- definition
+      |
+      `- Exp.Abs U x#M.1
+         |
+         +- Type.Type
+         |  |
+         |  `- TypeRef
+         |     |
+         |     `- Int
+         |
+         `- Exp.App
+            |
+            +- Exp.App
+            |  |
+            |  +- Exp.Var (*)#Builtin.19
+            |  |
+            |  `- Exp.Var x#M.1
+            |
+            `- Exp.Lit
+               |
+               `- Lit.Int 2
+

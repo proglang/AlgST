@@ -1,0 +1,86 @@
+add#M.0
+|
+`- ValueDecl
+   |
+   +- type
+   |  |
+   |  `- Type.Arrow U
+   |     |
+   |     +- Type.Type
+   |     |  |
+   |     |  `- TypeRef
+   |     |     |
+   |     |     `- Int
+   |     |
+   |     `- Type.Arrow U
+   |        |
+   |        +- Type.Type
+   |        |  |
+   |        |  `- TypeRef
+   |        |     |
+   |        |     `- Int
+   |        |
+   |        `- Type.Type
+   |           |
+   |           `- TypeRef
+   |              |
+   |              `- Int
+   |
+   +- params
+   |  |
+   |  +- x#M.1
+   |  |
+   |  `- y#M.2
+   |
+   `- definition
+      |
+      `- Exp.Abs U x#M.1
+         |
+         +- Type.Type
+         |  |
+         |  `- TypeRef
+         |     |
+         |     `- Int
+         |
+         `- Exp.Abs U y#M.2
+            |
+            +- Type.Type
+            |  |
+            |  `- TypeRef
+            |     |
+            |     `- Int
+            |
+            `- Exp.App
+               |
+               +- Exp.App
+               |  |
+               |  +- Exp.Abs U a#M.3
+               |  |  |
+               |  |  +- Type.Type
+               |  |  |  |
+               |  |  |  `- TypeRef
+               |  |  |     |
+               |  |  |     `- Int
+               |  |  |
+               |  |  `- Exp.Abs U b#M.4
+               |  |     |
+               |  |     +- Type.Type
+               |  |     |  |
+               |  |     |  `- TypeRef
+               |  |     |     |
+               |  |     |     `- Int
+               |  |     |
+               |  |     `- Exp.App
+               |  |        |
+               |  |        +- Exp.App
+               |  |        |  |
+               |  |        |  +- Exp.Var (+)#Builtin.17
+               |  |        |  |
+               |  |        |  `- Exp.Var a#M.3
+               |  |        |
+               |  |        `- Exp.Var b#M.4
+               |  |
+               |  `- Exp.Var x#M.1
+               |
+               `- Exp.Var y#M.2
+
