@@ -1,4 +1,4 @@
-type Send (a:TL) = ∀(s:SL). a -> !a.s -> s
+type Send (a:TL) = ∀(s:SL). a -> !a.s -o s
 type Recv (a:TL) = ∀(s:SL). ?a.s -> (a, s)
 
 sendPair : ∀(a:TL). Send a -> ∀(b:TL). Send b -> Send (a, b)

@@ -38,7 +38,7 @@ sendFun [a] recvA [b] sendB [s] fn c =
   -- channel.
   let (c1, c2) = new [FunSession a b] in
   let _ = fork_ (repeater [Fun a b, end] ap1 c2) in
-  send [FunSession a b, s] c1 c
+  sendLin [FunSession a b, s] c1 c
 
 -- On the receiving side the `FunSession` is accepted with a simple receive
 -- operation. When `app` is given functions to send/receive values of type `a`

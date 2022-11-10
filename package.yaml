@@ -8,6 +8,7 @@ synopsis:            "Parser, Typechecker & Interpreter for Algebraic Session Ty
 
 extra-source-files:
   - README.md
+  - examples/**
 
 dependencies:
 - base >= 4.7 && < 5
@@ -99,3 +100,10 @@ tests:
       - hspec-discover
       - raw-strings-qq
       - reflection
+
+  examples:
+    main: Main.hs
+    source-dirs: test/examples
+
+    dependencies:
+      - typed-process
