@@ -384,7 +384,11 @@ builtinsEnv =
       closure valReceive \(p :@ channel) -> do
         c <- unwrap p TChannel channel
         v <- readChannel c
-        pure $ Pair v channel
+        pure $ Pair v channel,
+      closure valWait \(_ :@ _) -> do
+        pure Unit :: EvalM Value,
+      closure valTerminate \(_ :@ _) -> do
+        pure Unit :: EvalM Value
     ]
   where
     closure name body =
@@ -485,17 +489,17 @@ eval =
       if
           | Con con vs <- val,
             Just b <- Map.lookup con (E.casesPatterns cases) ->
-            -- Bind the payload values.
-            evalBranch b vs
+              -- Bind the payload values.
+              evalBranch b vs
           | Just b <- E.casesWildcard cases ->
-            -- We have to allow any value to appear as the scrutinee in a case
-            -- expression since `let` is desugared this way.
-            --
-            -- Bind the scrutinee itself.
-            evalBranch b [val]
+              -- We have to allow any value to appear as the scrutinee in a case
+              -- expression since `let` is desugared this way.
+              --
+              -- Bind the scrutinee itself.
+              evalBranch b [val]
           | otherwise ->
-            -- Something went wrong somewhere.
-            failInterpet p $ "unmatchable value " ++ show val
+              -- Something went wrong somewhere.
+              failInterpet p $ "unmatchable value " ++ show val
 
     --
     E.Exp (RecvCase p e cases) -> do
@@ -672,12 +676,12 @@ unmatchableConstructor p c = failInterpet p $ "unmatchable constructor " ++ pprN
 class BuildClosure a where
   buildClosureS :: ShowS -> a -> Value
 
-instance a ~ Value => BuildClosure (Located Value -> EvalM a) where
+instance (a ~ Located Value, r ~ Value) => BuildClosure (a -> EvalM r) where
   buildClosureS d = Closure (d "")
 
 instance
-  BuildClosure (Located Value -> a) =>
-  BuildClosure (Located Value -> Located Value -> a)
+  (a ~ Located Value, BuildClosure (b -> r)) =>
+  BuildClosure (a -> b -> r)
   where
   buildClosureS d body = Closure (d "") \arg ->
     pure $ buildClosureS (d . showChar ' ' . showsPrec 11 (unL arg)) (body arg)

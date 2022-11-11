@@ -9,6 +9,7 @@ module AlgST.Parse.Lexer
 ) where
 
 import AlgST.Syntax.Pos
+import AlgST.Syntax.Type (Polarity(..))
 import AlgST.Util.ErrorMessage
 import AlgST.Util.Output
 import Control.Applicative
@@ -82,7 +83,8 @@ tokens :-
   (of|with)                     { simpleToken TokenOf }
   (forall|∀)                    { simpleToken TokenForall }
   dual                          { simpleToken TokenDualof }
-  end                           { simpleToken TokenEnd }
+  "End!"                        { simpleToken \p -> TokenEnd (p :@ Out) }
+  "End?"                        { simpleToken \p -> TokenEnd (p :@ In)  }
   import                        { simpleToken TokenImport }
 -- Values
   \(\)                          { simpleToken TokenUnit }
@@ -142,7 +144,7 @@ data Token =
   | TokenOf Pos
   | TokenForall Pos
   | TokenDualof Pos
-  | TokenEnd Pos
+  | TokenEnd (Located Polarity)
   | TokenWild Pos
   | TokenImport Pos
 
@@ -191,7 +193,7 @@ instance Show Token where
   show (TokenWild _) = "_"
   show (TokenOf _) = "of"
   show (TokenDualof _) = "dualof"
-  show (TokenEnd _) = "end"
+  show (TokenEnd (_ :@ p)) = "End" ++ show p
   show (TokenImport _) = "import"
 
 data TokenList = TokenList
@@ -304,7 +306,7 @@ instance HasPos Token where
   pos (TokenElse p) = p
   pos (TokenOf p) = p
   pos (TokenDualof p) = p
-  pos (TokenEnd p) = p
+  pos (TokenEnd (p :@ _)) = p
   pos (TokenImport p) = p
 
 simpleToken :: (Pos -> t) -> AlexPosn -> a -> t

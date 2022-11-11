@@ -1,7 +1,7 @@
 protocol Repeat (x:P) = More x (Repeat x) | Quit
 
 type Seed : MU = Int
-type RNG  : SL = !Repeat -Int.end
+type RNG  : SL = !Repeat -Int.End!
 
 seedRNG : Seed -> RNG
 
@@ -9,12 +9,12 @@ randPair : Seed -> (Int, Int)
 randPair seed =
   let c = seedRNG seed in
   let (a, c) =
-    select More [-Int, end] c
-      |> receive [Int, !Repeat -Int.end]
+    select More [-Int, End!] c
+      |> receive [Int, !Repeat -Int.End!]
   in
   let (b, c) =
-    select More [-Int, end] c
-      |> receive [Int, !Repeat -Int.end]
+    select More [-Int, End!] c
+      |> receive [Int, !Repeat -Int.End!]
   in
-  let _ = select Quit [-Int, end] c in
+  let _ = terminate <| select Quit [-Int, End!] c in
   (a, b)

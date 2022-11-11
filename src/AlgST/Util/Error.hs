@@ -9,6 +9,7 @@ module AlgST.Util.Error
     renderErrors,
     renderErrors',
     formatErrorMessages,
+    formatErrorMessagesS,
     internalError,
   )
 where

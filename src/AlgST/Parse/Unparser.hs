@@ -17,6 +17,7 @@ module AlgST.Parse.Unparser
     Rator,
 
     -- * High-level unparsing operations
+    unparseConst,
     unparseApp,
     unparseCase,
     showCaseMap,
@@ -126,6 +127,9 @@ instance Unparse Void where
 instance (Unparse a, Unparse b) => Unparse (Either a b) where
   unparse = either unparse unparse
 
+unparseConst :: String -> Fragment
+unparseConst s = unparseApp s ([] :: [Void])
+
 unparseApp :: Unparse a => String -> [a] -> Fragment
 unparseApp s = go (maxRator, s) . fmap unparse
   where
@@ -146,7 +150,7 @@ instance Unparse (T.XType x) => Unparse (T.Type x) where
     where
       t' = bracket (unparse t) Op.L dotRator
       u' = bracket (unparse u) Op.R dotRator
-  unparse (T.End _) = (maxRator, "end")
+  unparse (T.End _ p) = (maxRator, "End" ++ show p)
   unparse (T.Arrow _ m t u) = (arrowRator, l ++ showArrow m ++ r)
     where
       l = bracket (unparse t) Op.L arrowRator
@@ -180,9 +184,9 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Exp x) where
   unparse (E.Abs _ b) = (arrowRator, '\\' : show b)
   unparse (E.App _ (E.App _ (E.Var _ x) e1) e2)
     | Just rator <- operatorRator x =
-      let l = bracket (unparse e1) Op.L rator
-          r = bracket (unparse e2) Op.R rator
-       in (rator, l ++ showOp x ++ r)
+        let l = bracket (unparse e1) Op.L rator
+            r = bracket (unparse e2) Op.R rator
+         in (rator, l ++ showOp x ++ r)
   unparse (E.App _ e1 e2) = (appRator, l ++ " " ++ r)
     where
       l = bracket (unparse e1) Op.L appRator
@@ -209,7 +213,7 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Exp x) where
   -- Unary Let
   unparse (E.UnLet _ x Nothing (E.Rec _ x' ty e1) e2)
     | x == x' =
-      (inRator, "let rec " ++ pprName x ++ " : " ++ show ty ++ " = " ++ l ++ " in " ++ r)
+        (inRator, "let rec " ++ pprName x ++ " : " ++ show ty ++ " = " ++ l ++ " in " ++ r)
     where
       l = bracket (unparse (E.RecAbs e1)) Op.L inRator
       r = bracket (unparse e2) Op.R inRator
@@ -225,8 +229,8 @@ instance (Unparse (E.XExp x), Unparse (T.XType x)) => Unparse (Exp x) where
     (inRator, unwords s)
     where
       s =
-        "let" :
-        (pprName . unL <$> x : xs)
+        "let"
+          : (pprName . unL <$> x : xs)
           ++ ["=", l, "in", r]
       l = bracket (unparse e1) Op.L inRator
       r = bracket (unparse e2) Op.R inRator

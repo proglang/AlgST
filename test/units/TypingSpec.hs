@@ -38,9 +38,15 @@ import Test.Hspec
 spec :: Spec
 spec = do
   describe "normal form" do
+    it "dual End! ~ End?" do
+      "dual End!" `nfShouldBe` "End?"
+
+    it "dual End? ~ End!" do
+      "dual End?" `nfShouldBe` "End!"
+
     it "normalises parameters" do
-      "forall (p:P). D3 -(+(-(+p))) (!-p.end) (forall (a:TU) (b:TU). a -> b)"
-        `nfShouldBe` "forall (p:P). D3 p (?p.end) (forall (a:TU). a -> forall (b:TU). b)"
+      "forall (p:P). D3 -(+(-(+p))) (!-p.End!) (forall (a:TU) (b:TU). a -> b)"
+        `nfShouldBe` "forall (p:P). D3 p (?p.End!) (forall (a:TU). a -> forall (b:TU). b)"
 
     context "forall isomorphism" do
       it "pushes foralls down" do
@@ -67,6 +73,9 @@ spec = do
       "String" `kindShouldBe` K.MU
       -- Enumeration types could be very sensibly be MU by default.
       "Bool" `kindShouldBe` K.TU
+      -- Since we have explicit wait/terminate our End types have to be linear!
+      "End!" `kindShouldBe` K.SL
+      "End?" `kindShouldBe` K.SL
 
     specify "declared new types" do
       "D0" `kindShouldBe` K.TU
@@ -100,9 +109,8 @@ spec = do
 
       specify "session types" do
         let checks =
-              [ ("end", kindShouldBe, K.SU),
-                ("!() . end", kindShouldBe, K.SL),
-                ("?D0 . end", kindShouldBe, K.SL)
+              [ ("!() . End!", kindShouldBe, K.SL),
+                ("?D0 . End!", kindShouldBe, K.SL)
               ]
 
         for_ checks \(s, f, k) -> do
@@ -120,8 +128,8 @@ spec = do
 
       specify "multi-param application" do
         -- D3/P3 each take one P, one S, one TL.
-        "forall (p:P).  D3 p (!p.end) ()" `kindShouldBe` K.TU
-        "forall (p:P). ?P3 p (!p.end) ().end" `kindShouldBe` K.TL
+        "forall (p:P).  D3 p (!p.End!) ()" `kindShouldBe` K.TU
+        "forall (p:P). ?P3 p (!p.End!) ().End!" `kindShouldBe` K.TL
 
       specify "nested application" do
         "Id_TL (Id_TL (Id_MU ()))" `kindShouldBe` K.TL

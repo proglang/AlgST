@@ -63,8 +63,8 @@ instance
             if p1 == T.In then go w m wm t1 t2 else go w m wm t2 t1,
             go w m wm u1 u2
           ]
-      go _ _ _ (T.End _) (T.End _) =
-        True
+      go _ _ _ (T.End _ p1) (T.End _ p2) =
+        p1 == p2
       go w m wm (T.Forall _ (K.Bind _ v1 k1 t1)) (T.Forall _ (K.Bind _ v2 k2 t2)) =
         and
           [ k1 == k2,
@@ -92,6 +92,6 @@ instance
         go w m wm t1 t2
       go w m wm (T.Type x) (T.Type y) =
         beta proxy w m mempty x y
-        -- not sure if mempty is correct!
+      -- not sure if mempty is correct!
       go _ _ _ _ _ =
         False

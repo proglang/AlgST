@@ -6,7 +6,7 @@ Exp.App
 |  |  |
 |  |  +- Exp.TypeApp
 |  |  |  |
-|  |  |  +- Exp.Var (|>)#Builtin.22
+|  |  |  +- Exp.Var (|>)#Builtin.24
 |  |  |  |
 |  |  |  `- Type.Con Int#Builtin.1
 |  |  |

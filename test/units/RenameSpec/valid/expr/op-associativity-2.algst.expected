@@ -14,13 +14,13 @@ Exp.Abs U a#M.0
          |
          +- Exp.App
          |  |
-         |  +- Exp.Var (&&)#Builtin.10
+         |  +- Exp.Var (&&)#Builtin.12
          |  |
          |  `- Exp.App
          |     |
          |     +- Exp.App
          |     |  |
-         |     |  +- Exp.Var (<=)#Builtin.13
+         |     |  +- Exp.Var (<=)#Builtin.15
          |     |  |
          |     |  `- Exp.Var a#M.0
          |     |
@@ -30,7 +30,7 @@ Exp.Abs U a#M.0
             |
             +- Exp.App
             |  |
-            |  +- Exp.Var (<=)#Builtin.13
+            |  +- Exp.Var (<=)#Builtin.15
             |  |
             |  `- Exp.Var b#M.1
             |

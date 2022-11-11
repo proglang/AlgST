@@ -1,10 +1,10 @@
 protocol X = Mu T X
-type T = !X.end
+type T = !X.End!
 
 selectMu : T -> !T.T
-selectMu c = select Mu [end] c
+selectMu c = select Mu [End!] c
 
-dualT : dual T -> ?X.end
+dualT : dual T -> ?X.End?
 dualT c = c
 
 matchMu : dual T -> ?T.(dual T)

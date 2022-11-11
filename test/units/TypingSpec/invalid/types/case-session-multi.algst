@@ -1,3 +1,3 @@
-\(c : ?(Int, Int).end) -> case c of {
+\(c : ?(Int, Int).End!) -> case c of {
   (a, b) -> a + b
 }

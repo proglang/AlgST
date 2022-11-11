@@ -8,7 +8,10 @@ synopsis:            "Parser, Typechecker & Interpreter for Algebraic Session Ty
 
 extra-source-files:
   - README.md
-  - examples/**
+
+data-files:
+  - examples/*
+  - examples/*/*
 
 dependencies:
 - base >= 4.7 && < 5
@@ -32,6 +35,7 @@ dependencies:
 - mtl >= 2.2.1
 - optparse-applicative
 - scheduler
+- semialign
 - singletons-th
 - stm
 - template-haskell
@@ -104,6 +108,9 @@ tests:
   examples:
     main: Main.hs
     source-dirs: test/examples
+
+    build-tools:
+      - algst
 
     dependencies:
       - typed-process

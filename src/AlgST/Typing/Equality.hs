@@ -64,8 +64,8 @@ instance
             go w m t1 t2,
             go w m u1 u2
           ]
-      go _ _ (T.End _) (T.End _) =
-        True
+      go _ _ (T.End _ p1) (T.End _ p2) =
+        p1 == p2
       go w m (T.Forall _ (K.Bind _ v1 k1 t1)) (T.Forall _ (K.Bind _ v2 k2 t2)) =
         and
           [ k1 == k2,

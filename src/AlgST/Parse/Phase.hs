@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module AlgST.Parse.Phase where
@@ -34,12 +33,11 @@ instance HasPos ParsedBuiltin where
   pos (BuiltinFork_ p) = p
 
 instance Unparse ParsedBuiltin where
-  unparse b = unparseApp x ([] @Void)
-    where
-      x = case b of
-        BuiltinNew _ -> "new"
-        BuiltinFork _ -> "fork"
-        BuiltinFork_ _ -> "fork_"
+  unparse =
+    unparseConst . \case
+      BuiltinNew _ -> "new"
+      BuiltinFork _ -> "fork"
+      BuiltinFork_ _ -> "fork_"
 
 instance SynTraversable ParsedBuiltin Parse ParsedBuiltin y where
   -- ParsedBuiltin is a leaf type, there is nothing to traverse.

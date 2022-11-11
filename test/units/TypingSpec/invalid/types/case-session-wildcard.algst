@@ -1,4 +1,4 @@
-\(c : ?Bool.end) -> case c of {
+\(c : ?Bool.End!) -> case c of {
   True c -> (),
   _ -> (),
 }

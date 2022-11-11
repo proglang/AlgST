@@ -1,12 +1,12 @@
 Exp.App
 |
-+- Exp.Var (+)#Builtin.17
++- Exp.Var (+)#Builtin.19
 |
 `- Exp.App
    |
    +- Exp.App
    |  |
-   |  +- Exp.Var (+)#Builtin.17
+   |  +- Exp.Var (+)#Builtin.19
    |  |
    |  `- Exp.Lit
    |     |

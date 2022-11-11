@@ -1,7 +1,12 @@
 
-1:21: error:
+1:22: error:
 	 Incomplete case. Missing branch:
 	    False
 
+2:8: error:
+	 Linear variable c of type
+	     End!
+	 is unused.
+
 3:3: error:
-	 Wildcards are not allowed in the context started at 1:21
+	 Wildcards are not allowed in the context started at 1:22

@@ -131,7 +131,7 @@ import           AlgST.Util.ErrorMessage
   of       { TokenOf       _  }
   forall   { TokenForall   _  }
   dualof   { TokenDualof   _  }
-  end      { TokenEnd      _  }
+  end      { TokenEnd      $$ }
   import   { TokenImport   _  }
 
 %%
@@ -490,7 +490,7 @@ TypeAtom :: { PType }
   : '()'                          { T.Unit (pos $1) }
   | '(,)'                         {% fatalError $ errorMisplacedPairCon @Types (pos $1) Proxy }
   | '(' Type ',' TupleType ')'    { T.Pair (pos $1) $2 $4 }
-  | end                           { T.End (pos $1) }
+  | end                           { uncurryL T.End $1 }
   | TypeVar                       { uncurryL T.Var $1 }
   | TypeName                      { uncurryL T.Con $1 }
   | '(' Type ')'                  { $2 }

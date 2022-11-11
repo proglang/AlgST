@@ -25,7 +25,6 @@ syn keyword algstDecl type data protocol
   \ skipwhite
   \ skipempty
 syn keyword algstBuiltin select receive send new fork fork_
-syn keyword algstEnd end
 
 syn match algstKind contained "\<\([TSM][LU]\?\|P\)\>"
 
@@ -40,6 +39,7 @@ syn match algstQuantifier "∀\|\<forall\>"
       \ skipwhite
 
 syn match algstCon "\<[A-Z]\k*\>"
+syn match algstCon "\<End[!?]"
 syn match algstVar "\<\([a-z]\k*\|_\k\+\)\>" contained
 
 syn region algstVarDef matchgroup=algstVar start="^\k\+" end="=\@1=" 
@@ -122,7 +122,6 @@ hi def link algstControl Conditional
 hi def link algstModuleName Type
 hi def link algstVar Identifier
 hi def link algstCon Type
-hi def link algstEnd Type
 hi def link algstKeyword Keyword
 hi def link algstDecl Statement
 hi def link algstKind Constant

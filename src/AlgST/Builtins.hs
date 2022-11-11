@@ -88,6 +88,18 @@ builtinsModuleCtxt :: Tc.CheckContext
               --
               "send : ∀(a : MU). ∀(s : SL). a -> !a.s -> s",
               "send [a] [s] a s = sendLin [a, s] a s",
+              --
+              "wait : End? -> ()",
+              "terminate : End! -> ()",
+              --
+              "fstClose : ∀(b : TL). (b -> ()) -> ∀(a : TL). (a, b) -> a",
+              "fstClose close ab = let (a, b) = ab in let _ = close b in a",
+              --
+              "fstWait : ∀(a : TL). (a, End?) -> a",
+              "fstWait = fstClose [End?] wait",
+              --
+              "fstTerminate : ∀(a : TL). (a, End!) -> a",
+              "fstTerminate = fstClose [End!] terminate",
               -- Arithmetic operations.
               "(+) : Int -> Int -> Int",
               "(-) : Int -> Int -> Int",

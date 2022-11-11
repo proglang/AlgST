@@ -110,8 +110,9 @@ data Type x
   | -- | > Session _ In  t s          ~ ?t.s
     --   > Session _ Out t s          ~ !t.s
     Session (XSession x) !Polarity (Type x) (Type x)
-  | -- | > End _                      ~ end
-    End (XEnd x)
+  | -- | > End _ In                   ~ End?
+    --   > End _ Out                  ~ End!
+    End (XEnd x) !Polarity
   | -- | > Forall _ (K.Bind _ v k t)  ~ ∀(v:k). t
     Forall (XForall x) (K.Bind (XStage x) (Type x))
   | -- | Var _ v                      ~ v
@@ -135,7 +136,7 @@ instance ForallX HasPos x => HasPos (Type x) where
   pos (Arrow x _ _ _) = pos x
   pos (Pair x _ _) = pos x
   pos (Session x _ _ _) = pos x
-  pos (End x) = pos x
+  pos (End x _) = pos x
   pos (Forall x _) = pos x
   pos (Var x _) = pos x
   pos (Con x _) = pos x

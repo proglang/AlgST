@@ -113,12 +113,11 @@ noNormalform t = PosError (pos t) [Error "Malformed type:", Error t]
 {-# NOINLINE noNormalform #-}
 
 missingUse :: ProgVar TcStage -> Var -> Diagnostic
-missingUse var Var {varLocation = loc} =
-  PosError
-    loc
-    [ Error "Linear variable",
-      Error var,
-      Error "is unused."
+missingUse name var =
+  PosError (pos var) . errUnline $
+    [ [Error "Linear variable", Error name, Error "of type"],
+      showType (varType var) Nothing,
+      [Error "is unused."]
     ]
 {-# NOINLINE missingUse #-}
 
@@ -212,19 +211,19 @@ typeConstructorNParams loc ts !given !expected =
 cyclicAliases :: [ExpansionEntry] -> Diagnostic
 cyclicAliases aliases =
   PosError errLoc $
-    Error "Cycle in type synonym declarations." :
-    concat
-      [ concat
-          [ [ ErrLine,
-              Error $ "  " ++ showLoc expansionLoc
-            ],
-            aliasHead expansionName (aliasParams expansionAlias),
-            [ Error "=",
-              Error (aliasType expansionAlias)
+    Error "Cycle in type synonym declarations."
+      : concat
+        [ concat
+            [ [ ErrLine,
+                Error $ "  " ++ showLoc expansionLoc
+              ],
+              aliasHead expansionName (aliasParams expansionAlias),
+              [ Error "=",
+                Error (aliasType expansionAlias)
+              ]
             ]
-          ]
-        | ExpansionEntry {..} <- aliases
-      ]
+          | ExpansionEntry {..} <- aliases
+        ]
   where
     errLoc = minimum positions
     locSize = maximum (length . show <$> positions)
@@ -253,11 +252,11 @@ invalidNominalKind loc nomKind name actual allowed =
 mismatchedBind :: Pos -> ANameG scope -> TcType -> Diagnostic
 mismatchedBind loc var t =
   PosError loc $
-    Error (choose "Binding of type variable" "Binding of variable") :
-    Error var :
-    Error "does not align with type" :
-    ErrLine :
-    showType t Nothing
+    Error (choose "Binding of type variable" "Binding of variable")
+      : Error var
+      : Error "does not align with type"
+      : ErrLine
+      : showType t Nothing
   where
     choose x y = either (const x) (const y) var
 {-# NOINLINE mismatchedBind #-}
@@ -291,23 +290,23 @@ mismatchedCaseConstructor loc ty con =
 missingCaseBranches :: Pos -> [ProgVar TcStage] -> Diagnostic
 missingCaseBranches loc branches =
   PosError loc $
-    Error "Incomplete case. Missing" :
-    Error (plural branches "branch:" "branches:") :
-    missingBranches branches
+    Error "Incomplete case. Missing"
+      : Error (plural branches "branch:" "branches:")
+      : missingBranches branches
 {-# NOINLINE missingCaseBranches #-}
 
 noSingularConstructorType :: Pos -> TcType -> [ProgVar TcStage] -> Diagnostic
 noSingularConstructorType loc ty branches =
   PosError loc $
-    Error "Values of type" :
-    ErrLine :
-    Error "  " :
-    Error ty :
-    Error "cannot appear as the right hand side of a let-pattern." :
-    ErrLine :
-    Error "Too many constructors. Unhandled " :
-    Error (plural branches "constructor:" "constructors:") :
-    missingBranches branches
+    Error "Values of type"
+      : ErrLine
+      : Error "  "
+      : Error ty
+      : Error "cannot appear as the right hand side of a let-pattern."
+      : ErrLine
+      : Error "Too many constructors. Unhandled "
+      : Error (plural branches "constructor:" "constructors:")
+      : missingBranches branches
 {-# NOINLINE noSingularConstructorType #-}
 
 missingBranches :: [ProgVar TcStage] -> [ErrorMessage]
@@ -487,14 +486,14 @@ showType :: TcType -> Maybe TcType -> [ErrorMessage]
 showType t mNF
   | Just tNF <- mNF,
     Eq.Alpha t /= Eq.Alpha tNF =
-    [ Error $ MsgTag " [NF]",
-      Error tNF,
-      ErrLine,
-      Error $ MsgTag "[LIT]",
-      Error t
-    ]
+      [ Error $ MsgTag " [NF]",
+        Error tNF,
+        ErrLine,
+        Error $ MsgTag "[LIT]",
+        Error t
+      ]
   | otherwise =
-    [indent, Error t]
+      [indent, Error t]
 
 errUnline :: [[ErrorMessage]] -> [ErrorMessage]
 errUnline = List.intercalate [ErrLine]

@@ -13,19 +13,19 @@ data List (a:TU)
   = Cons a (List a)
   | Nil
 
-sum : List Int -> !Repeat Arith.end -> Int
+sum : List Int -> !Repeat Arith.End! -> Int
 sum =
-  let rec go : Int -> List Int -> !Repeat Arith.end -> Int =
-    \(acc : Int) (xs : List Int) (c : !Repeat Arith.end) -> case xs of {
+  let rec go : Int -> List Int -> !Repeat Arith.End! -> Int =
+    \(acc : Int) (xs : List Int) (c : !Repeat Arith.End!) -> case xs of {
       Cons x xs ->
-        let c = select More [Arith, end] c in
-        let c = select Add [!Repeat Arith.end] c in
-        let c = send [Int, !Int.?Int.!Repeat Arith.end] x c in
-        let c = send [Int, ?Int.!Repeat Arith.end] acc c in
-        let (acc', c) = receive [Int, !Repeat Arith.end] c in
+        let c = select More [Arith, End!] c in
+        let c = select Add [!Repeat Arith.End!] c in
+        let c = send [Int, !Int.?Int.!Repeat Arith.End!] x c in
+        let c = send [Int, ?Int.!Repeat Arith.End!] acc c in
+        let (acc', c) = receive [Int, !Repeat Arith.End!] c in
         go acc' xs c,
       Nil ->
-        let _ = select Quit [Arith, end] c in
+        let _ = terminate <| select Quit [Arith, End!] c in
         acc
     }
   in go 0

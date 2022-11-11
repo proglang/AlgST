@@ -14,7 +14,7 @@ type Recv (a:TL) = ∀(s:SL). ?a.s -> (a, s)
 -- `Fun a b` corresponds to a function `a -o b`. The function can be used
 -- multiple times through `FunSession` which wraps it in `Repeat`.
 protocol Fun (a:TL) (b:TL) = Fun +a -b
-type FunSession (a:TL) (b:TL) = !Repeat (Fun a b).end
+type FunSession (a:TL) (b:TL) = !Repeat (Fun a b).End!
 
 -- On the sending side there is `sendFun`. To send a function `a -> b` it must
 -- be provided with functions to receive values of type `a` and send values of
@@ -37,7 +37,7 @@ sendFun [a] recvA [b] sendB [s] fn c =
   -- function arguments to send the result back. The other end is sent over the
   -- channel.
   let (c1, c2) = new [FunSession a b] in
-  let _ = fork_ (repeater [Fun a b, end] ap1 c2) in
+  let _ = fork_ (wait <| repeater [Fun a b, End?] ap1 c2) in
   sendLin [FunSession a b, s] c1 c
 
 -- On the receiving side the `FunSession` is accepted with a simple receive
@@ -51,7 +51,7 @@ app :
   ∀(b:TL). Recv b ->
   FunSession a b -> a -o (b, FunSession a b)
 app [a] sendA [b] recvB c a =
-  select More [Fun a b, end] c
+  select More [Fun a b, End!] c
     |> select Fun [a, b, FunSession a b]
     |> sendA [?b.FunSession a b] a
     |> recvB [FunSession a b]

@@ -28,17 +28,17 @@ serve_arith [s] c =
 repeated_arith : Service (Repeat Arith)
 repeated_arith = repeater [Arith] serve_arith
 
-client1 : dual (?Repeat Arith.end) -> end
-client1 c = select Quit [Arith, end] c
+client1 : dual (?Repeat Arith.End?) -> End!
+client1 c = select Quit [Arith, End!] c
 
--- client2 : dual (?Repeat Arith.end) -> end
--- client2 c = select More [Arith, end] c
+-- client2 : ∀(s:SL). dual (?Repeat Arith.s) -> s
+-- client2 [s] c = select More [Arith, s] c
 
 repeater_active : Int -> ∀(p:P). Service p -> Service -(Repeat -p)
 repeater_active n [p] serveP [s] c = 
-  if n==0
-  then select Quit [-p,s] c
-  else select More [-p,s] c |>
-       serveP [?(-Repeat -p).s] |>
-       repeater_active (n-1) [p] serveP [s]
-
+  if n == 0 then
+    select Quit [-p,s] c
+  else
+    select More [-p,s] c
+      |> serveP [?(-Repeat -p).s]
+      |> repeater_active (n-1) [p] serveP [s]

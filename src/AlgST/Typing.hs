@@ -250,9 +250,9 @@ checkTypeDecl name = \case
     -- allowed.
     let allowed
           | nameResolvedModule name == BuiltinsModule =
-            K.ML <| K.MU <| alwaysAllowed
+              K.ML <| K.MU <| alwaysAllowed
           | otherwise =
-            alwaysAllowed
+              alwaysAllowed
         alwaysAllowed = K.TL :| [K.TU]
     kind <- expectNominalKind (pos origin) "data" name (nominalKind decl) allowed
     tcConstructors <- local (bindParams (nominalParams decl)) do
@@ -603,8 +603,8 @@ kisynth =
       -- "Kind polymorphism for pairs".
       let k = K.leastUpperBound (K.leastUpperBound k1 k2) K.TU
       pure (T.Pair p t1' t2', k)
-    T.End p -> do
-      pure (T.End p, K.SU)
+    T.End p pol -> do
+      pure (T.End p pol, K.SL)
     T.Session p pol t1 t2 -> do
       t1' <- kicheck t1 K.P
       t2' <- kicheck t2 K.SL
@@ -672,7 +672,13 @@ tysynth =
       let k = typeKind ty
       when (not (k <=? K.ML)) do
         Error.add $ Error.unexpectedForkKind "fork" e ty k K.ML
-      let resultTy = buildSessionType p T.In [ty] $ T.End p
+      -- Here we can choose between T.In and T.Out: should an expression
+      --    fork 1
+      -- should have type ?Int.End? or ?Int.End!  ? For now I have decided upon
+      -- the former. In theory, this allows the `fork` machinery to eagerly
+      -- close the connection. In practice this does not make much of a
+      -- difference.
+      let resultTy = buildSessionType p T.In [ty] $ T.End p T.In
       pure (E.Fork p e', resultTy)
 
     --
@@ -925,7 +931,7 @@ appArrow = go id Set.empty
     go prependPushed pushed = \case
       T.Arrow _ _ t u
         | not (liftNameSet pushed `anyFree` t) ->
-          Just (t, prependPushed u)
+            Just (t, prependPushed u)
       T.Forall x (K.Bind x' v k t) ->
         go
           (prependPushed . T.Forall x . K.Bind x' v k)

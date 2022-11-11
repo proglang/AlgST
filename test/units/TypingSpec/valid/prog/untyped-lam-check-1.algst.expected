@@ -34,7 +34,7 @@ double#M.0
             |
             +- Exp.App
             |  |
-            |  +- Exp.Var (*)#Builtin.19
+            |  +- Exp.Var (*)#Builtin.21
             |  |
             |  `- Exp.Var x#M.1
             |

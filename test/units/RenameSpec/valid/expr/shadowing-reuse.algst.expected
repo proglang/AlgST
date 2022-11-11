@@ -8,7 +8,7 @@ Exp.Abs U a#M.0
    |  |
    |  +- Exp.App
    |  |  |
-   |  |  +- Exp.Var (+)#Builtin.17
+   |  |  +- Exp.Var (+)#Builtin.19
    |  |  |
    |  |  `- Exp.Var a#M.0
    |  |

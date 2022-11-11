@@ -68,6 +68,7 @@ import Data.List.NonEmpty (NonEmpty (..))
 import Data.Sequence (Seq (..))
 import Data.Sequence qualified as Seq
 import Lens.Family2 ((+~), (.~))
+import System.Directory (getCurrentDirectory)
 import System.FilePath
 import System.IO
 import System.IO.Error
@@ -385,11 +386,11 @@ findModule name = flip runContT pure do
   -- Check all search paths.
   let annotResult m
         | verbose =
-          try m >>= \case
-            Left (e :: IOError) ->
-              searchMsg (".. ⮑  ✗ " ++ displayException e) *> throwIO e
-            Right r ->
-              searchMsg ".. ⮑  ✔" $> r
+            try m >>= \case
+              Left (e :: IOError) ->
+                searchMsg (".. ⮑  ✗ " ++ displayException e) *> throwIO e
+              Right r ->
+                searchMsg ".. ⮑  ✔" $> r
         | otherwise = m
   let tryRead dir = do
         let fp = dir </> modulePath name
@@ -467,8 +468,8 @@ cycleError ((m, iloc) :| []) = Left (importLocPath iloc, err)
         [Error "Module", Error m, Error "imports itself."]
 cycleError ((m0, iloc0) :| ms) =
   Right . unlocatedError . List.intercalate [ErrLine] $
-    [Error "Cycle in module imports:"] :
-    step "   Module" m0 iloc0
+    [Error "Cycle in module imports:"]
+      : step "   Module" m0 iloc0
       ++ concatMap (uncurry $ step "   imports") ms
       ++ [[Error "   imports", Error m0]]
   where
@@ -491,11 +492,14 @@ setError = do
 reportErrors :: Foldable f => FilePath -> f Diagnostic -> Driver ()
 reportErrors fp diags
   | null diags =
-    pure ()
+      pure ()
   | otherwise = do
-    setError
-    (handle, mode) <- askOutput
-    outputS handle $ renderErrors' (Just 10) mode fp (toList diags) . showChar '\n'
+      setError
+      (handle, mode) <- askOutput
+      cwd <- liftIO getCurrentDirectory
+      let fpShort = makeRelative cwd fp
+      let errs = renderErrors' (Just 10) mode fpShort (toList diags)
+      outputS handle $ errs . showChar '\n'
 
 askOutput :: Driver (OutputHandle, OutputMode)
 askOutput = asksState do

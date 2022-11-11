@@ -8,5 +8,5 @@ Type.Dualof
       |
       +- Type.Var p2
       |
-      `- Type.End
+      `- Type.End!
 

@@ -182,9 +182,9 @@ instance T.ForallX LabeledTree x => LabeledTree (T.Type x) where
         tree
           ("Type.Session (" ++ show p ++ ")")
           [labeledTree x, labeledTree t1, labeledTree t2]
-      T.End x ->
+      T.End x p ->
         tree
-          "Type.End"
+          ("Type.End" ++ show p)
           [labeledTree x]
       T.Forall x b ->
         let t = kbindNode "Type.Forall" b

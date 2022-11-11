@@ -87,19 +87,21 @@ instance HasPos TypeRef where
 instance Equivalence TcStage TypeRef where
   alpha proxy w m r1 r2 =
     and $
-      (typeRefName r1 == typeRefName r2) :
-      -- Given that both 'TypeRef's have the same name they must have the same
-      -- number of arguments.
-      zipWith (alpha proxy w m) (typeRefArgs r1) (typeRefArgs r2)
+      (typeRefName r1 == typeRefName r2)
+        :
+        -- Given that both 'TypeRef's have the same name they must have the same
+        -- number of arguments.
+        zipWith (alpha proxy w m) (typeRefArgs r1) (typeRefArgs r2)
 
 instance Subtype TcStage TypeRef where
   beta proxy w m _ r1 r2 =
     and $
-      (typeRefName r1 == typeRefName r2) :
-      -- Given that both 'TypeRef's have the same name they must have the same
-      -- number of arguments.
-      -- deliberately reverting to alpha to enforce invariance!
-      zipWith (alpha proxy w m) (typeRefArgs r1) (typeRefArgs r2)
+      (typeRefName r1 == typeRefName r2)
+        :
+        -- Given that both 'TypeRef's have the same name they must have the same
+        -- number of arguments.
+        -- deliberately reverting to alpha to enforce invariance!
+        zipWith (alpha proxy w m) (typeRefArgs r1) (typeRefArgs r2)
 
 instance SynTraversable TypeRef Tc TypeRef Tc where
   traverseSyntax proxy ref = do
@@ -123,8 +125,8 @@ instance LabeledTree TypeRef where
   -- structures.
   labeledTree ref =
     pure . Node "TypeRef" $
-      leaf (pprName (typeRefName ref)) :
-      concatMap labeledTree (typeRefArgs ref)
+      leaf (pprName (typeRefName ref))
+        : concatMap labeledTree (typeRefArgs ref)
 
 -- | Returns the types kind.
 --
@@ -137,7 +139,7 @@ typeKind t = case t of
   T.Pair _ t u ->
     K.leastUpperBound (typeKind t) (typeKind u)
   T.Session {} -> K.SL
-  T.End _ -> K.SU
+  T.End _ _ -> K.SL
   T.Forall _ (K.Bind _ _ _ t) ->
     maybe malformed (K.Kind K.Top) (K.multiplicity (typeKind t))
   T.Var k _ -> unL k

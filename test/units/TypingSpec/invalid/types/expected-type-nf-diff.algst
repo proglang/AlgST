@@ -1,1 +1,1 @@
-let x : dual (dual end) = () in ()
+let x : dual (dual End!) = () in ()

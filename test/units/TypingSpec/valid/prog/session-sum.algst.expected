@@ -274,7 +274,7 @@ sum#M.9
    |        |  |           |
    |        |  |           `- Arith
    |        |  |
-   |        |  `- Type.End
+   |        |  `- Type.End!
    |        |
    |        `- Type.Type
    |           |
@@ -330,7 +330,7 @@ sum#M.9
             |  |        |  |           |
             |  |        |  |           `- Arith
             |  |        |  |
-            |  |        |  `- Type.End
+            |  |        |  `- Type.End!
             |  |        |
             |  |        `- Type.Type
             |  |           |
@@ -376,7 +376,7 @@ sum#M.9
             |           |  |           |
             |           |  |           `- Arith
             |           |  |
-            |           |  `- Type.End
+            |           |  `- Type.End!
             |           |
             |           `- Exp.Exp
             |              |
@@ -404,7 +404,7 @@ sum#M.9
             |                 |        |  |  |        |
             |                 |        |  |  |        `- Arith
             |                 |        |  |  |
-            |                 |        |  |  `- Type.End
+            |                 |        |  |  `- Type.End!
             |                 |        |  |
             |                 |        |  `- Exp.Var c#M.19
             |                 |        |
@@ -434,7 +434,7 @@ sum#M.9
             |                 |                 |  |     |           |
             |                 |                 |  |     |           `- Arith
             |                 |                 |  |     |
-            |                 |                 |  |     `- Type.End
+            |                 |                 |  |     `- Type.End!
             |                 |                 |  |
             |                 |                 |  `- Exp.Var c#M.22
             |                 |                 |
@@ -452,7 +452,7 @@ sum#M.9
             |                 |                          |  |  |  |
             |                 |                          |  |  |  +- Exp.TypeApp
             |                 |                          |  |  |  |  |
-            |                 |                          |  |  |  |  +- Exp.Var send#Builtin.29
+            |                 |                          |  |  |  |  +- Exp.Var send#Builtin.34
             |                 |                          |  |  |  |  |
             |                 |                          |  |  |  |  `- Type.Type
             |                 |                          |  |  |  |     |
@@ -490,7 +490,7 @@ sum#M.9
             |                 |                          |  |  |           |           |
             |                 |                          |  |  |           |           `- Arith
             |                 |                          |  |  |           |
-            |                 |                          |  |  |           `- Type.End
+            |                 |                          |  |  |           `- Type.End!
             |                 |                          |  |  |
             |                 |                          |  |  `- Exp.Var x#M.20
             |                 |                          |  |
@@ -510,7 +510,7 @@ sum#M.9
             |                 |                                   |  |  |  |
             |                 |                                   |  |  |  +- Exp.TypeApp
             |                 |                                   |  |  |  |  |
-            |                 |                                   |  |  |  |  +- Exp.Var send#Builtin.29
+            |                 |                                   |  |  |  |  +- Exp.Var send#Builtin.34
             |                 |                                   |  |  |  |  |
             |                 |                                   |  |  |  |  `- Type.Type
             |                 |                                   |  |  |  |     |
@@ -540,7 +540,7 @@ sum#M.9
             |                 |                                   |  |  |        |           |
             |                 |                                   |  |  |        |           `- Arith
             |                 |                                   |  |  |        |
-            |                 |                                   |  |  |        `- Type.End
+            |                 |                                   |  |  |        `- Type.End!
             |                 |                                   |  |  |
             |                 |                                   |  |  `- Exp.Var acc#M.17
             |                 |                                   |  |
@@ -580,7 +580,7 @@ sum#M.9
             |                 |                                            |  |     |           |
             |                 |                                            |  |     |           `- Arith
             |                 |                                            |  |     |
-            |                 |                                            |  |     `- Type.End
+            |                 |                                            |  |     `- Type.End!
             |                 |                                            |  |
             |                 |                                            |  `- Exp.Var c#M.25
             |                 |                                            |
@@ -608,21 +608,25 @@ sum#M.9
             |                          |
             |                          +- Exp.App
             |                          |  |
-            |                          |  +- Exp.TypeApp
-            |                          |  |  |
-            |                          |  |  +- Exp.TypeApp
-            |                          |  |  |  |
-            |                          |  |  |  +- Exp.Select Quit#M.8
-            |                          |  |  |  |
-            |                          |  |  |  `- Type.Type
-            |                          |  |  |     |
-            |                          |  |  |     `- TypeRef
-            |                          |  |  |        |
-            |                          |  |  |        `- Arith
-            |                          |  |  |
-            |                          |  |  `- Type.End
+            |                          |  +- Exp.Var terminate#Builtin.10
             |                          |  |
-            |                          |  `- Exp.Var c#M.19
+            |                          |  `- Exp.App
+            |                          |     |
+            |                          |     +- Exp.TypeApp
+            |                          |     |  |
+            |                          |     |  +- Exp.TypeApp
+            |                          |     |  |  |
+            |                          |     |  |  +- Exp.Select Quit#M.8
+            |                          |     |  |  |
+            |                          |     |  |  `- Type.Type
+            |                          |     |  |     |
+            |                          |     |  |     `- TypeRef
+            |                          |     |  |        |
+            |                          |     |  |        `- Arith
+            |                          |     |  |
+            |                          |     |  `- Type.End!
+            |                          |     |
+            |                          |     `- Exp.Var c#M.19
             |                          |
             |                          `- _#M.28
             |                             |

@@ -62,34 +62,38 @@ protocol B =
 
 -- wrapping of Dyck words w -> L w R
 
-copyT : forall (x:P). (?x.end -> !x.end -o end) -> (?T x.end -> !T x.end -o end)
+copyT : forall (x:P). (?x.End! -> !x.End! -o End!) -> (?T x.End! -> !T x.End! -o End!)
 copyT [x] copyX c_in c_out = match c_in with {
   L c_in ->
-    copyT [T x] (copyT [x] copyX) c_in (select L [x,end] c_out),
+    copyT [T x] (copyT [x] copyX) c_in (select L [x,End!] c_out),
   R c_in ->
-    copyX c_in (select R [x,end] c_out)
+    copyX c_in (select R [x,End!] c_out)
 }
 
-copyD : ?D.end -> !D.end -o end
+copyD : ?D.End! -> !D.End! -o End!
 copyD c_in c_out = match c_in with {
-  QQ c_in -> select QQ [end] c_out,
+  QQ c_in ->
+    let _ = terminate c_in in
+    select QQ [End!] c_out,
   DL c_in ->
-    let c_out = select DL [end] c_out in
+    let c_out = select DL [End!] c_out in
     copyT [D] copyD c_in c_out
 }
 
-copyT1 : forall (x:P). (?x.end -> !T x.end -o !x.end) -> (?T x.end -> !T (T x).end -o !x.end)
-copyT1 [x] copyX = blackhole[?T x.end -> !T (T x).end -o !x.end]
+copyT1 : forall (x:P). (?x.End! -> !T x.End! -o !x.End!) -> (?T x.End! -> !T (T x).End! -o !x.End!)
+copyT1 [x] copyX = blackhole[?T x.End! -> !T (T x).End! -o !x.End!]
 
-wrap1 : ?D.end -> !T D.end -o !D.end
+wrap1 : ?D.End! -> !T D.End! -o !D.End!
 wrap1 c_in c_out = match c_in with {
-  QQ c_in -> select R [D,end] c_out,
+  QQ c_in ->
+    let _ = terminate c_in in
+    select R [D,End!] c_out,
   DL c_in ->
-     copyT1 [D] wrap1 c_in (select L [D, end] c_out)
+     copyT1 [D] wrap1 c_in (select L [D, End!] c_out)
 }
 
-wrap : ?D.end -> !D.end -o end
+wrap : ?D.End! -> !D.End! -o End!
 wrap c_in c_out =
-  let c_out = select DL [end] c_out in
+  let c_out = select DL [End!] c_out in
   let c_out = wrap1 c_in c_out in
-  select QQ [end] c_out
+  select QQ [End!] c_out

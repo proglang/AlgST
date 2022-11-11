@@ -536,8 +536,8 @@ instance
       T.Session x p
         <$> traverseSyntax pxy t
         <*> traverseSyntax pxy u
-    T.End x ->
-      pure (T.End x)
+    T.End x p ->
+      pure $ T.End x p
     T.Forall x b ->
       T.Forall x
         <$> traverseSyntax pxy b

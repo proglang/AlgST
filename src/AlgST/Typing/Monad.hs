@@ -34,6 +34,9 @@ data Var = Var
     varLocation :: Pos
   }
 
+instance HasPos Var where
+  pos = varLocation
+
 data Usage
   = -- | Usage for 'Un' variables is not tracked.
     UnUsage

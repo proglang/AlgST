@@ -55,9 +55,8 @@ nfs = go
         let (a', _) = go a
             (b', _) = go b
          in (Arrow k m <$> a' <*> b', Nothing)
-      End k ->
-        let t = Just (End k)
-         in (t, t)
+      End x p ->
+        (Just (End x p), Just (End x (flipPolarity p)))
       Session k p a b ->
         let !(a', _) = go a
             !(b1, b2) = go b
@@ -71,11 +70,11 @@ nfs = go
       Forall tyK (K.Bind p' v k t)
         | (prepend', vs, Arrow arrK m t u) <- collectForalls t,
           not (liftNameSet (Set.insert v vs) `anyFree` t) ->
-          let (t1, _) = go t
-              (u1, _) = go (prepend (prepend' u))
-           in (Arrow arrK m <$> t1 <*> u1, Nothing)
+            let (t1, _) = go t
+                (u1, _) = go (prepend (prepend' u))
+             in (Arrow arrK m <$> t1 <*> u1, Nothing)
         | otherwise ->
-          unwrap $ prepend <$> wrap (go t)
+            unwrap $ prepend <$> wrap (go t)
         where
           prepend :: TcType -> TcType
           prepend = Forall tyK . K.Bind p' v k
@@ -88,13 +87,13 @@ nfs = go
 Potential for optimization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* A consecutive set of foralls is destructured and reconstrucuted multiple
+\* A consecutive set of foralls is destructured and reconstrucuted multiple
   times during NF calculation.
 
-* Instead of pushing foralls down as far as possible we could gather them at
+\* Instead of pushing foralls down as far as possible we could gather them at
   the top level, eliminating the need for `anyFree` checks.
 
-* Check and probably improve strictness of the `nf` algorithm.
+\* Check and probably improve strictness of the `nf` algorithm.
 -}
 
 collectForalls :: TcType -> (TcType -> TcType, TcNameSet Types, TcType)

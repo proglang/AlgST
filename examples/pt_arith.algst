@@ -26,39 +26,39 @@ type Ariths = Stream Arith
 
 type Service (a:P) = forall (s:S). ?a.s -> s
 
-forever_arith : (forall (s:S). ?Arith.s -> s) -> ?Stream Arith.end -> end
+forever_arith : (forall (s:S). ?Arith.s -> s) -> ?Stream Arith.End? -> End?
 forever_arith serve c =
   match c with {
-    Next c -> serve [?Stream Arith.end] c |> forever_arith serve
+    Next c -> serve [?Stream Arith.End?] c |> forever_arith serve
   }
 
-forever : forall (a:P). Service a -> ?Stream a.end -> end
+forever : forall (a:P). Service a -> ?Stream a.End? -> End?
 forever [a] serve c =
   match c with {
-    Next c -> serve [?Stream a.end] c |> forever [a] serve
+    Next c -> serve [?Stream a.End?] c |> forever [a] serve
   }
 
 type Arith_Service = Service Arith
 
-forever_arith2 : Service Arith -> ?Stream Arith.end -> end
+forever_arith2 : Service Arith -> ?Stream Arith.End? -> End?
 forever_arith2 = forever [Arith]
 
-forever_arith3 : ?Stream Arith.end -> end
+forever_arith3 : ?Stream Arith.End? -> End?
 forever_arith3 = forever_arith2 serve_arith
 
-forever_active : forall (a:P). Service a -> !Stream -a.end -> end
+forever_active : forall (a:P). Service a -> !Stream -a.End? -> End?
 forever_active [a] serve c =
-  select Next [-a, end] c
-  |> serve [!Stream -a.end]
-  |> forever_active [a] serve
+  select Next [-a, End?] c
+    |> serve [!Stream -a.End?]
+    |> forever_active [a] serve
 
-forever_active_arith : !Stream -Arith.end -> end
+forever_active_arith : !Stream -Arith.End? -> End?
 forever_active_arith = forever_active [Arith] serve_arith
 
-forever_active_ints : Service -Int -> !Stream Int.end -> end
+forever_active_ints : Service -Int -> !Stream Int.End? -> End?
 forever_active_ints = forever_active [-Int]
 
-forever_active_ones : !Stream Int.end -> end
+forever_active_ones : !Stream Int.End? -> End?
 forever_active_ones = forever_active [-Int] (send [Int] 1)
 
 ----

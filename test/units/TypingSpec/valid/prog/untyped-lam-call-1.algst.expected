@@ -46,7 +46,7 @@ double#M.0
             |     |
             |     +- Exp.App
             |     |  |
-            |     |  +- Exp.Var (*)#Builtin.19
+            |     |  +- Exp.Var (*)#Builtin.21
             |     |  |
             |     |  `- Exp.Var i#M.2
             |     |

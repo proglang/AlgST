@@ -8,8 +8,8 @@ double n = n * 2
 
 main : Int
 main =
-  let (c1, c2) = new [!Int.?Int.end] in
-  let _ = fork_ (echoServer [Int, end] double c2) in
-  let c = send [Int, ?Int.end] 10 c1 in
-  let (r, _) = receive [Int, end] c in
+  let (c1, c2) = new [!Int.?Int.End!] in
+  let _ = fork_ (wait <| echoServer [Int, End?] double c2) in
+  let c = send [Int, ?Int.End!] 10 c1 in
+  let r = fstTerminate [Int] <| receive [Int, End!] c in
   r

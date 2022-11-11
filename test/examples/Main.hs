@@ -2,14 +2,21 @@ module Main (main) where
 
 import Control.Monad.Reader
 import Data.Foldable
+import Data.Function
+import Data.List qualified as List
+import Data.Semialign
+import Data.These
+import Paths_AlgST
 import System.Directory
 import System.Environment
 import System.Exit (exitFailure)
 import System.FilePath
 import System.Process.Typed
 
-newtype Opts = Opts
-  { optsVerbose :: Bool
+data Opts = Opts
+  { optsVerbose :: !Bool,
+    optsOnly :: [FilePath],
+    optsDir :: FilePath
   }
 
 type M = ReaderT Opts IO
@@ -18,14 +25,31 @@ main :: IO ()
 main = do
   opts <- readOpts
 
-  let base = "./examples"
-  examples <- fmap (base </>) <$> listDirectory base
+  let doFilter flt fp = and $ alignWith go (splitRev flt) (splitRev fp)
+        where
+          splitRev = reverse . splitDirectories . normalise
+          go (These flt' fp') =
+            flt' == fp'
+              || (not (hasExtension flt') && flt' == dropExtensions fp')
+          go (This _) = False -- filter has more components
+          go (That _) = True -- filter is shorter
+  let testFilter fp
+        | null (optsOnly opts) = True
+        | otherwise = any (doFilter fp) (optsOnly opts)
+
+  dataDir <- getDataDir
+  allExamples <- listDirectory (dataDir </> "examples")
+  let prefixed = ("examples" </>) <$> allExamples
+  let filtered = List.sort $ filter testFilter prefixed
+  let selected = (dataDir </>) <$> filtered
 
   when (optsVerbose opts) do
-    for_ examples putStrLn
+    for_ filtered putStrLn
 
-  results <- runReaderT (traverse checkPath examples) opts
-  let nall = length results
+  let runOpts = opts {optsDir = dataDir}
+  results <- runReaderT (traverse checkPath selected) runOpts
+  let nall = length allExamples
+      nrun = length results
       ngood = length $ filter id results
 
   putStrLn . unwords $
@@ -33,8 +57,10 @@ main = do
       plural nall "example," "examples,",
       show ngood,
       "good,",
-      show (nall - ngood),
-      "failed"
+      show (nrun - ngood),
+      "failed,",
+      show (nall - nrun),
+      "skipped"
     ]
 
   when (nall /= ngood) do
@@ -47,11 +73,16 @@ plural _ _ n = n
 readOpts :: IO Opts
 readOpts =
   getArgs >>= \case
-    [] -> pure Opts {optsVerbose = False}
-    [arg] | arg == "-v" || arg == "--verbose" -> pure Opts {optsVerbose = True}
-    _ -> do
+    [] -> pure def
+    a : as
+      | a == "-h" || a == "--help" -> usage
+      | a == "-v" || a == "--verbose" -> pure def {optsVerbose = True, optsOnly = as}
+      | otherwise -> pure def {optsVerbose = False, optsOnly = a : as}
+  where
+    def = Opts {optsVerbose = False, optsOnly = [], optsDir = "."}
+    usage = do
       name <- getProgName
-      putStrLn $ "usage: " ++ name ++ " [-v|--verbose]"
+      putStrLn $ "usage: " ++ name ++ " [-v|--verbose] [examples...]"
       exitFailure
 
 checkPath :: FilePath -> M Bool
@@ -62,13 +93,13 @@ checkPath fp
 checkFile :: FilePath -> M Bool
 checkFile fp = run desc args
   where
-    desc = "Checking ‘" ++ fp ++ "’"
+    desc = "Checking ‘" ++ takeFileName fp ++ "’"
     args = [fp]
 
 checkModule :: FilePath -> M Bool
 checkModule dir = run desc args
   where
-    desc = "Checking ‘" ++ dir ++ "’"
+    desc = "Checking ‘" ++ takeFileName dir ++ "’"
     args = ["--search-dir", dir, "--find-main"]
 
 run :: String -> [String] -> M Bool
@@ -76,10 +107,13 @@ run desc args = do
   opts <- ask
   lift . putStrLn $
     if optsVerbose opts
-      then desc
-      else "algst " ++ unwords args
+      then "algst " ++ unwords args
+      else desc
 
-  exit <- runProcess $ proc "algst" args
+  let process =
+        proc "algst" args
+          & setWorkingDir (optsDir opts)
+  exit <- runProcess process
   when (optsVerbose opts || exit /= ExitSuccess) do
     lift $ putStrLn $ "exited with " ++ show exit
   lift $ putChar '\n'

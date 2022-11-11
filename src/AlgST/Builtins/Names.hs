@@ -33,6 +33,9 @@ $( runDefines (ModuleName "Builtin") "builtinsPartialModuleMap" "builtinOperator
      val "sendLin"
      val "receive"
 
+     val "wait"
+     val "terminate"
+
 {- ORMOLU_DISABLE -}
      op_           "||"  L  POr
      op_           "&&"  L  PAnd
