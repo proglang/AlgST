@@ -105,7 +105,7 @@ Full usage info is available with `--help`.
 ### Example
 
 ```bash
-; algst - --run --type 'fork main' --nf 'dual ?-Int.end' <<EOF
+; algst - --run --type 'fork main' --nf 'dual ?-Int.End!' <<EOF
 main : Int
 main = 10 + 20
 EOF
@@ -117,10 +117,10 @@ outputs
 Success.
 
 --type fork number
-  ?Int.end
+  ?Int.End?
 
---nf dual ?-Int.end
-  ?Int.end
+--nf dual ?-Int.End!
+  ?Int.End?
 
 Result: Number 30
 ```
@@ -170,7 +170,7 @@ Result: Number 30
 
 ### Concurrency Primitives
 
-* `fork : forall (a:ML). a -> ?a.end`
+* `fork : forall (a:ML). a -> ?a.End?`
 
   `fork e` evaluates expression `e` in a new thread. In the parent context it
   evaluates to a single element channel from which the result can be read once
