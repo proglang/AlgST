@@ -1,6 +1,7 @@
 # AlgST
 
-AlgST is an implementation of Algebraic Session Types by Andreia Mordido et al. (unpublished).
+AlgST is an implementation of *Parameterized Algebraic Protocols* by Andreia
+Mordido et al. (unpublished).
 
 It includes a typechecker, interpreter and a simple module system.
 
