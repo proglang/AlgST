@@ -26,8 +26,9 @@
           exec stack build --fast --test "$@"
         '';
       in {
-        devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [ nixfmt accept-test run-tests ];
+        devShell = pkgs.mkShellNoCC {
+          name = "algst-dev-shell";
+          packages = with pkgs; [ nixfmt accept-test run-tests ];
         };
       });
 }
