@@ -22,7 +22,7 @@ import AlgST.Syntax.Name
 import AlgST.Syntax.Traversal
 import AlgST.Typing (CheckContext, TcModule)
 import AlgST.Typing qualified as Tc
-import AlgST.Typing.Equality qualified as Eq
+import AlgST.Typing.Align
 import AlgST.Util qualified as Util
 import AlgST.Util.Error
 import AlgST.Util.Output
@@ -170,7 +170,7 @@ answerQueries out outMode queries renameEnvs checkEnvs = do
       t <- fmap snd $ Tc.tysynth expr
       tNF <- Tc.normalize t
       let !res
-            | Eq.Alpha t == Eq.Alpha tNF = Left t
+            | Alpha t == Alpha tNF = Left t
             | otherwise = Right (t, tNF)
       pure res
 
@@ -245,7 +245,8 @@ runInterpret out outMode checkedModules = do
       outputSticky out "Running ‘main’"
       result <- try do
         I.runEval (I.programEnvironment bigModule) $
-          I.eval $ E.Var ZeroPos mainName
+          I.eval $
+            E.Var ZeroPos mainName
       clearSticky out
       case result of
         Left ex

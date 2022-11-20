@@ -76,12 +76,11 @@ import AlgST.Syntax.Module
 import AlgST.Syntax.Name
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Type qualified as T
-import AlgST.Typing.Equality qualified as Eq
+import AlgST.Typing.Align
 import AlgST.Typing.Error qualified as Error
 import AlgST.Typing.Monad
 import AlgST.Typing.NormalForm
 import AlgST.Typing.Phase
-import AlgST.Typing.Subtyping ()
 import AlgST.Util
 import AlgST.Util.ErrorMessage
 import Control.Applicative
@@ -1488,7 +1487,7 @@ requireSubtype :: MonadValidate Errors m => RnExp -> TcType -> TcType -> m ()
 requireSubtype e t1 t2 = do
   nf1 <- normalize t1
   nf2 <- normalize t2
-  when (not (Eq.Alpha nf1 <= Eq.Alpha nf2)) do
+  when (not (Alpha nf1 <= Alpha nf2)) do
     Error.add (Error.typeMismatch e t1 nf1 t2 nf2)
 
 -- | Returns the normalform of the given type or throws an error at the given

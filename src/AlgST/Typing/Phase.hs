@@ -18,8 +18,6 @@ import AlgST.Syntax.Phases
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
 import AlgST.Syntax.Type qualified as T
-import AlgST.Typing.Equality
-import AlgST.Typing.Subtyping
 import Data.Functor.Const
 import Data.Functor.Identity
 import Data.Void
@@ -83,25 +81,6 @@ data TypeRef = TypeRef
 
 instance HasPos TypeRef where
   pos = typeRefPos
-
-instance Equivalence TcStage TypeRef where
-  alpha proxy w m r1 r2 =
-    and $
-      (typeRefName r1 == typeRefName r2)
-        :
-        -- Given that both 'TypeRef's have the same name they must have the same
-        -- number of arguments.
-        zipWith (alpha proxy w m) (typeRefArgs r1) (typeRefArgs r2)
-
-instance Subtype TcStage TypeRef where
-  beta proxy w m r1 r2 =
-    and $
-      (typeRefName r1 == typeRefName r2)
-        :
-        -- Given that both 'TypeRef's have the same name they must have the same
-        -- number of arguments.
-        -- deliberately reverting to alpha to enforce invariance!
-        zipWith (alpha proxy w m) (typeRefArgs r1) (typeRefArgs r2)
 
 instance SynTraversable TypeRef Tc TypeRef Tc where
   traverseSyntax proxy ref = do

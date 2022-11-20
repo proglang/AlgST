@@ -20,7 +20,7 @@ import AlgST.Syntax.Name
 import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
 import AlgST.Typing
-import AlgST.Typing.Equality qualified as Eq
+import AlgST.Typing.Align
 import AlgST.Util.Error
 import Control.DeepSeq
 import Control.Exception
@@ -184,7 +184,7 @@ nfShouldBe t1 t2 = do
           t1NF <- normalize t1Tc
           pure (t1NF, t2Tc)
 
-  when (Eq.Alpha t1NF /= Eq.Alpha t2Tc) do
+  when (Alpha t1NF /= Alpha t2Tc) do
     expectationFailure $
       unlines
         [ "normal forms do not match.",

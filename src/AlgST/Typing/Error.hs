@@ -15,7 +15,7 @@ import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Name
 import AlgST.Syntax.Type qualified as T
-import AlgST.Typing.Equality qualified as Eq
+import AlgST.Typing.Align
 import AlgST.Typing.Monad
 import AlgST.Typing.Phase
 import AlgST.Util
@@ -485,7 +485,7 @@ synthUntypedLambda lamLoc varLoc var =
 showType :: TcType -> Maybe TcType -> [ErrorMessage]
 showType t mNF
   | Just tNF <- mNF,
-    Eq.Alpha t /= Eq.Alpha tNF =
+    Alpha t /= Alpha tNF =
       [ Error $ MsgTag " [NF]",
         Error tNF,
         ErrLine,
