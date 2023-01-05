@@ -17,7 +17,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-19.21
+resolver: lts-20.5
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -41,8 +41,8 @@ packages:
 #   commit: e7b331f14bcffb8367cd58fbfc8b40ec7642100a
 #
 extra-deps:
-  - generic-lens-lite-0.1@sha256:8fe76096941926171ba31d26ba02eb15f2aeaf0bbdb3dfe62990de5e32d62614,1646
-  - monad-validate-1.2.0.1@sha256:5a100da896f11ca4b7c123da85decbedeb46c37054a097f258ac911e715cb68d,2587
+  - generic-lens-lite-0.1
+  - monad-validate-1.2.0.1
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

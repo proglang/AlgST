@@ -5,22 +5,22 @@
 
 packages:
 - completed:
-    hackage: generic-lens-lite-0.1@sha256:8fe76096941926171ba31d26ba02eb15f2aeaf0bbdb3dfe62990de5e32d62614,1646
+    hackage: generic-lens-lite-0.1@sha256:e6de59cf7cf23e914fd54e78260e6207d66b09fe8f94e3f4953c53ef220288ab,1692
     pantry-tree:
+      sha256: daa43cde29f446f6db4de20dd7c1ecfb45e30df625fb46206e46994bdece5808
       size: 315
-      sha256: 867c77c5af61d152bab4d6fc36a604559efe0b35da19c55ce5548c4787fe39f6
   original:
-    hackage: generic-lens-lite-0.1@sha256:8fe76096941926171ba31d26ba02eb15f2aeaf0bbdb3dfe62990de5e32d62614,1646
+    hackage: generic-lens-lite-0.1
 - completed:
     hackage: monad-validate-1.2.0.1@sha256:5a100da896f11ca4b7c123da85decbedeb46c37054a097f258ac911e715cb68d,2587
     pantry-tree:
-      size: 611
       sha256: 034ee4de9765e38b763f5d73b236cc112205728e680cefbfe12d2882accc3264
+      size: 611
   original:
-    hackage: monad-validate-1.2.0.1@sha256:5a100da896f11ca4b7c123da85decbedeb46c37054a097f258ac911e715cb68d,2587
+    hackage: monad-validate-1.2.0.1
 snapshots:
 - completed:
-    size: 619391
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/21.yaml
-    sha256: fe8926aaa3f05bb1a0a82551d2e221f267726fe73ac369d74f7b909d45b92fba
-  original: lts-19.21
+    sha256: a684cdbdf9304b325a503e0fe1d9648e9c18155ce4c7cfebbe8a7f93674e6295
+    size: 649106
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/5.yaml
+  original: lts-20.5
