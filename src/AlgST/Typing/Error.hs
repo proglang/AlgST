@@ -19,7 +19,7 @@ import AlgST.Typing.Align
 import AlgST.Typing.Monad
 import AlgST.Typing.Phase
 import AlgST.Util
-import AlgST.Util.ErrorMessage
+import AlgST.Util.ErrorMessage hiding (Errors)
 import Control.Monad.Validate
 import Data.DList.DNonEmpty qualified as DNE
 import Data.List qualified as List

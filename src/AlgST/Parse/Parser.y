@@ -692,12 +692,12 @@ parseExpr = Parser $ parseExpr_ . dropNewlines
 feedParser :: Parser a -> String -> ParseM a
 feedParser = flip lexer
 
-runParser :: Parser a -> String -> Either (NonEmpty Diagnostic) a
+runParser :: Parser a -> String -> Either Errors a
 runParser parser = runParseM . feedParser parser
 
 -- | Runs a parser with the contents of the provided file. This function may
 -- throw for all of the reasons 'readFile' may throw.
-runParserIO :: Parser a -> FilePath -> IO (Either (NonEmpty Diagnostic) a)
+runParserIO :: Parser a -> FilePath -> IO (Either Errors a)
 runParserIO parser file = runParser parser <$> readFile file
 
 -- | Runs a parser from on the given input string, returning either the

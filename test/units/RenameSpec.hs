@@ -14,13 +14,12 @@ import AlgST.Syntax.Name
 import AlgST.Syntax.Tree
 import Control.Monad.Reader
 import Control.Monad.Validate
-import Data.Bifunctor
 import Data.Function
 import Data.Map.Strict qualified as Map
 import Data.Traversable
 import System.FilePath
+import Test
 import Test.Golden
-import Test.Hspec
 
 spec :: Spec
 spec = do
@@ -31,24 +30,25 @@ spec = do
     describe "declarations" do
       goldenTests (dir "valid/prog") do
         -- TODO: Verify the resulting module map as well.
-        runParserSimple parseDecls
-          >=> bimap plainErrors drawLabeledTree
-            . renameModule (ModuleName "M") renameEnv
+        shouldParse parseDecls
+          >=> shouldNotError . renameModule (ModuleName "M") renameEnv
+          >>> fmap drawLabeledTree
 
   describe "invalid" do
     describe "expressions" do
       goldenTests
         (dir "invalid/expr")
-        (swap . parseRenameExpr)
+        (expectDiagnostics_ . parseRenameExpr)
 
-parseRenameExpr :: String -> Either String String
+parseRenameExpr :: String -> Assertion String
 parseRenameExpr src = do
-  expr <- runParserSimple parseExpr src
+  expr <- shouldParse parseExpr src
   renameSyntax expr
     & runValidateT
     & flip runReaderT (emptyModuleMap, renameEnv)
     & runFresh (ModuleName "M")
-    & bimap plainErrors drawLabeledTree
+    & fmap drawLabeledTree
+    & shouldNotError
 
 renameEnv :: RenameEnv
 renameEnv =

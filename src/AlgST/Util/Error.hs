@@ -5,6 +5,8 @@
 -- for terminals.
 module AlgST.Util.Error
   ( Diagnostic,
+    Errors,
+    DErrors,
     OutputMode (..),
     renderErrors,
     renderErrors',

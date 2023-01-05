@@ -5,9 +5,10 @@ module ParseSpec (spec) where
 
 import AlgST.Parse.Parser
 import AlgST.Syntax.Tree
+import Control.Monad
 import System.FilePath
+import Test
 import Test.Golden
-import Test.Hspec
 
 spec :: Spec
 spec = do
@@ -31,24 +32,27 @@ spec = do
     describe "expressions" do
       goldenTests
         (dir "invalid/expr")
-        (swap . parseTree parseExpr)
+        (expectDiagnostics_ . parseTree parseExpr)
 
     describe "declarations" do
       goldenTests
         (dir "invalid/decl")
-        (swap . parseTree parseModule)
+        (expectDiagnostics_ . parseTree parseModule)
 
   describe "associativity" do
-    specify "type application" do
+    specify "application" do
       let ?parser = parseType
       "A b c" `shouldParseLike` "((A b) c)"
 
-parseTree :: LabeledTree a => Parser a -> String -> Either String String
-parseTree p src = drawLabeledTree <$> runParserSimple p src
+parseTree :: LabeledTree a => Parser a -> String -> Assertion String
+parseTree p src = drawLabeledTree <$> shouldParse p src
 
 shouldParseLike :: (?parser :: Parser a, LabeledTree a) => String -> String -> Expectation
 shouldParseLike src1 src2 =
-  parseTree ?parser src1 `shouldBe` parseTree ?parser src2
+  join $
+    shouldBe
+      <$> parseTree ?parser src1
+      <*> parseTree ?parser src2
 
 dir :: FilePath -> FilePath
 dir sub = dropExtension __FILE__ </> sub

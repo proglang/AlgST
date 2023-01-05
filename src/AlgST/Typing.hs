@@ -82,7 +82,7 @@ import AlgST.Typing.Monad
 import AlgST.Typing.NormalForm
 import AlgST.Typing.Phase
 import AlgST.Util
-import AlgST.Util.ErrorMessage
+import AlgST.Util.ErrorMessage hiding (Errors)
 import Control.Applicative
 import Control.Category ((>>>))
 import Control.Monad.Eta

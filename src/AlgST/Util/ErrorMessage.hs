@@ -10,6 +10,7 @@
 module AlgST.Util.ErrorMessage
   ( ErrorMessage (..),
     ErrorMsg (..),
+    Errors,
     DErrors,
     Diagnostic (..),
     DiagKind (..),
@@ -30,6 +31,7 @@ import Data.Coerce
 import Data.DList qualified as DL
 import Data.DList.DNonEmpty (DNonEmpty)
 import Data.List (intercalate)
+import Data.List.NonEmpty (NonEmpty)
 import System.Console.ANSI
 
 -- | Error class and instances
@@ -50,6 +52,8 @@ data ErrorMessage where
 
 data DiagKind
   = DiagError
+
+type Errors = NonEmpty Diagnostic
 
 type DErrors = DNonEmpty Diagnostic
 

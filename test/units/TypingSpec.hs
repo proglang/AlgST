@@ -21,19 +21,13 @@ import AlgST.Syntax.Traversal
 import AlgST.Syntax.Tree
 import AlgST.Typing
 import AlgST.Typing.Align
-import AlgST.Util.Error
-import Control.DeepSeq
-import Control.Exception
 import Control.Monad
-import Data.Bifunctor
-import Data.DList.DNonEmpty qualified as DNE
 import Data.Foldable
 import Data.Function
-import Data.List.NonEmpty (NonEmpty)
 import Language.Haskell.TH.CodeDo qualified as Code
 import System.FilePath
+import Test
 import Test.Golden
-import Test.Hspec
 
 spec :: Spec
 spec = do
@@ -63,7 +57,7 @@ spec = do
     describe "invalid" do
       goldenTests
         (dir "invalid/prog")
-        (swap . bimap plainErrors drawLabeledTree . parseAndCheckProgram)
+        (fmap plainErrors . expectDiagnostics_ . parseAndCheckProgram)
 
   describe "kind checking" do
     specify "builtin types" do
@@ -85,7 +79,7 @@ spec = do
       "P0'" `kindShouldBe` K.P
 
     specify "unbound variables don't crash" do
-      void $ evaluate $ force $ show (performKiSynth "x")
+      void $ expectDiagnostics_ $ performKiSynth "x"
 
     context "syntax elements" do
       specify "forall" do
@@ -137,52 +131,41 @@ spec = do
     describe "invalid" do
       goldenTests
         (dir "invalid/kinds")
-        (swap . fmap show . performKiSynth)
+        (expectDiagnostics . performKiSynth)
 
   describe "type checking" do
     describe "valid" do
       goldenTests
         (dir "valid/prog")
-        (bimap plainErrors drawLabeledTree . parseAndCheckProgram)
+        (fmap drawLabeledTree . parseAndCheckProgram)
 
     parallel $ describe "invalid" do
       goldenTests
         (dir "invalid/types")
-        (swap . fmap show . performTySynth)
+        (expectDiagnostics . performTySynth)
 
 infix 1 `nfShouldBe`, `kindShouldBe`
 
-shouldNotError :: (HasCallStack, Foldable f) => Either (f Diagnostic) a -> IO a
-shouldNotError = \case
-  Left errs -> expectationFailure (plainErrors errs) >> mzero
-  Right a -> pure a
-
 kindShouldBe :: HasCallStack => String -> K.Kind -> Expectation
-kindShouldBe tyStr k =
+kindShouldBe tyStr k = do
   -- Use kisynth + manual check because kicheck allows for a mismatch which is
   -- covered up by the subkinding relationship.
-  case runKiAction parseType (\_ ty -> kisynth ty) tyStr of
-    Left e -> expectationFailure e
-    Right (_, k') -> when (k /= k') do
-      expectationFailure $ "[expected] " <> show k <> " /= " <> show k' <> " [kisynth]"
+  (_, k') <- runKiAction parseType (\_ ty -> kisynth ty) tyStr
+  when (k /= k') do
+    expectationFailure $ "[expected] " <> show k <> " /= " <> show k' <> " [kisynth]"
 
-nfShouldBe :: HasCallStack => String -> String -> Expectation
+nfShouldBe :: HasCallStack => String -> String -> Assertion ()
 nfShouldBe t1 t2 = do
-  (t1NF, t2Tc) <- shouldNotError do
-    t1' <- runParser parseType t1
-    t2' <- runParser parseType t2
-
-    let (_, getExtra) = renameModuleExtra (ModuleName "M") emptyModule
-    RenameExtra f <- first DNE.toNonEmpty $ getExtra fullEnv
-    first DNE.toNonEmpty $
-      f $ const do
-        t1Rn <- renameSyntax t1'
-        t2Rn <- renameSyntax t2'
-        checkResultAsRnM $ checkWithModule fullCtxt emptyModule \_ _ -> do
-          (t1Tc, _) <- kisynth t1Rn
-          (t2Tc, _) <- kisynth t2Rn
-          t1NF <- normalize t1Tc
-          pure (t1NF, t2Tc)
+  t1Ty <- shouldParse parseType t1
+  t2Ty <- shouldParse parseType t2
+  (t1NF, t2Tc) <- withRenameContext' fullEnv do
+    t1Rn <- renameSyntax t1Ty
+    t2Rn <- renameSyntax t2Ty
+    withTcContext' fullCtxt \_ -> do
+      (t1Tc, _) <- kisynth t1Rn
+      (t2Tc, _) <- kisynth t2Rn
+      t1NF <- normalize t1Tc
+      pure (t1NF, t2Tc)
 
   when (Alpha t1NF /= Alpha t2Tc) do
     expectationFailure $
@@ -192,10 +175,10 @@ nfShouldBe t1 t2 = do
           "\tactual:   " ++ show t1NF
         ]
 
-performKiSynth :: String -> Either String K.Kind
+performKiSynth :: String -> Assertion K.Kind
 performKiSynth = runKiAction parseType (\_ -> fmap snd . kisynth)
 
-performTySynth :: String -> Either String TcType
+performTySynth :: String -> Assertion TcType
 performTySynth = runKiAction parseExpr (\embed -> fmap snd . embed . tysynth)
 
 -- | Parses the string with the given parser, renames it in the context of
@@ -210,23 +193,20 @@ runKiAction ::
     TcM env st a
   ) ->
   String ->
-  Either String a
-runKiAction p m src = first plainErrors do
-  parsed <- runParser p src
-  let (_, getExtra) = renameModuleExtra (ModuleName "M") emptyModule
-  RenameExtra f <- first DNE.toNonEmpty $ getExtra fullEnv
-  first DNE.toNonEmpty $
-    f $ const do
-      renamed <- renameSyntax parsed
-      checkResultAsRnM $ checkWithModule fullCtxt emptyModule \runTypeM _ -> do
-        m runTypeM renamed
+  Assertion a
+runKiAction p m src = do
+  parsed <- shouldParse p src
+  withRenameContext' fullEnv do
+    renamed <- renameSyntax parsed
+    withTcContext' fullCtxt \runTypeM -> do
+      m runTypeM renamed
 
-parseAndCheckProgram :: String -> Either (NonEmpty Diagnostic) (Module Tc)
+parseAndCheckProgram :: String -> Assertion (Module Tc)
 parseAndCheckProgram src = do
-  parsed <- runParser parseDecls src
+  parsed <- shouldParse parseDecls src
   let (_, getExtra) = renameModuleExtra (ModuleName "M") parsed
-  RenameExtra f <- first DNE.toNonEmpty $ getExtra fullEnv
-  first DNE.toNonEmpty $ f $ checkResultAsRnM . checkModule fullCtxt
+  RenameExtra f <- shouldNotError $ getExtra fullEnv
+  shouldNotError $ f $ checkResultAsRnM . checkModule fullCtxt
 
 declEnv :: RenameEnv
 declCtxt :: CheckContext
