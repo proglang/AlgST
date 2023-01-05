@@ -136,9 +136,10 @@ checkSources runOpts outH outMode mainSource = do
         rnEnvs <- traverse (fmap snd) $ depsVertices renamedEnv
         checkRes <- sequence $ depsVertices checkGraph
         pure (rnEnvs, checkRes)
-  outputLnS outH case results of
-    Just _ -> applyStyle outMode (styleBold . styleFG ANSI.Green) (showString "Success.")
-    Nothing -> applyStyle outMode (styleBold . styleFG ANSI.Red) (showString "Failed.")
+  when (not (optsQuiet runOpts)) do
+    outputLnS outH case results of
+      Just _ -> applyStyle outMode (styleBold . styleFG ANSI.Green) (showString "Success.")
+      Nothing -> applyStyle outMode (styleBold . styleFG ANSI.Red) (showString "Failed.")
   pure results
 
 answerQueries ::

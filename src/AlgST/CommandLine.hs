@@ -95,6 +95,7 @@ queryParser = tysynth <|> kisynth <|> nf
 data RunOpts = RunOpts
   { optsSource :: !(Maybe Source),
     optsOutputMode :: !(Maybe OutputMode),
+    optsQuiet :: !Bool,
     optsQueries :: ![Query],
     optsDoEval :: !Bool,
     optsDebugEval :: !Bool,
@@ -115,6 +116,7 @@ optsParser = do
   optsDebugEval <- evalVerboseParser
   optsQueries <- many queryParser
   optsOutputMode <- optional modeParser
+  optsQuiet <- quietParser
   optsDriverSeq <- driverSeqParser
   optsDriverDeps <- driverDepsParser
   optsDriverModSearch <- driverModSearchParser
@@ -140,6 +142,15 @@ modeParser = plain <|> colorized
               \not a terminal.",
             O.hidden
           ]
+
+quietParser :: O.Parser Bool
+quietParser =
+  O.flag False True . mconcat $
+    [ O.long "quiet",
+      O.short 'q',
+      O.help "Suppress informative messages.",
+      O.hidden
+    ]
 
 evalFlagParser :: O.Parser Bool
 evalFlagParser =
