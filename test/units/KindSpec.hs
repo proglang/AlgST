@@ -6,6 +6,7 @@ module KindSpec (spec) where
 import AlgST.Parse.Parser
 import AlgST.Parse.Unparser ()
 import AlgST.Syntax.Kind
+import AlgST.Util.PartialOrd
 import Data.Foldable
 import Test.Hspec
 

@@ -11,7 +11,6 @@ module AlgST.Syntax.Kind
 
     -- ** Operations
     multiplicity,
-    (<=?),
     leastUpperBound,
 
     -- * Bindings
@@ -21,6 +20,7 @@ where
 
 import AlgST.Syntax.Name
 import AlgST.Syntax.Pos
+import AlgST.Util.PartialOrd
 import Control.Applicative
 import Language.Haskell.TH.Syntax (Lift)
 import Text.Read
@@ -81,16 +81,14 @@ pattern SU = Kind Session Un
 
 {-# COMPLETE TL, TU, SL, SU, ML, MU, P #-}
 
-infix 4 <=?
-
--- | Implements the partial order on kinds corresponding to the subkinding relationship.
-(<=?) :: Kind -> Kind -> Bool
-Kind b m <=? Kind b' m' =
-  b <= b' && m <= m'
-_ <=? P =
-  True
-P <=? Kind _ _ =
-  False
+-- | Kinds are partially ordered corresponding to the subkinding relationship.
+instance PartialOrd Kind where
+  Kind b m <=? Kind b' m' =
+    b <= b' && m <= m'
+  _ <=? P =
+    True
+  P <=? Kind _ _ =
+    False
 
 -- | Extracts the kind's multiplicity information if there is any attached.
 --

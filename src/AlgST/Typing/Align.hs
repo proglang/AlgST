@@ -20,6 +20,7 @@ import AlgST.Syntax.Name
 import AlgST.Syntax.Phases
 import AlgST.Syntax.Type qualified as T
 import AlgST.Typing.Phase
+import AlgST.Util.PartialOrd
 import Control.Applicative
 import Control.Monad
 import Data.Coerce
@@ -33,8 +34,8 @@ newtype Alpha = Alpha TcType
 instance Eq Alpha where
   (==) = coerce $ runAlign @CheckEquality
 
-instance Ord Alpha where
-  (<=) = coerce $ runAlign @CheckSubtype
+instance PartialOrd Alpha where
+  (<=?) = coerce $ runAlign @CheckSubtype
 
 newtype CheckEquality a = CheckEquality {runEquality :: Bool}
   deriving (Functor, Applicative) via (Const All)

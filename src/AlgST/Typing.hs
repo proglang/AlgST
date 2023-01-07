@@ -70,7 +70,6 @@ import AlgST.Rename
 import AlgST.Rename.Fresh
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
-import AlgST.Syntax.Kind ((<=?))
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
@@ -83,6 +82,7 @@ import AlgST.Typing.NormalForm
 import AlgST.Typing.Phase
 import AlgST.Util
 import AlgST.Util.ErrorMessage hiding (Errors)
+import AlgST.Util.PartialOrd
 import Control.Applicative
 import Control.Category ((>>>))
 import Control.Monad.Eta
@@ -625,7 +625,7 @@ kicheck t k = do
   pure t'
 
 checkSubkind :: MonadValidate Errors m => RnType -> K.Kind -> K.Kind -> m ()
-checkSubkind t k1 k2 = errorIf (not (k1 <=? k2)) (Error.unexpectedKind t k1 [k2])
+checkSubkind t k1 k2 = errorIf (k1 </=? k2) (Error.unexpectedKind t k1 [k2])
 
 tysynth :: RnExp -> TypeM (TcExp, TcType)
 tysynth =
@@ -669,7 +669,7 @@ tysynth =
       -- might be shadowed.
       (e', ty) <- tysynth e
       let k = typeKind ty
-      when (not (k <=? K.ML)) do
+      when (k </=? K.ML) do
         Error.add $ Error.unexpectedForkKind "fork" e ty k K.ML
       -- Here we can choose between T.In and T.Out: should an expression
       --    fork 1
@@ -684,7 +684,7 @@ tysynth =
     E.App p (E.Exp (BuiltinFork_ _)) e -> do
       (e', ty) <- tysynth e
       let k = typeKind ty
-      when (not (k <=? K.TU)) do
+      when (k </=? K.TU) do
         Error.add $ Error.unexpectedForkKind "fork_" e ty k K.TU
       pure (E.Fork_ p e', T.Unit p)
 
@@ -1487,7 +1487,7 @@ requireSubtype :: MonadValidate Errors m => RnExp -> TcType -> TcType -> m ()
 requireSubtype e t1 t2 = do
   nf1 <- normalize t1
   nf2 <- normalize t2
-  when (not (Alpha nf1 <= Alpha nf2)) do
+  when (Alpha nf1 </=? Alpha nf2) do
     Error.add (Error.typeMismatch e t1 nf1 t2 nf2)
 
 -- | Returns the normalform of the given type or throws an error at the given
