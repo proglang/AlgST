@@ -167,7 +167,7 @@ alignTypes = go
       T.Arrow
         <$> mergeAnnot AnnotArrow x1 x2
         <*> checkMismatch MultMismatch m1 m2
-        <*> go m t1 t2
+        <*> go m t2 t1
         <*> go m u1 u2
     go !m (T.Forall x1 (K.Bind p1 v1 k1 t1)) (T.Forall x2 (K.Bind p2 v2 k2 t2)) =
       (\x x' v k -> T.Forall x . K.Bind x' v k)

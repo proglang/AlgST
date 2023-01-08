@@ -31,6 +31,8 @@ module AlgST.Typing
     KiTypingEnv,
     kisynth,
     kicheck,
+    bindTyVar,
+    bindTyVars,
 
     -- * Types
     TypeM,
@@ -1498,10 +1500,15 @@ normalize t = case nf t of
   Nothing -> Error.fatal (Error.noNormalform t)
 
 bindTyVar :: HasKiEnv env => TypeVar TcStage -> K.Kind -> env -> env
-bindTyVar v k = kiEnvL . tcKindEnvL %~ Map.insert v k
+bindTyVar !v !k = bindTyVars $ Identity (v, k)
+
+bindTyVars :: (HasKiEnv env, Foldable f) => f (TypeVar TcStage, K.Kind) -> env -> env
+bindTyVars vars = kiEnvL . tcKindEnvL <>~ varMap
+  where
+    varMap = foldl' (\m (v, k) -> Map.insert v k m) Map.empty vars
 
 bindParams :: HasKiEnv env => Params TcStage -> env -> env
-bindParams ps = kiEnvL . tcKindEnvL <>~ Map.fromList (first unL <$> ps)
+bindParams = bindTyVars . fmap (first unL)
 
 errorIf :: MonadValidate Errors m => Bool -> Diagnostic -> m ()
 errorIf True e = Error.add e
