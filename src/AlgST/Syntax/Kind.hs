@@ -27,7 +27,7 @@ import Text.Read
 
 data Multiplicity = Un | Lin
   -- Ordering is important for correctness of the subkind check (<=?)!
-  deriving (Eq, Lift, Ord)
+  deriving (Eq, Ord, Lift)
 
 data Basic = Session | Message | Top
   -- Ordering is important for correctness of the subkind check (<=?)!

@@ -132,8 +132,8 @@ importedRenameEnv stmt =
       let resolvedItem =
             importMap
               ^. scopeL' sscope
-                . _TopLevels
-                . L.hashAt nameThere
+              . _TopLevels
+              . L.hashAt nameThere
       let unknownItemErr =
             Error.unknownImportItem
               (pos stmt)
@@ -160,10 +160,10 @@ importAllEnv loc targetName targetMap qualifier =
     mkBindings =
       targetMap
         ^. scopeL
-          . _TopLevels
-          . to HM.toList
-          . traverse
-          . to (uncurry singleBinding)
+        . _TopLevels
+        . to HM.toList
+        . traverse
+        . to (uncurry singleBinding)
 
     singleBinding :: forall scope. Unqualified -> NameR scope -> Bindings scope
     singleBinding unq nameR = do
