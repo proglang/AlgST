@@ -86,9 +86,9 @@ executables:
       - -with-rtsopts=-N
 
 tests:
-  units:
+  tests:
     main: Spec.hs
-    source-dirs: test/units
+    source-dirs: tests
 
     ghc-options:
       - -threaded
@@ -97,6 +97,9 @@ tests:
       # (as reported by `+RTS -s`) significantly, this reduces test duration.
       - '"-with-rtsopts=-N -qg -I0"'
 
+    build-tools:
+      - algst
+
     dependencies:
       - AlgST
       - hspec
@@ -104,15 +107,4 @@ tests:
       - hspec-discover
       - raw-strings-qq
       - reflection
-
-  examples:
-    main: Main.hs
-    source-dirs: test/examples
-
-    build-tools:
-      - algst
-
-    dependencies:
-      - hspec
-      - hspec-core
       - typed-process
