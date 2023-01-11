@@ -17,6 +17,7 @@ import AlgST.Syntax.Name
 import AlgST.Typing
 import AlgST.Util.Lenses
 import Control.Monad
+import Data.Map.Strict qualified as Map
 import Lens.Family2
 import System.FilePath
 import Test
@@ -24,8 +25,16 @@ import Test.Golden
 
 spec :: Spec
 spec = do
-  -- TODO: I want to test that the 'AlgST.Interpret.builtinsEnv'
-  -- contains definitions for all abstract builtins!
+  describe "builtins environment" do
+    it "contains definitions for all abstract builtins" do
+      -- We don't export the builtinsEnv from AlgST.Interpret to avoid misuse.
+      -- But we can recover it by providing an empty module to
+      -- `programEnvironment`.
+      let builtinsEnv = programEnvironment emptyModule
+      let missingKeys = Map.keys $ moduleSigs builtinsModule Map.\\ builtinsEnv
+      let message = "missing builtins:" : ["  " ++ pprName k | k <- missingKeys]
+      null missingKeys @? unlines message
+
   describe "whole programs" do
     goldenTests dir do
        parseAndCheckProgram
