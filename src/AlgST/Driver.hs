@@ -24,6 +24,7 @@ module AlgST.Driver
     addModuleSourceIO,
 
     -- * Actions
+    parseMainModule,
     parseAllModules,
     renameAll,
     checkAll,
@@ -87,13 +88,19 @@ data Settings = Settings
 
 data DriverState = DriverState
   { driverSettings :: !Settings,
-    driverErrors :: !(IORef Bool)
+    driverErrors :: !(IORef Bool),
+    -- | Associates each module with the primary file path.
+    --
+    -- Used to map error messages from modules back to file paths.
+    driverModules :: !(IORef (HashMap ModuleName FilePath))
   }
 
 -- | Source code annotated with the 'FilePath' it originated from.
 type Source = (FilePath, String)
 
-type Scheduler = S.Scheduler RealWorld
+-- | Schedulers in the driver run in the 'RealWorld'. Computations don't return
+-- meaningfull results but update shared data structures.
+type Scheduler = S.Scheduler RealWorld ()
 
 type DepsTracker = IORef (DepsGraph MaybeCyclic ParseResult)
 
@@ -103,11 +110,17 @@ newtype Driver a = Driver {unDriver :: ReaderT DriverState IO a}
 runDriver :: Settings -> Driver a -> IO (Maybe a)
 runDriver driverSettings m = do
   driverErrors <- newIORef False
+  driverModules <- newIORef (initialDriverModules driverSettings)
+  let st = DriverState {..}
   a <-
-    runDriverSt DriverState {..} m `finally` do
+    runDriverSt st m `finally` do
       clearSticky $ driverOutputHandle driverSettings
   hasError <- readIORef driverErrors
   pure $ a <$ guard (not hasError)
+
+-- | Extracts the initial 'driverModules' entries from 'driverSources'.
+initialDriverModules :: Settings -> HM.HashMap ModuleName FilePath
+initialDriverModules = driverSources >>> fmap fst
 
 runDriverSt :: DriverState -> Driver a -> IO a
 runDriverSt dst (Driver m) = runReaderT m dst
@@ -172,12 +185,12 @@ askStrategy = do
   isSeq <- asksState $ driverSettings >>> driverSequential
   pure $! if isSeq then Seq else Par
 
-parScheduled :: (Scheduler a -> Driver b) -> Driver [a]
-parScheduled m = do
+parScheduled_ :: (S.Scheduler RealWorld a -> Driver b) -> Driver ()
+parScheduled_ m = do
   strat <- askStrategy
-  Driver . withScheduler strat $ unDriver . m
+  Driver . withScheduler_ strat $ unDriver . m
 
-addTask :: Scheduler a -> Driver a -> Driver ()
+addTask :: S.Scheduler RealWorld a -> Driver a -> Driver ()
 addTask scheduler m = do
   env <- askState
   liftIO $ scheduleWork scheduler $ runDriverSt env m
@@ -188,16 +201,20 @@ data ParseResult = ParseResult
     prRename :: Rn.RenameEnv -> Either DErrors Rn.RenameExtra
   }
 
+-- | Like 'parseAllModules' but starting from 'MainModule'.
+parseMainModule :: Driver (DepsTree ParseResult)
+parseMainModule = parseAllModules MainModule
+
 -- | Parse the given module and all dependencies. The result does not contain
 -- any modules where errors occured.
 parseAllModules ::
-  ModuleName -> Driver (HashMap ModuleName FilePath, DepsTree ParseResult)
+  ModuleName -> Driver (DepsTree ParseResult)
 parseAllModules firstName = do
   depsRef <- liftIO $ newIORef emptyDepsGraph
   (output, _) <- askOutput
   counter <- newCounter output do
     zeroCounter & counterTitleL .~ "Parsing..."
-  modulePaths <- fmap HM.fromList . parScheduled $ \scheduler -> do
+  parScheduled_ $ \scheduler -> do
     parseModule scheduler depsRef counter mempty firstName
   finalDeps <- liftIO $ readIORef depsRef
 
@@ -219,7 +236,7 @@ parseAllModules firstName = do
     cycleError >>> \case
       Left (fp, diag) -> reportErrors fp [diag]
       Right diag -> reportErrors "" [diag]
-  pure (modulePaths, acyclicDeps)
+  pure acyclicDeps
 
 -- | Tries to locate the source code for the module with the given name using
 -- the drivers settings (see 'Settings', 'driverSources', 'driverSearchPaths').
@@ -228,8 +245,8 @@ parseAllModules firstName = do
 -- given scheduler (see 'parseModuleNow'). When locating the module's source
 -- code fails an error is emitted.
 parseModule ::
-  -- | Where to schedule parsing ofethe module.
-  Scheduler (ModuleName, FilePath) ->
+  -- | Where to schedule parsing of the module.
+  Scheduler ->
   -- | Where to note down the inter-module dependencies.
   DepsTracker ->
   -- | Keeps track of the progress for user-friendly output.
@@ -253,7 +270,7 @@ parseModule scheduler depsRef progress iloc name = do
 -- dependencies are scheduled for parsing using the provided scheduler.
 parseModuleNow ::
   -- | Where to schedule the dependent unparsed modules.
-  Scheduler (ModuleName, FilePath) ->
+  Scheduler ->
   -- | Where to note down the inter-module dependencies.
   DepsTracker ->
   -- | Keeps track of the progress for user-friendly output.
@@ -264,12 +281,10 @@ parseModuleNow ::
   FilePath ->
   -- | Source code of the module.
   String ->
-  Driver (ModuleName, FilePath)
-parseModuleNow scheduler depsRef progress moduleName modulePath moduleSource = do
-  let title = "Parsing " ++ unModuleName moduleName
-  wrapCounter progress title do
-    let parseResult = P.runParser P.parseModule moduleSource
-    case parseResult of
+  Driver ()
+parseModuleNow scheduler depsRef progress moduleName modulePath moduleSource =
+  wrapCounter progress ("Parsing " ++ unModuleName moduleName) $
+    case P.runParser P.parseModule moduleSource of
       Left errs -> do
         reportErrors modulePath errs
       Right parsed -> do
@@ -283,13 +298,11 @@ parseModuleNow scheduler depsRef progress moduleName modulePath moduleSource = d
                 }
         newDeps <- noteDependencies depsRef moduleName modulePath parseResult
         traverse_ (uncurry $ parseModule scheduler depsRef progress) newDeps
-    pure (moduleName, modulePath)
 
 renameAll ::
-  HashMap ModuleName FilePath ->
   DepsGraph Acyclic ParseResult ->
   Driver (DepsTree (Maybe (Rn.RnModule, Rn.RenameEnv)))
-renameAll paths dg = do
+renameAll dg = do
   (output, _) <- askOutput
   counter <- newCounter output do
     zeroCounter & counterOverallL .~ depsGraphSize dg
@@ -313,7 +326,7 @@ renameAll paths dg = do
               (,fullEnv) <$> go pure
         case doRename of
           Left errs -> do
-            lift $ reportErrors (fold (HM.lookup name paths)) errs
+            lift $ reportModuleErrors name errs
             empty
           Right (rnMod, env) -> do
             let thisEnv =
@@ -325,10 +338,9 @@ renameAll paths dg = do
             pure (rnMod, env <> thisEnv)
 
 checkAll ::
-  HashMap ModuleName FilePath ->
   DepsGraph Acyclic (Maybe Rn.RnModule) ->
   Driver (DepsTree (Maybe (TcModule, Tc.CheckContext)))
-checkAll paths dg = do
+checkAll dg = do
   (output, _) <- askOutput
   counter <- newCounterStart output do
     zeroCounter
@@ -348,8 +360,7 @@ checkAll paths dg = do
       let freshModule = ModuleName $ "tc:" ++ unModuleName name
       case runFresh freshModule $ runValidateT $ doCheck depCtxt rnMod of
         Left errs -> do
-          let fp = fold $ HM.lookup name paths
-          reportErrors fp $ Tc.runErrors errs
+          reportModuleErrors name $ Tc.runErrors errs
           pure Nothing
         Right res ->
           pure $ Just res
@@ -363,6 +374,11 @@ missingModuleError :: Pos -> ModuleName -> Diagnostic
 missingModuleError loc name = PosError loc [Error "Cannot locate module", Error name]
 {-# NOINLINE missingModuleError #-}
 
+-- | Looks for a module with the given name. If successfull this returns the
+-- modules primary source file and its contents.
+--
+-- The source file is noted in 'driverModules'. If 'driverVerboseSearches' is
+-- 'True' additional debug messages will be output during the search.
 findModule :: ModuleName -> Driver (Maybe (FilePath, String))
 findModule name = flip runContT pure do
   verbose <- lift $ asksState $ driverSettings >>> driverVerboseSearches
@@ -397,6 +413,12 @@ findModule name = flip runContT pure do
         searchMsg $ ".. ? " ++ fp
         (fp,) <$> annotResult (readFile' fp)
   res <- liftIO . tryIOError . asum . fmap tryRead $ paths
+
+  -- Remeber a successfull result in `driverModules`.
+  lift $ for_ res \(fp, _) -> do
+    pathsRef <- asksState driverModules
+    liftIO $ atomicModifyIORef' pathsRef \hm ->
+      (HM.insert name fp hm, ())
 
   -- Summarize the result.
   liftIO case res of
@@ -500,6 +522,14 @@ reportErrors fp diags
       let fpShort = makeRelative cwd fp
       let errs = renderErrors' (Just 10) mode fpShort (toList diags)
       outputS handle $ errs . showChar '\n'
+
+-- | Like 'reportErrors' but the module's file path is looked up inside
+-- 'driverModules'. An unknown module results in an empty 'FilePath'.
+reportModuleErrors :: Foldable f => ModuleName -> f Diagnostic -> Driver ()
+reportModuleErrors m diags = do
+  pathMap <- liftIO . readIORef =<< asksState driverModules
+  let mpath = HM.lookup m pathMap
+  reportErrors (fold mpath) diags
 
 askOutput :: Driver (OutputHandle, OutputMode)
 askOutput = asksState do

@@ -46,9 +46,6 @@ import System.Exit
 import System.FilePath qualified as FP
 import System.IO
 
-mainModule :: ModuleName
-mainModule = ModuleName "Main"
-
 main :: IO ()
 main = withUtf8 do
   runOpts <- getOptions
@@ -60,8 +57,8 @@ main = withUtf8 do
       Nothing ->
         -- No custom source, only builtins.
         pure
-          ( HM.singleton mainModule builtinsEnv,
-            HM.singleton mainModule (builtinsModule, builtinsModuleCtxt)
+          ( HM.singleton MainModule builtinsEnv,
+            HM.singleton MainModule (builtinsModule, builtinsModuleCtxt)
           )
       Just src ->
         checkSources runOpts outputHandle stderrMode src
@@ -115,7 +112,7 @@ checkSources runOpts outH outMode mainSource = do
       pure Nothing
 
   let driverSettings =
-        maybe id (uncurry (Driver.addModuleSource mainModule)) mainSource $
+        maybe id (uncurry (Driver.addModuleSource MainModule)) mainSource $
           Driver.defaultSettings
             { driverSequential = optsDriverSeq runOpts,
               driverVerboseDeps = optsDriverDeps runOpts,
@@ -126,9 +123,9 @@ checkSources runOpts outH outMode mainSource = do
             }
 
   mcheckResult <- Driver.runDriver driverSettings do
-    (pathsMap, parsed) <- Driver.parseAllModules mainModule
-    renamedEnv <- Driver.renameAll pathsMap parsed
-    checkedCtxt <- Driver.checkAll pathsMap (fmap fst <$> renamedEnv)
+    parsed <- Driver.parseMainModule
+    renamedEnv <- Driver.renameAll parsed
+    checkedCtxt <- Driver.checkAll (fmap fst <$> renamedEnv)
     pure (renamedEnv, checkedCtxt)
 
   let results = do
@@ -164,8 +161,8 @@ answerQueries out outMode queries renameEnvs checkEnvs = do
         & fmap (pure . show)
         & printResult "--nf" s
   where
-    queryEnv = fold $ HM.lookup mainModule renameEnvs
-    queryCtxt = fold $ HM.lookup mainModule checkEnvs
+    queryEnv = fold $ HM.lookup MainModule renameEnvs
+    queryCtxt = fold $ HM.lookup MainModule checkEnvs
 
     tysynth expr = do
       t <- fmap snd $ Tc.tysynth expr
@@ -225,7 +222,7 @@ runInterpret :: OutputHandle -> OutputMode -> HashMap ModuleName TcModule -> IO 
 runInterpret out outMode checkedModules = do
   let bigModule = builtinsModule <> fold checkedModules
   let mmainName = do
-        mainChecked <- HM.lookup mainModule checkedModules
+        mainChecked <- HM.lookup MainModule checkedModules
         moduleValues mainChecked
           & Map.keys
           & List.find ((Unqualified "main" ==) . nameUnqualified)

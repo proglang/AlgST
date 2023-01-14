@@ -77,6 +77,7 @@ module AlgST.Syntax.Name
 
     -- * Modules
     ModuleName (..),
+    pattern MainModule,
     emptyModuleName,
     unModuleName,
     modulePath,
@@ -119,6 +120,9 @@ import System.FilePath qualified as FP
 newtype ModuleName = ModuleName String
   deriving stock (Show, Lift)
   deriving newtype (Eq, Ord, Hashable)
+
+pattern MainModule :: ModuleName
+pattern MainModule = ModuleName "Main"
 
 emptyModuleName :: ModuleName
 emptyModuleName = ModuleName ""
@@ -252,11 +256,13 @@ instance Ord (Name stage scope) where
 
 instance Hashable (Name stage scope) where
   hashWithSalt s (Name mod un) =
-    s `hashWithSalt` (1 :: Int)
+    s
+      `hashWithSalt` (1 :: Int)
       `hashWithSalt` mod
       `hashWithSalt` un
   hashWithSalt s (ResolvedName _ mod ri) =
-    s `hashWithSalt` (2 :: Int)
+    s
+      `hashWithSalt` (2 :: Int)
       `hashWithSalt` mod
       `hashWithSalt` ri
 
