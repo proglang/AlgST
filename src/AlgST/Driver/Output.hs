@@ -8,9 +8,17 @@
 {-# LANGUAGE TypeApplications #-}
 
 module AlgST.Driver.Output
-  ( OutputHandle,
+  ( -- * Outputting messages
+
+    -- ** Abstract handles
+    OutputHandle,
     nullHandle,
+
+    -- ** Creating dynamic handles
     withOutput,
+    captureOutput,
+
+    -- ** Writing to an @OutputHandle@
     outputStr,
     outputStrLn,
     outputShow,
@@ -42,13 +50,14 @@ where
 import AlgST.Util.Lenses
 import Control.Category ((>>>))
 import Control.Concurrent
+import Control.Concurrent.Async (Async)
 import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.STM
 import Control.Exception
 import Control.Foldl qualified as L
 import Control.Monad.IO.Unlift
-import Control.Monad.State.Strict
-import Data.Foldable
+import Control.Monad.Reader
+import Data.Coerce
 import Data.Functor
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe
@@ -70,32 +79,124 @@ instance Show OutputHandle where
     OutputHandle NullBuffer -> "nullHandle"
     OutputHandle _ -> "OutputHandle{}"
 
+-- | An output handle which discards all messages.
 nullHandle :: OutputHandle
 nullHandle = OutputHandle $ unsafeDupablePerformIO $ newActionBufferIO 0
 {-# NOINLINE nullHandle #-}
 
+-- | Captures the output written to the 'OutputHandle' provided in the nested
+-- computation.
+--
+-- The 'OutputHandle' provided to the sub-computation must not be used once the
+-- it returns.
+captureOutput :: MonadUnliftIO m => (OutputHandle -> m a) -> m (String, a)
+captureOutput = withAsyncOutput runOutputCollect
+
+-- | Writes all output written to the 'OutputHandle' to the provided 'Handle'.
+--
+-- The 'OutputHandle' provided to the sub-computation must not be used once the
+-- it returns.
 withOutput :: MonadUnliftIO m => Bool -> Handle -> (OutputHandle -> m a) -> m a
-withOutput allowAnsi h f =
+withOutput !allowAnsi h = fmap snd <$> withAsyncOutput (runOutputHandle allowAnsi h)
+
+-- | An exception thrown by the consumer of a 'OutputHandle'.
+newtype OutputException = OutputException SomeException
+  deriving stock (Show)
+
+instance Exception OutputException
+
+{- Note [Async Consumer / Producer]
+
+We run the consumer in a new thread, asynchronous to the producer. We want to
+ensure that
+
+(1) We wait for the consumer to terminate before returning from
+    `withAsyncOutput`.
+
+    This is also required by the type signature of `withAsyncOutput`. One part
+    of the return value has to come from the completed consumer.
+
+    It is achieved by first sending the termination signal using
+    `terminateActionBuffer` and then blocking on `wait` inside of `withAsync`.
+
+(2) An exception in the producer should terminate the consumer gracefully.
+
+    We achieve this in the same manner as (1). We do this by wrapping the
+    producer in `finally`.
+
+(3) An exception in the consumer should propagate the exception to the
+    producer.
+
+    This is important so that a crashed consumer does not lead to a producer
+    blocked on a full `OutputHandle`.
+
+    This is the part that is tricky: if we only do a `wait` once the producer
+    has finished we never get to the point to forward the exception in a way to
+    interrupt the producer as it might be blocked on a full `OutputHandle`.
+
+    We could `link` the consumer to the producer thread. This would forward any
+    exceptions as soon as they originate in the consumer. How to wait for the
+    consumer to terminate in the successfull case though? If we use `wait` the
+    ordering between the asynchronous forwarding from `link` and the
+    synchronous throw from `wait` is not guaranteed. I think it might even
+    happen that the synchronous version is partially handled before suddenly
+    the asynchronous exception interrupts.
+
+    We use a custom version of `link` which is run using `withAsync` so that
+    the linking is scoped. Exceptions forwarded through `withScopedLink` are
+    wrapped inside `OutputException`.
+-}
+
+-- | Establishes a link from the given async to the current thread for the
+-- duration of the given 'IO' computation.
+withScopedLink :: Async a -> IO r -> IO r
+withScopedLink target m = do
+  -- Get a refernce to the thread which should be informed about exceptions.
+  me <- myThreadId
+  -- Disable async exceptions until we are properly set-up.
+  mask $ \restore -> Async.withAsyncWithUnmask (link me) \_linker ->
+    -- Run the inner computation with exceptions enabled again.
+    restore m
+  where
+    link :: ThreadId -> (forall a. IO a -> IO a) -> IO ()
+    link tid unmask = do
+      -- The linker waits for the target thread to complete.
+      res <- unmask $ Async.waitCatch target
+      case res of
+        -- An exception is forwarded to the calling thread, wrapped in
+        -- `OutputException`.
+        Left e -> throwTo tid (OutputException e)
+        -- A successfull results indicates termination.
+        Right _ -> pure ()
+
+withAsyncOutput :: MonadUnliftIO m => (ActionBuffer -> IO a) -> (OutputHandle -> m b) -> m (a, b)
+withAsyncOutput consumer producer =
+  -- Retrieve the necessary information to run `m` actions inside `IO`.
   askRunInIO >>= \runIO -> liftIO do
+    -- Create the output buffer. (The buffer size of 32 has been chosen
+    -- semi-randomly.)
     buf <- newActionBufferIO 32
-    Async.withAsync (runOutput allowAnsi h buf) \outputThread -> do
-      -- Link the output thread to this thread: In the case that an exception
-      -- is thrown in the output thread it will be rethrown here.
-      Async.link outputThread
-      runIO (f (OutputHandle buf)) `finally` do
-        -- Send the termination signal and wait for the thread to complete. We
-        -- explicitly ignore exceptions reported from the output thread because
-        -- we are still linked to it which might lead to a double report.
-        --
-        -- Waiting for `outputThread` is required because otherwise it will get
-        -- canceled once one return from the surrounding `withAsync`.
-        --
-        -- TODO: Doing this cleanup (action buffer termination + waiting) even
-        -- in the exceptional case is debatable! However, there are at least
-        -- some exceptional cases in the current design where we want the
-        -- cleanup. So for now we will do cleanup regardless of why `f` exits.
-        atomically (terminateActionBuffer buf)
-        Async.waitCatch outputThread
+    -- Start the consumer thread.
+    Async.withAsync (consumer buf) \outputThread -> do
+      -- Run the producer. If the consumer raises any exceptions during that
+      -- time they will be forwarded to us.
+      let linkedProducer = withScopedLink outputThread do
+            runIO (producer (OutputHandle buf))
+      b <-
+        linkedProducer `finally` do
+          -- Signal the consumer the end.
+          atomically (terminateActionBuffer buf)
+          -- Wait for the consumer to terminate.
+          Async.waitCatch outputThread
+
+      -- We only arrive here if there was no exception interrupting us. The
+      -- consumer will already have completed (due to the `waitCatch` in the
+      -- above `finally` block) but there we ignored potential exceptions.
+      -- Unwrap the consumers result now.
+      res <- Async.waitCatch outputThread
+      case res of
+        Left e -> throwIO (OutputException e)
+        Right a -> pure (a, b)
 
 outputStr :: MonadIO m => OutputHandle -> String -> m ()
 outputStr b = outputS b . showString
@@ -113,10 +214,12 @@ outputS :: MonadIO m => OutputHandle -> ShowS -> m ()
 outputS (OutputHandle buf) =
   liftIO . writeActionBuffer buf . WriteMessage
 
+-- | Replaces the current sticky message with the given string.
 outputSticky :: MonadIO m => OutputHandle -> String -> m ()
 outputSticky (OutputHandle buf) =
   liftIO . writeActionBuffer buf . SetSticky . Sticky
 
+-- | Clears the current sticky message.
 clearSticky :: MonadIO m => OutputHandle -> m ()
 clearSticky h = outputSticky h ""
 
@@ -163,6 +266,7 @@ terminateActionBuffer (ActionBuffer _ _ actVar) = do
   -- This should be the last write, do it unconditionally.
   modifyTVar actVar (Done :)
 
+-- | Retrieves the reverse list of 'Action's to be interpreted.
 readActionBufferRev :: ActionBuffer -> STM (NonEmpty Action)
 readActionBufferRev (ActionBuffer cap capVar actVar) = do
   actions <- readTVar actVar
@@ -173,23 +277,34 @@ readActionBufferRev (ActionBuffer cap capVar actVar) = do
   writeTVar capVar cap
   pure result
 
-interpretRev :: Sticky -> L.Fold Action (Sticky, ShowS, Bool)
-interpretRev sticky0 =
+-- | A 'L.Fold' to interpret a (reverse!) sequence of 'Action's into a triple
+-- of @(sticky, output, done)@.
+--
+-- * @sticky@ is the new sticky message to write after the output.
+-- * @output@ is the output to write.
+-- * @done@ is 'True' if we should stop waiting for new messages.
+interpretRev :: Bool -> Sticky -> L.Fold Action (Sticky, ShowS, Bool)
+interpretRev !useSticky sticky0 =
   (,,)
-    <$> mapMaybeL getSticky (fromMaybe sticky0 <$> L.head)
-    <*> L.foldMap getMessage (appEndo . getDual)
+    <$> ( if useSticky
+            then mapMaybeL getSticky (fromMaybe sticky0 <$> L.head)
+            else pure sticky0
+        )
+    <*> L.foldMap getMessage coerce
     <*> L.any isDone
   where
     getSticky = \case
       SetSticky s -> Just s
       _ -> Nothing
     getMessage = \case
-      WriteMessage s -> Dual (Endo s)
+      WriteMessage s -> Dual $ Endo s
+      SetSticky (Sticky s) | not useSticky -> Dual $ Endo $ showString s . showChar '\n'
       _ -> mempty
     isDone = \case
       Done -> True
       _ -> False
 
+-- | 'mapMaybe' for 'L.Fold'.
 mapMaybeL :: (a -> Maybe b) -> L.Fold b c -> L.Fold a c
 mapMaybeL f (L.Fold step0 ini0 final0) = L.Fold step ini0 final0
   where
@@ -200,8 +315,8 @@ data Action
   | WriteMessage ShowS
   | Done
 
-runOutput :: Bool -> Handle -> ActionBuffer -> IO ()
-runOutput allowAnsi h actBuffer = bracket prepare id (const run)
+runOutputHandle :: Bool -> Handle -> ActionBuffer -> IO ()
+runOutputHandle allowAnsi h buf = bracket prepare id (const run)
   where
     prepare :: IO (IO ())
     prepare = do
@@ -220,14 +335,17 @@ runOutput allowAnsi h actBuffer = bracket prepare id (const run)
 
     run :: IO ()
     run = do
-      -- Flush the handle once. Probably not really necessary but seems strange
-      -- not to do it here.
-      hFlush h
-      -- Run the main loop.
-      useAnsi <-
+      -- If we are allowed to use ANSI escapes and the handle looks like it
+      -- supports it we enable sticky messages.
+      useSticky <-
         (allowAnsi &&) . fromMaybe False
           <$> ANSI.hSupportsANSIWithoutEmulation h
-      go useAnsi emptySticky
+      runOutput (\_ -> writeChunk useSticky) () useSticky buf
+
+    writeChunk :: Bool -> ShowS -> IO ()
+    writeChunk useSticky msg = do
+      hPutStr h $ clearCode useSticky $ msg ""
+      hFlush h
 
     clearCode :: Bool -> ShowS
     clearCode True =
@@ -238,34 +356,29 @@ runOutput allowAnsi h actBuffer = bracket prepare id (const run)
       -- messages nothing has to be cleared.
       id
 
-    go :: Bool -> Sticky -> IO ()
-    go !ansi prevSticky = do
+runOutputCollect :: ActionBuffer -> IO String
+runOutputCollect buf = do
+  s <- runOutput (\s1 s2 -> pure (s1 . s2)) id False buf
+  pure $ s ""
+
+runOutput :: forall s. (s -> ShowS -> IO s) -> s -> Bool -> ActionBuffer -> IO s
+runOutput writeChunk s0 !useSticky actBuffer = go s0 emptySticky
+  where
+    go :: s -> Sticky -> IO s
+    go !s prevSticky = do
       -- Read the next batch.
       acts <- atomically $ readActionBufferRev actBuffer
-      let noAnsiNoSticky
-            | ansi = id
-            | otherwise = mapMaybe \case
-              -- Ignore empty stickies.
-              SetSticky (Sticky "") -> Nothing
-              -- Convert stickies to regular messages.
-              SetSticky (Sticky s) -> Just $ WriteMessage $ showString s . showChar '\n'
-              -- Keep everything else as-is.
-              action -> Just action
-      let (Sticky sticky, message, done) =
-            toList acts
-              & noAnsiNoSticky
-              & L.fold (interpretRev prevSticky)
+      let (Sticky sticky, message, done) = L.fold (interpretRev useSticky prevSticky) acts
       -- Include a final newline if output is completed after this batch.
-      let writtenSticky
-            | done && not (null sticky) = sticky ++ "\n"
-            | otherwise = sticky
-
+      let stickyS
+            | done && not (null sticky) = showString sticky . showChar '\n'
+            | otherwise = showString sticky
       -- Write that batch to the output.
-      hPutStr h $ clearCode ansi $ message writtenSticky
-      hFlush h
-
+      s' <- writeChunk s $ message . stickyS
       -- Continue with the next batch if we're not yet done.
-      when (not done) $ go ansi $ Sticky sticky
+      if done
+        then pure s'
+        else go s' (Sticky sticky)
 
 data CounterState = CounterState
   { counterRunning :: !Int,
