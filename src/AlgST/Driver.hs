@@ -7,11 +7,13 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module AlgST.Driver
   ( -- * Driver monad
     Driver,
     runDriver,
+    runComplete,
 
     -- * Settings
     Settings (..),
@@ -24,17 +26,44 @@ module AlgST.Driver
     addModuleSourceIO,
 
     -- * Actions
+    Result (..),
+    ResultExtra
+      ( RenameExtra,
+        rxRenameEnv,
+        rxModuleMap,
+        CheckExtra,
+        cxRename,
+        cxContext
+      ),
+    everything,
+
+    -- ** Parsing
     parseMainModule,
     parseAllModules,
+
+    -- ** Renaming
     renameAll,
+
+    -- ** Type checking
     checkAll,
+
+    -- ** Interpreting results
+    HasModuleMap (..),
+    HasRenameExtra (..),
+    lookupRenamed,
+    compactResults,
+    resultEvalEnvironment,
+    mergedResultEvalEnvironment,
   )
 where
 
 import AlgST.Builtins
 import AlgST.Driver.Dependencies
 import AlgST.Driver.Output
+import AlgST.Interpret qualified as I
 import AlgST.Parse.Parser qualified as P
+import AlgST.Parse.Phase (Parse)
+import AlgST.Rename (Rn)
 import AlgST.Rename qualified as Rn
 import AlgST.Rename.Fresh (runFresh)
 import AlgST.Syntax.Module
@@ -61,6 +90,7 @@ import Control.Scheduler qualified as S
 import Data.Foldable
 import Data.Function
 import Data.Functor
+import Data.HashMap.Lazy qualified as HML
 import Data.HashMap.Strict (HashMap)
 import Data.HashMap.Strict qualified as HM
 import Data.IORef
@@ -68,7 +98,8 @@ import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Sequence (Seq (..))
 import Data.Sequence qualified as Seq
-import Lens.Family2 ((+~), (.~))
+import Data.Singletons
+import Lens.Family2 (view, (+~), (.~))
 import System.Directory (getCurrentDirectory)
 import System.FilePath
 import System.IO
@@ -102,10 +133,13 @@ type Source = (FilePath, String)
 -- meaningfull results but update shared data structures.
 type Scheduler = S.Scheduler RealWorld ()
 
-type DepsTracker = IORef (DepsGraph MaybeCyclic ParseResult)
+type DepsTracker = IORef (DepsGraph MaybeCyclic (Result Parse))
 
 newtype Driver a = Driver {unDriver :: ReaderT DriverState IO a}
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadUnliftIO)
+
+runComplete :: Settings -> IO (Maybe (DepsTree (Maybe (Result Tc))))
+runComplete settings = runDriver settings everything
 
 runDriver :: Settings -> Driver a -> IO (Maybe a)
 runDriver driverSettings m = do
@@ -195,20 +229,33 @@ addTask scheduler m = do
   env <- askState
   liftIO $ scheduleWork scheduler $ runDriverSt env m
 
-data ParseResult = ParseResult
-  { prModule :: P.ParsedModule,
-    prGlobals :: Rn.ModuleMap,
-    prRename :: Rn.RenameEnv -> Either DErrors Rn.RenameExtra
+everything :: Driver (DepsTree (Maybe (Result Tc)))
+everything = parseMainModule >>= renameAll >>= checkAll
+
+data family ResultExtra x
+
+data Result x = Result
+  { resultModule :: Module x,
+    resultExtra :: ResultExtra x
   }
 
+data instance ResultExtra Parse = ParseExtra
+  { pxImports :: [Located (Import ModuleName)],
+    pxGlobals :: Rn.ModuleMap,
+    pxRename :: Rn.RenameEnv -> Either DErrors Rn.RenameExtra
+  }
+
+parsedModuleResult :: Result Parse -> P.ParsedModule
+parsedModuleResult = P.ParsedModule <$> pxImports . resultExtra <*> resultModule
+
 -- | Like 'parseAllModules' but starting from 'MainModule'.
-parseMainModule :: Driver (DepsTree ParseResult)
+parseMainModule :: Driver (DepsTree (Result Parse))
 parseMainModule = parseAllModules MainModule
 
 -- | Parse the given module and all dependencies. The result does not contain
 -- any modules where errors occured.
 parseAllModules ::
-  ModuleName -> Driver (DepsTree ParseResult)
+  ModuleName -> Driver (DepsTree (Result Parse))
 parseAllModules firstName = do
   depsRef <- liftIO $ newIORef emptyDepsGraph
   (output, _) <- askOutput
@@ -223,10 +270,12 @@ parseAllModules firstName = do
 
   when outputDeps do
     (handle, mode) <- askOutput
-    let header s =
+    let header :: String -> ShowS
+        header s =
           applyStyle mode styleBold $
             showString "== " . showString s . showString " ==\n"
-    let showDeps title dg =
+    let showDeps :: String -> DepsGraph cycles a -> ShowS
+        showDeps title dg =
           header title . showString (exportTextual dg) . showChar '\n'
     let d1 = showDeps "Dependencies" finalDeps
     let d2 = showDeps "Acyclic Dependencies" acyclicDeps
@@ -291,17 +340,23 @@ parseModuleNow scheduler depsRef progress moduleName modulePath moduleSource =
         let (globals, rename) =
               Rn.renameModuleExtra moduleName $ P.parsedModule parsed
         let parseResult =
-              ParseResult
-                { prModule = parsed,
-                  prGlobals = globals,
-                  prRename = rename
-                }
+              Result (P.parsedModule parsed) $
+                ParseExtra
+                  { pxImports = P.parsedImports parsed,
+                    pxGlobals = globals,
+                    pxRename = rename
+                  }
         newDeps <- noteDependencies depsRef moduleName modulePath parseResult
         traverse_ (uncurry $ parseModule scheduler depsRef progress) newDeps
 
+data instance ResultExtra Rn.Rn = RenameExtra
+  { rxRenameEnv :: Rn.RenameEnv,
+    rxModuleMap :: Rn.ModuleMap
+  }
+
 renameAll ::
-  DepsGraph Acyclic ParseResult ->
-  Driver (DepsTree (Maybe (Rn.RnModule, Rn.RenameEnv)))
+  DepsGraph Acyclic (Result Parse) ->
+  Driver (DepsTree (Maybe (Result Rn)))
 renameAll dg = do
   (output, _) <- askOutput
   counter <- newCounter output do
@@ -312,17 +367,17 @@ renameAll dg = do
     renameModule counter name parseRes = runMaybeT do
       wrapCounter counter ("Resolving " ++ unModuleName name) do
         -- Resolve imports. Abort, if any dependency failed to parse.
-        let findImport n = prGlobals <$> lookupVertex n dg
+        let findImport n = pxGlobals . resultExtra <$> lookupVertex n dg
         imports <-
           MaybeT
             . pure
             . P.resolveImports findImport
-            $ prModule parseRes
+            $ parsedModuleResult parseRes
         -- Run the renamer on this module.
         let doRename = do
               baseEnv <- runValidate $ Rn.foldImportedRenameEnv imports
               let fullEnv = builtinsEnv <> baseEnv
-              Rn.RenameExtra go <- prRename parseRes fullEnv
+              Rn.RenameExtra go <- pxRename (resultExtra parseRes) fullEnv
               (,fullEnv) <$> go pure
         case doRename of
           Left errs -> do
@@ -333,13 +388,26 @@ renameAll dg = do
                   Rn.importAllEnv
                     ZeroPos
                     name
-                    (prGlobals parseRes)
+                    (pxGlobals (resultExtra parseRes))
                     emptyModuleName
-            pure (rnMod, env <> thisEnv)
+            let extra =
+                  RenameExtra
+                    { rxRenameEnv = env <> thisEnv,
+                      rxModuleMap = pxGlobals (resultExtra parseRes)
+                    }
+            pure $ Result rnMod extra
+
+data instance ResultExtra Tc = CheckExtra
+  { cxRename :: ResultExtra Rn,
+    cxContext :: Tc.CheckContext
+  }
+
+checkContext :: Result Tc -> Tc.CheckContext
+checkContext = resultExtra >>> \(CheckExtra _ c) -> c
 
 checkAll ::
-  DepsGraph Acyclic (Maybe Rn.RnModule) ->
-  Driver (DepsTree (Maybe (TcModule, Tc.CheckContext)))
+  DepsGraph Acyclic (Maybe (Result Rn)) ->
+  Driver (DepsTree (Maybe (Result Tc)))
 checkAll dg = do
   (output, _) <- askOutput
   counter <- newCounterStart output do
@@ -349,21 +417,22 @@ checkAll dg = do
 
   strat <- askStrategy
   traverseTreePar strat dg \deps name mRn -> do
-    let depCtxt = mconcat . fmap snd <$> traverse snd deps
+    let depCtxt = mconcat . fmap checkContext <$> traverse snd deps
     let mcheck = check name <$> join mRn <*> depCtxt
     join <$> maybeCounter counter "Checking" name mcheck id
   where
-    check name rnMod depCtxt = do
+    check :: ModuleName -> Result Rn -> Tc.CheckContext -> Driver (Maybe (Result Tc))
+    check name rn depCtxt = do
       -- Since we start a new 'Fresh' session for the module (previous one was
       -- during renaming) we have to use a new unique module name to guarantee
       -- uniqueness of fresh variables.
       let freshModule = ModuleName $ "tc:" ++ unModuleName name
-      case runFresh freshModule $ runValidateT $ doCheck depCtxt rnMod of
+      case runFresh freshModule $ runValidateT $ doCheck depCtxt $ resultModule rn of
         Left errs -> do
           reportModuleErrors name $ Tc.runErrors errs
           pure Nothing
-        Right res ->
-          pure $ Just res
+        Right (checked, ctxt) -> do
+          pure $ Just $ Result checked $ CheckExtra (resultExtra rn) ctxt
     doCheck depCtxt m =
       Tc.checkWithModule
         (builtinsModuleCtxt <> depCtxt)
@@ -440,13 +509,13 @@ noteDependencies ::
   -- cyclic dependency errors.
   FilePath ->
   -- | The parsed module from which to update the dependency graph.
-  ParseResult ->
+  Result Parse ->
   Driver [(ImportLocation, ModuleName)]
 noteDependencies depsRef name fp parsed = do
   let depList =
         [ (ImportLocation (p @- fp), target)
           | p :@ Import {importTarget = target} <-
-              P.parsedImports (prModule parsed)
+              pxImports $ resultExtra parsed
         ]
   -- Update the dependency graph. This step also signals to any other workers
   -- that this worker will be responsible for delegating parsing of any
@@ -551,3 +620,44 @@ maybeCounter c _ _ Nothing _ = do
 maybeCounter c title name (Just a) f = do
   let fullTitle = title ++ ' ' : unModuleName name ++ "..."
   Just <$> wrapCounter c fullTitle (f a)
+
+class HasModuleMap x where
+  getModuleMap :: ResultExtra x -> Rn.ModuleMap
+
+instance HasModuleMap Parse where
+  getModuleMap = pxGlobals
+
+instance HasModuleMap Rn where
+  getModuleMap = rxModuleMap
+
+instance HasModuleMap Tc where
+  getModuleMap = cxRename >>> getModuleMap
+
+class HasRenameExtra x where
+  getRenameExtra :: ResultExtra x -> ResultExtra Rn
+
+instance HasRenameExtra Rn where
+  getRenameExtra = id
+
+instance HasRenameExtra Tc where
+  getRenameExtra (CheckExtra rn _) = rn
+
+lookupRenamed ::
+  (HasModuleMap x, SingI scope) =>
+  Unqualified ->
+  Result x ->
+  Maybe (Name Resolved scope)
+lookupRenamed n =
+  resultExtra
+    >>> getModuleMap
+    >>> view (scopeL . Rn._TopLevels)
+    >>> HM.lookup n
+
+compactResults :: DepsGraph cycles (Maybe a) -> HashMap ModuleName a
+compactResults = depsVertices >>> HML.mapMaybe id
+
+resultEvalEnvironment :: Result Tc -> I.Env
+resultEvalEnvironment = I.programEnvironment . resultModule
+
+mergedResultEvalEnvironment :: Foldable f => f (Result Tc) -> I.Env
+mergedResultEvalEnvironment = foldMap resultEvalEnvironment

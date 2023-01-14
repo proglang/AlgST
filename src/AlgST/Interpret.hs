@@ -21,6 +21,7 @@ module AlgST.Interpret
     runEval,
     runEvalWith,
     eval,
+    evalName,
     Env,
     programEnvironment,
 
@@ -412,6 +413,11 @@ evalLiteral = \case
   E.Char c -> Char c
   E.String s -> String s
 
+-- | Evaluates the named top-level expression.
+evalName :: HasCallStack => Name Resolved Values -> EvalM Value
+evalName = lookupEnv ZeroPos
+
+-- | Evaluates the given expression.
 eval :: TcExp -> EvalM Value
 eval =
   etaEvalM . \case

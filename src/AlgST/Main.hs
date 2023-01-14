@@ -10,17 +10,15 @@ import AlgST.Builtins
 import AlgST.CommandLine
 import AlgST.Driver (Settings (..))
 import AlgST.Driver qualified as Driver
-import AlgST.Driver.Dependencies (depsVertices)
 import AlgST.Driver.Output
 import AlgST.Interpret qualified as I
 import AlgST.Parse.Parser qualified as P
 import AlgST.Parse.Phase (Parse)
 import AlgST.Rename
-import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
 import AlgST.Syntax.Traversal
-import AlgST.Typing (CheckContext, TcModule)
+import AlgST.Typing (Tc)
 import AlgST.Typing qualified as Tc
 import AlgST.Typing.Align
 import AlgST.Util qualified as Util
@@ -36,9 +34,7 @@ import Data.Foldable
 import Data.Function
 import Data.HashMap.Strict (HashMap)
 import Data.HashMap.Strict qualified as HM
-import Data.List qualified as List
 import Data.List.NonEmpty (NonEmpty)
-import Data.Map.Strict qualified as Map
 import Data.Traversable
 import Main.Utf8
 import System.Console.ANSI qualified as ANSI
@@ -53,13 +49,15 @@ main = withUtf8 do
 
   let allowAnsi = stderrMode /= Plain
   withOutput allowAnsi stderr \outputHandle -> do
-    (renameEnvs, checkedModules) <- case optsSource runOpts of
-      Nothing ->
-        -- No custom source, only builtins.
-        pure
-          ( HM.singleton MainModule builtinsEnv,
-            HM.singleton MainModule (builtinsModule, builtinsModuleCtxt)
-          )
+    checkResult <- case optsSource runOpts of
+      -- No custom source, only builtins.
+      Nothing -> do
+        let rn = Driver.RenameExtra builtinsEnv builtinsModuleMap
+        let tc = Driver.CheckExtra rn builtinsModuleCtxt
+        let result = Driver.Result builtinsModule tc
+        pure $ HM.singleton MainModule result
+      -- Run the source code and all imported modules through parsing, renaming
+      -- and type checking.
       Just src ->
         checkSources runOpts outputHandle stderrMode src
           >>= maybe exitFailure pure
@@ -69,11 +67,10 @@ main = withUtf8 do
         outputHandle
         stderrMode
         (optsQueries runOpts)
-        renameEnvs
-        (snd <$> checkedModules)
+        checkResult
     runGood <-
       if optsDoEval runOpts
-        then runInterpret outputHandle stderrMode (fst <$> checkedModules)
+        then runInterpret outputHandle stderrMode checkResult
         else pure True
     when (not allGood || not runGood) do
       exitFailure
@@ -83,12 +80,7 @@ checkSources ::
   OutputHandle ->
   OutputMode ->
   Source ->
-  IO
-    ( Maybe
-        ( HashMap ModuleName RenameEnv,
-          HashMap ModuleName (TcModule, CheckContext)
-        )
-    )
+  IO (Maybe (HashMap ModuleName (Driver.Result Tc)))
 checkSources runOpts outH outMode mainSource = do
   mainSource <- case mainSource of
     SourceFile fp -> do
@@ -122,31 +114,20 @@ checkSources runOpts outH outMode mainSource = do
               driverOutputHandle = outH
             }
 
-  mcheckResult <- Driver.runDriver driverSettings do
-    parsed <- Driver.parseMainModule
-    renamedEnv <- Driver.renameAll parsed
-    checkedCtxt <- Driver.checkAll (fmap fst <$> renamedEnv)
-    pure (renamedEnv, checkedCtxt)
-
-  let results = do
-        (renamedEnv, checkGraph) <- mcheckResult
-        rnEnvs <- traverse (fmap snd) $ depsVertices renamedEnv
-        checkRes <- sequence $ depsVertices checkGraph
-        pure (rnEnvs, checkRes)
+  mcheckResult <- Driver.runComplete driverSettings
   when (not (optsQuiet runOpts)) do
-    outputLnS outH case results of
+    outputLnS outH case mcheckResult of
       Just _ -> applyStyle outMode (styleBold . styleFG ANSI.Green) (showString "Success.")
       Nothing -> applyStyle outMode (styleBold . styleFG ANSI.Red) (showString "Failed.")
-  pure results
+  pure $ Driver.compactResults <$> mcheckResult
 
 answerQueries ::
   OutputHandle ->
   OutputMode ->
   [Query] ->
-  HashMap ModuleName RenameEnv ->
-  HashMap ModuleName CheckContext ->
+  HashMap ModuleName (Driver.Result Tc) ->
   IO Bool
-answerQueries out outMode queries renameEnvs checkEnvs = do
+answerQueries out outMode queries checkResult = do
   and <$> for queries \case
     QueryTySynth s ->
       parseRename P.parseExpr s tysynth
@@ -161,8 +142,14 @@ answerQueries out outMode queries renameEnvs checkEnvs = do
         & fmap (pure . show)
         & printResult "--nf" s
   where
-    queryEnv = fold $ HM.lookup MainModule renameEnvs
-    queryCtxt = fold $ HM.lookup MainModule checkEnvs
+    queryEnv =
+      foldMap
+        (Driver.rxRenameEnv . Driver.cxRename . Driver.resultExtra)
+        (HM.lookup MainModule checkResult)
+    queryCtxt =
+      foldMap
+        (Driver.cxContext . Driver.resultExtra)
+        (HM.lookup MainModule checkResult)
 
     tysynth expr = do
       t <- fmap snd $ Tc.tysynth expr
@@ -218,13 +205,12 @@ answerQueries out outMode queries renameEnvs checkEnvs = do
         [ln] -> Util.truncate' 60 "..." ln
         ln : _ -> take 60 ln ++ "..."
 
-runInterpret :: OutputHandle -> OutputMode -> HashMap ModuleName TcModule -> IO Bool
+runInterpret ::
+  OutputHandle -> OutputMode -> HashMap ModuleName (Driver.Result Tc) -> IO Bool
 runInterpret out outMode checkedModules = do
   let mmainName = do
-        mainChecked <- HM.lookup MainModule checkedModules
-        moduleValues mainChecked
-          & Map.keys
-          & List.find ((Unqualified "main" ==) . nameUnqualified)
+        HM.lookup MainModule checkedModules
+          >>= Driver.lookupRenamed (Unqualified "main")
   let outputError =
         outputLnS out . applyStyle outMode (styleFG ANSI.Red) . showString
   outputStrLn out ""
@@ -235,8 +221,8 @@ runInterpret out outMode checkedModules = do
     Just mainName -> do
       outputSticky out "Running ‘main’"
       result <- try do
-        let env = foldMap I.programEnvironment checkedModules
-        I.runEval env $ I.eval $ E.Var ZeroPos mainName
+        let env = foldMap (I.programEnvironment . Driver.resultModule) checkedModules
+        I.runEval env $ I.evalName mainName
       clearSticky out
       case result of
         Left ex

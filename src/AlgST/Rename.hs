@@ -19,7 +19,9 @@ module AlgST.Rename
     -- * Renaming
     RnM,
     Globals,
-    ModuleMap,
+    ModuleMap(..),
+    TopLevels(..),
+    _TopLevels,
     renameModule,
     renameModuleExtra,
     continueRename,
@@ -29,6 +31,7 @@ module AlgST.Rename
     -- * Handling imports
     RenameEnv (..),
     Bindings (..),
+    _Bindings,
     PartialResolve (..),
     ResolvedImport,
     importedRenameEnv,
