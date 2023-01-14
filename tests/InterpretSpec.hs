@@ -49,14 +49,14 @@ parseAndCheckProgram src = do
   tcModule <- shouldNotError do
     RenameExtra rn <- rnExtra builtinsEnv
     rn (checkResultAsRnM . checkModule builtinsModuleCtxt)
-  mainName <- failNothing "program has no ‘main’" $
-    modMapValues mm ^. _TopLevels . hashAt (Unqualified "main")
+  mainName <-
+    failNothing "program has no ‘main’" $
+      modMapValues mm ^. _TopLevels . hashAt (Unqualified "main")
   pure (mainName, tcModule)
 
 runProgram :: NameR Values -> TcModule -> IO Value
-runProgram mainName p = runEval env (eval mainExpr)
+runProgram mainName p = runEval (programEnvironment p) (eval mainExpr)
   where
-    env = programEnvironment $ p <> builtinsModule
     mainExpr = E.Var ZeroPos mainName
 
 dir :: FilePath

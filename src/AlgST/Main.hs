@@ -220,7 +220,6 @@ answerQueries out outMode queries renameEnvs checkEnvs = do
 
 runInterpret :: OutputHandle -> OutputMode -> HashMap ModuleName TcModule -> IO Bool
 runInterpret out outMode checkedModules = do
-  let bigModule = builtinsModule <> fold checkedModules
   let mmainName = do
         mainChecked <- HM.lookup MainModule checkedModules
         moduleValues mainChecked
@@ -236,9 +235,8 @@ runInterpret out outMode checkedModules = do
     Just mainName -> do
       outputSticky out "Running ‘main’"
       result <- try do
-        I.runEval (I.programEnvironment bigModule) $
-          I.eval $
-            E.Var ZeroPos mainName
+        let env = foldMap I.programEnvironment checkedModules
+        I.runEval env $ I.eval $ E.Var ZeroPos mainName
       clearSticky out
       case result of
         Left ex

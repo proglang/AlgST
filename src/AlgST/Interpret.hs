@@ -42,6 +42,7 @@ module AlgST.Interpret
   )
 where
 
+import AlgST.Builtins (builtinsModule)
 import AlgST.Builtins.Names
 import AlgST.Syntax.Decl
 import AlgST.Syntax.Expression qualified as E
@@ -331,13 +332,19 @@ modifyState f = do
 
 -- | Constructs the global 'Env' from a type checked 'Module'.
 --
--- TODO: Check that we have bindings for all values which exist only as
--- signatures!
+-- This always includes the bindings from 'builtinsModule'.
 programEnvironment :: TcModule -> Env
-programEnvironment p =
-  LMap.mapMaybeWithKey (\k -> either (conValue k) (globValue k)) (moduleValues p)
-    <> builtinsEnv
+programEnvironment p = builtinsEnv <> programEnv
   where
+    -- To construct the program environment we are only interested in the
+    -- module values.
+    programValues =
+      moduleValues builtinsModule <> moduleValues p
+    programEnv =
+      LMap.mapMaybeWithKey
+        (\k -> either (conValue k) (globValue k))
+        programValues
+
     conValue :: ProgVar TcStage -> ConstructorDecl Tc -> Maybe (Either TcExp Value)
     conValue !name = \case
       DataCon _ _ _ _ args ->
