@@ -210,7 +210,7 @@ runInterpret ::
 runInterpret out outMode checkedModules = do
   let mmainName = do
         HM.lookup MainModule checkedModules
-          >>= Driver.lookupRenamed (Unqualified "main")
+          >>= Driver.lookupRenamed MainFunction
   let outputError =
         outputLnS out . applyStyle outMode (styleFG ANSI.Red) . showString
   outputStrLn out ""

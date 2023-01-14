@@ -44,6 +44,7 @@ module AlgST.Syntax.Name
 
     -- ** Unqualified parts
     Unqualified (..),
+    pattern MainFunction,
 
     -- ** Resolved Names
     ResolvedId,
@@ -123,6 +124,9 @@ newtype ModuleName = ModuleName String
 
 pattern MainModule :: ModuleName
 pattern MainModule = ModuleName "Main"
+
+pattern MainFunction :: Unqualified
+pattern MainFunction = Unqualified "main"
 
 emptyModuleName :: ModuleName
 emptyModuleName = ModuleName ""
