@@ -56,14 +56,8 @@ parseAndCheckProgram src = do
 runProgram :: NameR Values -> TcModule -> IO Value
 runProgram mainName p = runEval env (eval mainExpr)
   where
-    env = programEnvironment $ merge p builtinsModule
+    env = programEnvironment $ p <> builtinsModule
     mainExpr = E.Var ZeroPos mainName
-    merge a b =
-      Module
-        { moduleTypes = moduleTypes a <> moduleTypes b,
-          moduleValues = moduleValues a <> moduleValues b,
-          moduleSigs = moduleSigs a <> moduleSigs b
-        }
 
 dir :: FilePath
 dir = dropExtension __FILE__

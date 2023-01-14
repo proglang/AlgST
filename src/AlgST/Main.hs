@@ -223,13 +223,7 @@ answerQueries out outMode queries renameEnvs checkEnvs = do
 
 runInterpret :: OutputHandle -> OutputMode -> HashMap ModuleName TcModule -> IO Bool
 runInterpret out outMode checkedModules = do
-  let merge a b =
-        Module
-          { moduleTypes = moduleTypes a <> moduleTypes b,
-            moduleValues = moduleValues a <> moduleValues b,
-            moduleSigs = moduleSigs a <> moduleSigs b
-          }
-  let bigModule = foldl' merge builtinsModule checkedModules
+  let bigModule = builtinsModule <> fold checkedModules
   let mmainName = do
         mainChecked <- HM.lookup mainModule checkedModules
         moduleValues mainChecked

@@ -38,6 +38,7 @@ import AlgST.Syntax.Type qualified as T
 import Data.HashMap.Strict (HashMap)
 import Data.Map ((\\))
 import Data.Map.Strict qualified as Map
+import Data.Semigroup
 import Instances.TH.Lift ()
 import Language.Haskell.TH.Syntax (Lift)
 
@@ -111,6 +112,17 @@ data Module x = Module
   }
 
 deriving stock instance (ForallX Lift x) => Lift (Module x)
+
+-- | Multiple modules can be merged. This is only safe, however, if the names
+-- the maps are keyed by are resolved.
+instance XStage x ~ Resolved => Semigroup (Module x) where
+  Module a1 b1 c1 <> Module a2 b2 c2 =
+    Module (a1 <> a2) (b1 <> b2) (c1 <> c2)
+
+  stimes = stimesIdempotentMonoid
+
+instance XStage x ~ Resolved => Monoid (Module x) where
+  mempty = emptyModule
 
 emptyModule :: Module x
 emptyModule = Module Map.empty Map.empty Map.empty
