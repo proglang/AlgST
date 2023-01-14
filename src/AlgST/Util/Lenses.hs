@@ -36,5 +36,5 @@ coercing :: (Coercible s a, Coercible t b) => Adapter s t a b
 coercing = L.adapter coerce coerce
 {-# INLINE coercing #-}
 
-hashAt :: (Eq k, Hashable k) => k -> Lens' (HM.HashMap k v) (Maybe v)
+hashAt :: Hashable k => k -> Lens' (HM.HashMap k v) (Maybe v)
 hashAt k f = HM.alterF f k
