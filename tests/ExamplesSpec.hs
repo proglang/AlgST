@@ -1,6 +1,8 @@
 module ExamplesSpec where
 
+import Control.Monad
 import Data.Foldable
+import Data.Function
 import Data.Functor
 import Data.List qualified as List
 import Paths_AlgST
@@ -34,4 +36,10 @@ checkModule :: FilePath -> Expectation
 checkModule dir = run ["--search-dir", dir, "--find-main"]
 
 run :: [String] -> Expectation
-run args = runProcess_ $ proc "algst" ("--quiet" : args)
+run args = do
+  let process =
+        proc "algst" ("--quiet" : args)
+          & setStdin nullStream
+  -- We use `readProcess_` here because it will include the stdout and stderr
+  -- in the exception.
+  void $ readProcess_ process
