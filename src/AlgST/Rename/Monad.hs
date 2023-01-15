@@ -55,7 +55,7 @@ import Lens.Family2
 data PartialResolve scope
   = PartialResolve !(Map.Map (NameR scope) Error.AmbiguousOrigin)
   | UniqueLocal !(NameR scope)
-  deriving stock (Lift)
+  deriving stock (Show, Lift)
 
 instance Semigroup (PartialResolve scope) where
   PartialResolve x <> PartialResolve y =
@@ -77,7 +77,7 @@ viewUniqueResolve = \case
 -- | A map from user written names to the globally unique renamed version.
 newtype Bindings scope = Bindings (NameMapG Written scope (PartialResolve scope))
   deriving newtype (Monoid)
-  deriving stock (Lift)
+  deriving stock (Show, Lift)
 
 instance Semigroup (Bindings scope) where
   Bindings x <> Bindings y = Bindings $ Map.unionWith (<>) x y
@@ -96,7 +96,7 @@ data RenameEnv = RenameEnv
   { rnTyVars :: !(Bindings Types),
     rnProgVars :: !(Bindings Values)
   }
-  deriving stock (Generic, Lift)
+  deriving stock (Show, Generic, Lift)
 
 instance Monoid RenameEnv where
   mempty = RenameEnv mempty mempty

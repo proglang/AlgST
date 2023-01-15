@@ -22,7 +22,7 @@ type Globals = HashMap ModuleName ModuleMap
 -- | The top-level definitions in a module. This maps their unqualified name to
 -- the globally-unique resolved name.
 newtype TopLevels scope = TopLevels (HashMap Unqualified (NameR scope))
-  deriving stock (Lift)
+  deriving stock (Show, Lift)
 
 _TopLevels :: Lens' (TopLevels scope) (HashMap Unqualified (NameR scope))
 _TopLevels = coerced
@@ -34,7 +34,7 @@ data ModuleMap = ModuleMap
   { modMapTypes :: !(TopLevels Types),
     modMapValues :: !(TopLevels Values)
   }
-  deriving stock (Generic, Lift)
+  deriving stock (Show, Generic, Lift)
 
 instance ScopeIndexed ModuleMap TopLevels where
   typesScopeL = field @"modMapTypes"

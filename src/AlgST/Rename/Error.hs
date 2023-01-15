@@ -32,7 +32,7 @@ fatalError !e = refute (DNE.singleton e)
 data AmbiguousOrigin
   = AmbiguousImport !Pos !ModuleName
   | AmbiguousDefine !Pos
-  deriving stock (Lift)
+  deriving stock (Show, Lift)
 
 instance HasPos AmbiguousOrigin where
   pos = \case

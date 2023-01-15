@@ -247,6 +247,7 @@ data Name stage scope where
 pattern UnqualifiedName :: Unqualified -> Name Written scope
 pattern UnqualifiedName u = Name (ModuleName "") u
 
+deriving stock instance Show (Name stage scope)
 deriving stock instance Lift (Name stage scope)
 
 instance Eq (Name stage scope) where
