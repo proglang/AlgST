@@ -99,6 +99,7 @@ tests:
 
     build-tools:
       - algst
+      - hspec-discover
 
     dependencies:
       - AlgST
