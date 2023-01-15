@@ -7,18 +7,14 @@
 module InterpretSpec (spec) where
 
 import AlgST.Builtins
+import AlgST.Driver qualified as Driver
+import AlgST.Driver.Output
 import AlgST.Interpret
-import AlgST.Parse.Parser
-import AlgST.Rename
-import AlgST.Rename.Modules
-import AlgST.Syntax.Expression qualified as E
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import AlgST.Typing
-import AlgST.Util.Lenses
 import Control.Monad
+import Data.HashMap.Strict qualified as HM
 import Data.Map.Strict qualified as Map
-import Lens.Family2
 import System.FilePath
 import Test
 import Test.Golden
@@ -37,27 +33,24 @@ spec = do
 
   describe "whole programs" do
     goldenTests dir do
-       parseAndCheckProgram
-          >=> uncurry runProgram
-          >>> fmap show
+      compileAndRun >=> pure . show
 
-parseAndCheckProgram :: String -> Assertion (NameR Values, Module Tc)
-parseAndCheckProgram src = do
-  parsed <- shouldParse parseDecls src
-  let name = ModuleName "M"
-  let (mm, rnExtra) = renameModuleExtra name parsed
-  tcModule <- shouldNotError do
-    RenameExtra rn <- rnExtra builtinsEnv
-    rn (checkResultAsRnM . checkModule builtinsModuleCtxt)
-  mainName <-
-    failNothing "program has no ‘main’" $
-      modMapValues mm ^. _TopLevels . hashAt (Unqualified "main")
-  pure (mainName, tcModule)
-
-runProgram :: NameR Values -> TcModule -> IO Value
-runProgram mainName p = runEval (programEnvironment p) (eval mainExpr)
-  where
-    mainExpr = E.Var ZeroPos mainName
+compileAndRun :: String -> Assertion Value
+compileAndRun src = do
+  (output, mResultsGraph) <- captureOutput \outH -> do
+    let settings =
+          Driver.addModuleSource MainModule "" src $
+            Driver.defaultSettings
+              { -- All the different tests are run in parallel. Stay sequential here.
+                Driver.driverSequential = True,
+                Driver.driverOutputHandle = outH
+              }
+    Driver.runComplete settings
+  resultsGraph <- mResultsGraph @? "Processing failed.\n\n" ++ output
+  let allResults = Driver.compactResults resultsGraph
+  mainResults <- HM.lookup MainModule allResults @? "›Main‹ module missing"
+  mainName <- Driver.lookupRenamed MainFunction mainResults @? "›main‹ function missing"
+  runEval (Driver.mergedResultEvalEnvironment allResults) $ evalName mainName
 
 dir :: FilePath
 dir = dropExtension __FILE__
