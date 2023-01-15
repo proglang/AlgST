@@ -108,6 +108,7 @@ import System.IO.Error
 data Settings = Settings
   { driverSources :: !(HashMap ModuleName Source),
     driverSearchPaths :: !(Seq FilePath),
+    driverQuietProgress :: !Bool,
     driverVerboseSearches :: !Bool,
     driverVerboseDeps :: !Bool,
     driverDebugOutput :: !Bool,
@@ -170,6 +171,7 @@ defaultSettings =
   Settings
     { driverSources = mempty,
       driverSearchPaths = mempty,
+      driverQuietProgress = False,
       driverVerboseSearches = False,
       driverVerboseDeps = False,
       driverDebugOutput = False,
@@ -258,28 +260,25 @@ parseAllModules ::
   ModuleName -> Driver (DepsTree (Result Parse))
 parseAllModules firstName = do
   depsRef <- liftIO $ newIORef emptyDepsGraph
-  (output, _) <- askOutput
-  counter <- newCounter output do
+  (outProgress, _) <- askOutputProgress
+  counter <- newCounter outProgress do
     zeroCounter & counterTitleL .~ "Parsing..."
   parScheduled_ $ \scheduler -> do
     parseModule scheduler depsRef counter mempty firstName
   finalDeps <- liftIO $ readIORef depsRef
 
-  outputDeps <- asksState $ driverSettings >>> driverVerboseDeps
   let (acyclicDeps, cycles) = removeCycles finalDeps
-
-  when outputDeps do
-    (handle, mode) <- askOutput
-    let header :: String -> ShowS
-        header s =
-          applyStyle mode styleBold $
-            showString "== " . showString s . showString " ==\n"
-    let showDeps :: String -> DepsGraph cycles a -> ShowS
-        showDeps title dg =
-          header title . showString (exportTextual dg) . showChar '\n'
-    let d1 = showDeps "Dependencies" finalDeps
-    let d2 = showDeps "Acyclic Dependencies" acyclicDeps
-    outputS handle $! if null cycles then d1 else d1 . d2
+  (outVDeps, mode) <- askOutputVerbose driverVerboseDeps
+  let header :: String -> ShowS
+      header s =
+        applyStyle mode styleBold $
+          showString "== " . showString s . showString " ==\n"
+  let showDeps :: String -> DepsGraph cycles a -> ShowS
+      showDeps title dg =
+        header title . showString (exportTextual dg) . showChar '\n'
+  let d1 = showDeps "Dependencies" finalDeps
+  let d2 = showDeps "Acyclic Dependencies" acyclicDeps
+  outputS outVDeps $ if null cycles then d1 else d1 . d2
 
   for_ cycles $
     cycleError >>> \case
@@ -358,8 +357,8 @@ renameAll ::
   DepsGraph Acyclic (Result Parse) ->
   Driver (DepsTree (Maybe (Result Rn)))
 renameAll dg = do
-  (output, _) <- askOutput
-  counter <- newCounter output do
+  (outProgress, _) <- askOutputProgress
+  counter <- newCounter outProgress do
     zeroCounter & counterOverallL .~ depsGraphSize dg
   parStrat <- askStrategy
   traverseVerticesPar parStrat (renameModule counter) dg
@@ -409,8 +408,8 @@ checkAll ::
   DepsGraph Acyclic (Maybe (Result Rn)) ->
   Driver (DepsTree (Maybe (Result Tc)))
 checkAll dg = do
-  (output, _) <- askOutput
-  counter <- newCounterStart output do
+  (outProgress, _) <- askOutputProgress
+  counter <- newCounterStart outProgress do
     zeroCounter
       & counterOverallL .~ depsGraphSize dg
       & counterTitleL .~ "Checking..."
@@ -450,9 +449,9 @@ missingModuleError loc name = PosError loc [Error "Cannot locate module", Error 
 -- 'True' additional debug messages will be output during the search.
 findModule :: ModuleName -> Driver (Maybe (FilePath, String))
 findModule name = flip runContT pure do
-  verbose <- lift $ asksState $ driverSettings >>> driverVerboseSearches
-  (output, _) <- lift askOutput
-  let searchMsg = if verbose then outputStrLn output else const (pure ())
+  (outVSearches, _) <- lift $ askOutputVerbose driverVerboseSearches
+  let searchMsg = outputStrLn outVSearches
+  let !verbose = isNullHandle outVSearches
   liftIO $ searchMsg $ "Locating module ‘" ++ unModuleName name ++ "’"
 
   -- Check if it is a known virtual module.
@@ -529,9 +528,8 @@ noteDependencies depsRef name fp parsed = do
   let isUnparsed (_, m) = m /= name && not (depsMember m oldDeps)
   let newDeps = filter isUnparsed depList
 
-  (output, _) <- askOutput
-  verbose <- asksState $ driverSettings >>> driverVerboseDeps
-  when verbose $ outputStrLn output do
+  (outVDeps, _) <- askOutputVerbose driverVerboseDeps
+  outputStrLn outVDeps do
     let !nOverall = length depList
         !nNew = length newDeps
     let ln1 =
@@ -586,7 +584,7 @@ reportErrors fp diags
       pure ()
   | otherwise = do
       setError
-      (handle, mode) <- askOutput
+      (handle, mode) <- askOutputDiags
       cwd <- liftIO getCurrentDirectory
       let fpShort = makeRelative cwd fp
       let errs = renderErrors' (Just 10) mode fpShort (toList diags)
@@ -600,11 +598,40 @@ reportModuleErrors m diags = do
   let mpath = HM.lookup m pathMap
   reportErrors (fold mpath) diags
 
-askOutput :: Driver (OutputHandle, OutputMode)
-askOutput = asksState do
+-- | Returns the drivers 'OutputHandle'.
+--
+-- This function returns the actual 'OutputHandle' unconditionally, as opposed
+-- to 'askOutputVerbose' or 'askOutputProgress'. We never want to hide
+-- diagnostic messages.
+askOutputDiags :: Driver (OutputHandle, OutputMode)
+askOutputDiags = asksState do
   (,)
     <$> driverOutputHandle . driverSettings
     <*> driverOutputMode . driverSettings
+
+-- | Either returns the drivers 'OutputHandle' or a 'nullHandle', depending
+-- wether the given function returns 'True'.
+--
+-- For example
+--
+-- @
+-- askOutputVerbose 'driverVerboseSearches'
+-- @
+--
+-- will return the associated handle if verbose searches are enabled.
+askOutputVerbose :: (Settings -> Bool) -> Driver (OutputHandle, OutputMode)
+askOutputVerbose pred = asksState \DriverState {driverSettings = settings} ->
+  ( if pred settings
+      then driverOutputHandle settings
+      else nullHandle,
+    driverOutputMode settings
+  )
+
+-- | Returns the output handle to be used for progress updates.
+--
+-- This returns a 'nullHandle' if the 'driverQuietProgress' is enabled.
+askOutputProgress :: Driver (OutputHandle, OutputMode)
+askOutputProgress = askOutputVerbose (not . driverQuietProgress)
 
 maybeCounter ::
   MonadIO m =>

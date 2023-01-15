@@ -107,6 +107,7 @@ checkSources runOpts outH outMode mainSource = do
         maybe id (uncurry (Driver.addModuleSource MainModule)) mainSource $
           Driver.defaultSettings
             { driverSequential = optsDriverSeq runOpts,
+              driverQuietProgress = optsQuiet runOpts,
               driverVerboseDeps = optsDriverDeps runOpts,
               driverVerboseSearches = optsDriverModSearch runOpts,
               driverSearchPaths = FP.normalise <$> optsDriverPaths runOpts,

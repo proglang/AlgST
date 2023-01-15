@@ -13,6 +13,7 @@ module AlgST.Driver.Output
     -- ** Abstract handles
     OutputHandle,
     nullHandle,
+    isNullHandle,
 
     -- ** Creating dynamic handles
     withOutput,
@@ -83,6 +84,12 @@ instance Show OutputHandle where
 nullHandle :: OutputHandle
 nullHandle = OutputHandle $ unsafeDupablePerformIO $ newActionBufferIO 0
 {-# NOINLINE nullHandle #-}
+
+-- | Checks wether the given handle discards all messages, such as
+-- 'nullHandle'.
+isNullHandle :: OutputHandle -> Bool
+isNullHandle (OutputHandle NullBuffer) = True
+isNullHandle _ = False
 
 -- | Captures the output written to the 'OutputHandle' provided in the nested
 -- computation.
