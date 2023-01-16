@@ -26,7 +26,12 @@
           exec stack build --fast --test "$@"
         '';
       in {
-        devShell = pkgs.mkShellNoCC {
+        packages.vimPlugin = pkgs.vimUtils.buildVimPlugin {
+          name = "algst-vim";
+          src = ./utils/vim;
+        };
+
+        devShells.default = pkgs.mkShellNoCC {
           name = "algst-dev-shell";
           packages = with pkgs; [ nixfmt accept-test run-tests ];
         };
