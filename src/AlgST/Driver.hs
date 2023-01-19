@@ -182,13 +182,13 @@ defaultSettings =
 
 -- | Insert a module search path at the front.
 --
--- Search paths a traversed front to back to locate a module source.
+-- Search paths are traversed front to back to locate a module source.
 addSearchPathFront :: FilePath -> Settings -> Settings
 addSearchPathFront fp s = s {driverSearchPaths = fp :<| driverSearchPaths s}
 
 -- | Insert a module search path at the back.
 --
--- Search paths a traversed front to back to locate a module source.
+-- Search paths are traversed front to back to locate a module source.
 addSearchPathBack :: FilePath -> Settings -> Settings
 addSearchPathBack fp s = s {driverSearchPaths = driverSearchPaths s :|> fp}
 
