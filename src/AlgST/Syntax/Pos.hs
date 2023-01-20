@@ -1,7 +1,10 @@
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module AlgST.Syntax.Pos
   ( -- * Positions
@@ -9,6 +12,8 @@ module AlgST.Syntax.Pos
 
     -- * Located things
     HasPos (..),
+    GHasPos,
+    Generically (..),
     Located (..),
     (@-),
     unL,
@@ -21,7 +26,9 @@ module AlgST.Syntax.Pos
   )
 where
 
+import AlgST.Util.Generically
 import Data.Void
+import GHC.Generics
 import Language.Haskell.TH.Syntax (Lift)
 
 data Pos = Pos !Int !Int
@@ -94,3 +101,23 @@ earlier :: HasPos a => a -> a -> a
 earlier x y
   | pos x <= pos y = x
   | otherwise = y
+
+instance (Generic a, GHasPos (Rep a)) => HasPos (Generically a) where
+  pos (Generically a) = gpos (from a)
+
+-- | Extracts the @Pos@ from the leftmost component of each constructor.
+class GHasPos f where
+  gpos :: f a -> Pos
+
+instance (GHasPos f, GHasPos g) => GHasPos (f :+: g) where
+  gpos (L1 f) = gpos f
+  gpos (R1 g) = gpos g
+
+instance GHasPos f => GHasPos (f :*: g) where
+  gpos (f :*: _) = gpos f
+
+instance GHasPos f => GHasPos (M1 i c f) where
+  gpos (M1 f) = gpos f
+
+instance HasPos c => GHasPos (K1 i c) where
+  gpos (K1 c) = pos c

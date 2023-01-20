@@ -1,7 +1,8 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveLift #-}
-{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE StandaloneKindSignatures #-}
@@ -36,6 +37,7 @@ where
 
 import AlgST.Syntax.Kind qualified as K
 import AlgST.Syntax.Phases
+import GHC.Generics (Generic)
 import Language.Haskell.TH.Syntax (Lift)
 
 data Polarity
@@ -128,19 +130,8 @@ data Type x
   | -- | Constructor extension. Depends on the instantiation of the 'XExp' type
     -- family.
     Type (XType x)
+  deriving stock (Generic)
 
 deriving stock instance ForallX Lift x => Lift (Type x)
 
-instance ForallX HasPos x => HasPos (Type x) where
-  pos (Unit x) = pos x
-  pos (Arrow x _ _ _) = pos x
-  pos (Pair x _ _) = pos x
-  pos (Session x _ _ _) = pos x
-  pos (End x _) = pos x
-  pos (Forall x _) = pos x
-  pos (Var x _) = pos x
-  pos (Con x _) = pos x
-  pos (App x _ _) = pos x
-  pos (Negate x _) = pos x
-  pos (Dualof x _) = pos x
-  pos (Type x) = pos x
+deriving via Generically (Type x) instance ForallX HasPos x => HasPos (Type x)

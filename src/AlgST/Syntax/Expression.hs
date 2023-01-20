@@ -1,7 +1,8 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveLift #-}
-{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE QuantifiedConstraints #-}
@@ -59,6 +60,7 @@ import AlgST.Syntax.Type qualified as T
 import Control.Applicative
 import Data.Foldable
 import Data.Functor.Identity
+import GHC.Generics (Generic)
 import Instances.TH.Lift ()
 import Language.Haskell.TH.Syntax (Lift)
 
@@ -176,8 +178,11 @@ data Exp x
   | -- | Constructor extension. Depends on the instantiation of the 'XExp' type
     -- family.
     Exp (XExp x)
+  deriving stock (Generic)
 
 deriving stock instance (ForallX Lift x, T.ForallX Lift x) => Lift (Exp x)
+
+deriving via (Generically (Exp x)) instance ForallX HasPos x => HasPos (Exp x)
 
 -- | A restricted version of 'Exp' which binds at least one value via lambda
 -- abstraction.
@@ -243,26 +248,6 @@ deriving stock instance
 
 instance HasPos (CaseBranch f x) where
   pos = branchPos
-
-instance ForallX HasPos x => HasPos (Exp x) where
-  pos (Lit x _) = pos x
-  pos (Var x _) = pos x
-  pos (Con x _) = pos x
-  pos (Abs x _) = pos x
-  pos (UnLet x _ _ _ _) = pos x
-  pos (Rec x _ _ _) = pos x
-  pos (App x _ _) = pos x
-  pos (TypeApp x _ _) = pos x
-  pos (TypeAbs x _) = pos x
-  pos (Cond x _ _ _) = pos x
-  pos (Pair x _ _) = pos x
-  pos (PatLet x _ _ _ _) = pos x
-  pos (Case x _ _) = pos x
-  pos (New x _) = pos x
-  pos (Select x _) = pos x
-  pos (Fork x _) = pos x
-  pos (Fork_ x _) = pos x
-  pos (Exp x) = pos x
 
 -- Bind
 
