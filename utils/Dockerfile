@@ -11,6 +11,10 @@ COPY package.yaml stack.yaml stack.yaml.lock /opt/algst/
 # Therefore we simply build *all* the dependencies beforehand.
 RUN stack build --test --no-run-tests --dependencies-only
 
+# To ensure that we print any error messages from unit test (which are run in
+# the next step) in a nice way.
+ENV LANG=C.UTF-8
+
 # Copy all the other files and build `algst`.
 COPY . /opt/algst/
 RUN stack build --test --copy-bins
@@ -30,4 +34,6 @@ COPY examples /opt/algst
 # Copy the executable.
 COPY --from=builder /root/.local/bin/algst /usr/local/bin
 
-ENTRYPOINT ["algst"]
+# Otherwise any of the quotations ‘like this’ in error messages and
+# informational messages are replaced by ‘?’.
+ENV LANG=C.UTF-8
