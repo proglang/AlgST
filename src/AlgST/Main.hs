@@ -70,7 +70,7 @@ main = withUtf8 do
         checkResult
     runGood <-
       if optsDoEval runOpts
-        then runInterpret outputHandle stderrMode checkResult
+        then runInterpret runOpts outputHandle stderrMode checkResult
         else pure True
     when (not allGood || not runGood) do
       exitFailure
@@ -207,8 +207,8 @@ answerQueries out outMode queries checkResult = do
         ln : _ -> take 60 ln ++ "..."
 
 runInterpret ::
-  OutputHandle -> OutputMode -> HashMap ModuleName (Driver.Result Tc) -> IO Bool
-runInterpret out outMode checkedModules = do
+  RunOpts -> OutputHandle -> OutputMode -> HashMap ModuleName (Driver.Result Tc) -> IO Bool
+runInterpret opts out outMode checkedModules = do
   let mmainName = do
         HM.lookup MainModule checkedModules
           >>= Driver.lookupRenamed MainFunction
@@ -225,7 +225,10 @@ runInterpret out outMode checkedModules = do
       hSetBuffering stderr LineBuffering
       result <- try do
         let env = foldMap (I.programEnvironment . Driver.resultModule) checkedModules
-        I.runEval env $ I.evalName mainName
+        I.runEvalWith
+          (I.defaultSettings {I.evalBufferSize = optsBufferSize opts})
+          env
+          (I.evalName mainName)
       clearSticky out
       case result of
         Left ex
