@@ -1,0 +1,45 @@
+protocol Arith =
+  | Neg Int -Int
+  | Add Int Int -Int
+
+serve_arith : forall (s:S). ?Arith.s -> s
+serve_arith [s] c =
+  match c with {
+    Neg c -> let (x, c) = receive [Int, !Int.s] c in
+             send [Int, s] (0-x) c,
+    Add c -> let (x, c) = receive [Int, ?Int.!Int.s] c in
+             let (y, c) = receive [Int, !Int.s] c in
+             send [Int, s] (x+y) c }
+
+client_neg : forall (s:S). Int -> !Arith.s -> (Int, s)
+client_neg [s] x c =
+  select Neg [s] c
+    |> send [Int, ?Int.s] x
+    |> receive [Int, s]
+
+client_add : forall (s:S). Int -> Int -> !Arith.s -> (Int, s)
+client_add [s] x y c =
+  select Add [s] c
+    |> send [Int, !Int.?Int.s] x
+    |> send [Int, ?Int.s] y
+    |> receive [Int, s]
+
+main : ()
+main =
+  let (c1, c2) = new [!Arith.!Arith.End!] in
+  let _ = fork_
+            ( serve_arith [?Arith.End?] c2
+              |> serve_arith [End?]
+              |> wait
+            )
+  in
+  -- Adding 10 and 20.
+  let (x, c1) = client_add [!Arith.End!] 10 20 c1 in
+  let _ = traceMsg "10 + 20 =" in
+  let _ = trace [Int] x in
+  -- Negate result.
+  let (y, c1) = client_neg [End!] x c1 in
+  let _ = traceMsg "-(10 + 20) =" in
+  let _ = trace [Int] y in
+  -- Terminate channel.
+  terminate c1

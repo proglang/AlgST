@@ -1,0 +1,28 @@
+protocol Flipper = Flipper -Int -Flipper
+
+flipper : !Flipper.End! -> End!
+flipper c =
+  let c = select Flipper [End!] c in
+  let (x, c) = receive [Int, ?Flipper.End!] c in
+  match c with {
+    Flipper c ->
+      send [Int] x [!Flipper.End!] c
+        |> flipper
+  }
+
+-- mutual recursion
+
+flip : !Flipper.End! -> End!
+flip c =
+  select Flipper [End!] c 
+    |> receive [Int, ?Flipper.End!]
+    |> flop
+
+flop : (Int, ?Flipper.End!) -> End!
+flop p =
+  let (x, c) = p in
+  match c with {
+    Flipper c ->
+      send [Int] x [!Flipper.End!] c
+        |> flip
+  }

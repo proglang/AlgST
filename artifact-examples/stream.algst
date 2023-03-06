@@ -1,0 +1,20 @@
+protocol Stream (a:P) = Cons a (Stream a)
+
+ones : !Stream Int.End! -> End!
+ones c =
+  c |> select Cons [Int, End!] |> send [Int, !Stream Int.End!] 1 |> ones
+
+main : ()
+main =
+  let (c1, c2) = new [!Stream Int.End!] in
+  let _ = fork_ (ones c1 |> terminate) in
+  let rec loop : ?Stream Int.End? -> () = \c ->
+    case c of {
+      Cons c ->
+        let (n, c) = receive [Int, ?Stream Int.End?] c in
+        let _ = trace [Int] n in
+        let _ = usleep 500000 in
+        loop c
+    }
+  in
+  loop c2

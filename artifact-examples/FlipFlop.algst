@@ -1,0 +1,25 @@
+protocol Flip = Flip -Int Flop
+protocol Flop = Flop Int Flip
+
+flipper : !Flip.End! -> End!
+flipper c =
+  let c = select Flip [End!] c in
+  let (x, c) = receive [Int, !Flop.End!] c in
+  select Flop [End!] c
+    |>  send [Int, !Flip.End!] x
+    |>  flipper
+
+-- mutual recursion
+
+flip : !Flip.End! -> End!
+flip c =
+  select Flip [End!] c 
+    |> receive [Int, !Flop.End!]
+    |> flop
+
+flop : (Int, !Flop.End!) -> End!
+flop p =
+  let (x, c) = p in
+  select Flop [End!] c
+    |> send [Int, !Flip.End!] x
+    |> flip
