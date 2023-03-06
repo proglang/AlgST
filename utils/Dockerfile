@@ -27,6 +27,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libnuma1 \
   libgmp10
 
+# Install some nice utilities.
+RUN apt-get install -y --no-install-recommends \
+  nano
+
 # Copy the examples.
 WORKDIR /opt/algst
 COPY examples /opt/algst
