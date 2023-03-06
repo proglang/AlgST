@@ -60,6 +60,7 @@ import Control.Concurrent.STM
 import Control.Exception
 import Control.Monad.Eta
 import Control.Monad.Reader
+import Control.Monad.State.Strict hiding (evalState)
 import Data.DList qualified as DL
 import Data.Foldable
 import Data.Hashable
@@ -67,6 +68,7 @@ import Data.IORef
 import Data.List qualified as List
 import Data.Map.Lazy qualified as LMap
 import Data.Map.Strict qualified as Map
+import Data.Maybe
 import Data.Monoid
 import Data.Void
 import GHC.Stack
@@ -88,22 +90,38 @@ type Env = Map.Map (ProgVar TcStage) (Either TcExp Value)
 -- | A list of spawned threads.
 type ThreadList = [Async ()]
 
+-- | A @ThreadName@ gives a stable and reproducible name to a thread,
+-- regardless of interleaving. This is achieved by having a list of identifiers
+-- which locates the thread in the tree of all spawned threads.
+newtype ThreadName = ThreadName [Word]
+  deriving newtype (Eq, Hashable)
+
+instance Show ThreadName where
+  showsPrec _ (ThreadName ts) =
+    appEndo . foldMap Endo . List.intersperse (showChar '.') . fmap shows $ ts
+
+newtype ForkCounter = ForkCounter Word
+  deriving newtype (Num)
+
 data Settings = Settings
   { evalDebugMessages :: !(Maybe OutputMode),
-    evalBufferSize :: !Natural
+    evalBufferSize :: !Natural,
+    evalOutputHandle :: !Handle
   }
 
 defaultSettings :: Settings
 defaultSettings =
   Settings
     { evalDebugMessages = Nothing,
-      evalBufferSize = 0
+      evalBufferSize = 0,
+      evalOutputHandle = stderr
     }
 
 data EvalInfo = EvalInfo
   { evalEnv :: !Env,
     evalState :: !(IORef EvalSt),
-    evalSettings :: !Settings
+    evalSettings :: !Settings,
+    evalThreadName :: ThreadName
   }
 
 data EvalSt = EvalSt
@@ -116,9 +134,12 @@ data EvalSt = EvalSt
     stForked :: ThreadList
   }
 
-newtype EvalM a = EvalM {unEvalM :: ReaderT EvalInfo IO a}
+newtype EvalM a = EvalM {unEvalM :: ReaderT EvalInfo (StateT ForkCounter IO) a}
   deriving (Semigroup, Monoid) via (Ap EvalM a)
   deriving newtype (Functor, Applicative, Monad, MonadIO, MonadFix, MonadFail)
+
+runEvalM :: EvalInfo -> EvalM a -> IO a
+runEvalM info (EvalM m) = fst <$> runStateT (runReaderT m info) (ForkCounter 0)
 
 data InterpretError = InterpretError !CallStack !Pos String
 
@@ -247,29 +268,51 @@ makeLenses ['evalEnv] ''EvalInfo
 evalEnvL :: Lens' EvalInfo Env
 {- ORMOLU_ENABLE -}
 
-debugLogM :: String -> EvalM ()
-debugLogM msg = etaEvalM do
-  settings <- EvalM $ asks evalSettings
-  debugLog settings msg
-
-debugLog :: MonadIO m => Settings -> String -> m ()
-debugLog Settings {evalDebugMessages = Just mode} msg = liftIO do
-  let colorize = case mode of
-        Plain -> const ""
-        Colorized -> setSGRCode
+colorizeThreadLog :: ThreadName -> Settings -> String -> String
+colorizeThreadLog tname sett msg = do
+  let colorize = case evalDebugMessages sett of
+        Just Colorized -> showString . setSGRCode
+        _ -> const id
   let color t =
         SetPaletteColor Foreground . fromIntegral $
           (hash t + 3) `rem` (228 - 21) + 21
-  tid <- myThreadId
-  hPutStrLn stderr . concat $
-    [ colorize [color tid],
-      "[",
-      show tid,
-      "] ",
-      msg,
-      colorize [Reset]
-    ]
-debugLog _ _ = pure ()
+  let msgS =
+        colorize [color tname]
+          . showString "["
+          . shows tname
+          . showString "] "
+          . showString msg
+          . colorize [Reset]
+  msgS ""
+
+-- | Outputs the given message. If debug colorization is enabled it will be
+-- colorized using the current 'ThreadName'.
+outputM :: String -> EvalM ()
+outputM msg = do
+  env <- EvalM ask
+  liftIO . hPutStrLn (evalOutputHandle (evalSettings env)) $
+    colorizeThreadLog (evalThreadName env) (evalSettings env) msg
+
+-- | Outputs the given message if debug messages are enabled. The message is
+-- colorized (if colorization is enabled) using the current 'ThreadName'.
+debugLogM :: String -> EvalM ()
+debugLogM msg = etaEvalM do
+  env <- EvalM ask
+  debugLog (Just (evalThreadName env)) (evalSettings env) msg
+
+-- | Outputs the given message if 'evalDebugMessages' is not 'Nothing'.
+--
+-- If the wrapped value is 'Colorized' and a 'ThreadName' is given the message
+-- is colorized based on a color unique to this thread. If either no
+-- 'ThreadName' is given or the wrapped value is 'Plain' the message will be
+-- printed without colors.
+debugLog :: MonadIO m => Maybe ThreadName -> Settings -> String -> m ()
+debugLog mname sett msg = liftIO do
+  when (isJust (evalDebugMessages sett)) do
+    let msg' = case mname of
+          Nothing -> msg
+          Just tn -> colorizeThreadLog tn sett msg
+    hPutStrLn (evalOutputHandle sett) msg'
 
 runEval :: Env -> EvalM a -> IO a
 runEval = runEvalWith defaultSettings
@@ -294,19 +337,17 @@ runEvalWith settings env (EvalM m) = do
         EvalInfo
           { evalEnv = env,
             evalState = ref,
-            evalSettings = settings
+            evalSettings = settings,
+            evalThreadName = ThreadName [0]
           }
-  let main ref =
-        runReaderT
-          ( m
-              <* liftIO (allThreads wait ref)
-              <* debugLog settings "Evaluation Completed"
-          )
-          (info ref)
+  let main ref = runEvalM (info ref) . EvalM $ do
+        m
+          <* liftIO (allThreads wait ref)
+          <* debugLog Nothing settings "Evaluation Completed"
   let failed ref =
-        debugLog settings "Evaluation Failed"
+        debugLog Nothing settings "Evaluation Failed"
           *> allThreads cancel ref
-  debugLog settings "Beginning Evaluation"
+  debugLog Nothing settings "Beginning Evaluation"
   bracketOnError (newIORef st0) failed main
 
 etaEvalM :: EvalM a -> EvalM a
@@ -396,7 +437,14 @@ builtinsEnv =
       closure valWait \(_ :@ _) -> do
         pure Unit :: EvalM Value,
       closure valTerminate \(_ :@ _) -> do
-        pure Unit :: EvalM Value
+        pure Unit :: EvalM Value,
+      closure valTrace \(_ :@ msgVal) -> do
+        outputM (show msgVal)
+        pure msgVal,
+      closure valTraceMsg \(p :@ msgVal) -> do
+        msg <- unwrap p TString msgVal
+        outputM msg
+        pure Unit
     ]
   where
     closure name body =
@@ -615,14 +663,19 @@ readChannel c = do
 
 forkEval :: TcExp -> (Value -> EvalM ()) -> EvalM ()
 forkEval e f = do
-  env <- EvalM ask
+  ForkCounter childId <- EvalM $ get <* modify' (+ 1)
+  parentEnv <- EvalM ask
+  let settings = evalSettings parentEnv
+  let ThreadName parentName = evalThreadName parentEnv
+  let childName = ThreadName $ childId : parentName
+  let childEnv = parentEnv {evalThreadName = childName}
   -- Fork evaluation.
   thread <- liftIO . mask_ $ asyncWithUnmask \restore -> do
-    debugLog (evalSettings env) "┏ starting"
-    restore (runReaderT (unEvalM (f =<< eval e)) env) `catch` \(e :: SomeException) -> do
-      debugLog (evalSettings env) $ "┗ failed: " ++ displayException e
+    debugLog (Just childName) settings ("┏ starting from " ++ show (ThreadName parentName))
+    restore (runEvalM childEnv (f =<< eval e)) `catch` \(e :: SomeException) -> do
+      debugLog (Just childName) settings $ "┗ failed: " ++ displayException e
       throwIO e
-    debugLog (evalSettings env) "┗ completed"
+    debugLog (Just childName) settings "┗ completed"
   -- Record the forked thread.
   modifyState \st -> do
     st & stForkedL %~ (thread :)

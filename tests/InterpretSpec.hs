@@ -12,10 +12,10 @@ import AlgST.Driver.Output
 import AlgST.Interpret
 import AlgST.Syntax.Module
 import AlgST.Syntax.Name
-import Control.Monad
 import Data.HashMap.Strict qualified as HM
 import Data.Map.Strict qualified as Map
 import System.FilePath
+import System.IO
 import Test
 import Test.Golden
 
@@ -32,11 +32,12 @@ spec = do
       null missingKeys @? unlines message
 
   describe "whole programs" do
-    goldenTests dir do
-      compileAndRun >=> pure . show
+    goldenTestsH dir \h inp -> do
+      val <- compileAndRun h inp
+      hPrint h val
 
-compileAndRun :: String -> Assertion Value
-compileAndRun src = do
+compileAndRun :: Handle -> String -> Assertion Value
+compileAndRun h src = do
   (output, mResultsGraph) <- captureOutput \outH -> do
     let settings =
           Driver.addModuleSource MainModule "" src $
@@ -50,7 +51,10 @@ compileAndRun src = do
   let allResults = Driver.compactResults resultsGraph
   mainResults <- HM.lookup MainModule allResults @? "›Main‹ module missing"
   mainName <- Driver.lookupRenamed MainFunction mainResults @? "›main‹ function missing"
-  runEval (Driver.mergedResultEvalEnvironment allResults) $ evalName mainName
+  runEvalWith
+    (defaultSettings {evalOutputHandle = h})
+    (Driver.mergedResultEvalEnvironment allResults)
+    (evalName mainName)
 
 dir :: FilePath
 dir = dropExtension __FILE__

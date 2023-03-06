@@ -1,0 +1,5 @@
+[0] Hello from main thread
+[0.0] Hello from thread 1
+[1.0] Hello from thread 2
+[0] Bye from main thread
+Unit

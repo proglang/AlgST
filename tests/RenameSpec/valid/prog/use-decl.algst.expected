@@ -26,7 +26,7 @@ add#M.0
          |
          +- Exp.App
          |  |
-         |  +- Exp.Var (+)#Builtin.19
+         |  +- Exp.Var (+)#Builtin.21
          |  |
          |  `- Exp.Var a#M.2
          |

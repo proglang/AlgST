@@ -1,0 +1,9 @@
+main : ()
+main =
+  -- Synchronize between the threads to make the output reproducible.
+  let _ = traceMsg "Hello from main thread" in
+  let a = fork (traceMsg "Hello from thread 1") in
+  let b = fork (let _ = fstWait [()] <| receive [(), End?] a in traceMsg "Hello from thread 2") in
+  let _ = fstWait [()] (receive [(), End?] b) in
+  let _ = traceMsg "Bye from main thread" in
+  ()

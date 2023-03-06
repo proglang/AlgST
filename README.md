@@ -186,6 +186,16 @@ Result: Number 30
 
   A type application is not necessary.
 
+### Printing
+
+* `trace : forall (a:TL). a -> a`
+
+  Prints a description of the given value to the screen.
+
+* `traceMsg : String -> ()`
+
+  Prints the given message to the screen.
+
 ### Modules
 
 For demonstration purposes consider a module `Data.List` with the following

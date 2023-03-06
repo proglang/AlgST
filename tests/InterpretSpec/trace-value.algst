@@ -1,0 +1,8 @@
+main : Int
+main =
+  -- TODO: Why can't we inline `fork 20` in the line below? The typechecker
+  -- complains that `fork` is not followed by an expression.
+  let c = fork 20 in
+  let (x, c) = trace [(Int, ?Int.End?)] (10, c) in
+  let y = fstWait [Int] <| receive [Int, End?] c in
+  x + y

@@ -1,0 +1,2 @@
+main : ()
+main = traceMsg "Hello from a trace!"

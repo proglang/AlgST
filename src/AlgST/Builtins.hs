@@ -105,7 +105,10 @@ builtinsModuleCtxt :: Tc.CheckContext
               "(-) : Int -> Int -> Int",
               "(*) : Int -> Int -> Int",
               "(/) : Int -> Int -> Int",
-              "(%) : Int -> Int -> Int"
+              "(%) : Int -> Int -> Int",
+              --
+              "trace : ∀(a : TL). a -> a",
+              "traceMsg : String -> ()"
             ]
        in parseTH BuiltinsModule B.builtinsPartialModuleMap defs
     )
