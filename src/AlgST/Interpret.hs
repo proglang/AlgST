@@ -93,12 +93,20 @@ type ThreadList = [Async ()]
 -- | A @ThreadName@ gives a stable and reproducible name to a thread,
 -- regardless of interleaving. This is achieved by having a list of identifiers
 -- which locates the thread in the tree of all spawned threads.
-newtype ThreadName = ThreadName [Word]
-  deriving newtype (Eq, Hashable)
+data ThreadName = ThreadName [Word] ShowS
+
+instance Eq ThreadName where
+  ThreadName w1 _ == ThreadName w2 _ = w1 == w2
+
+instance Hashable ThreadName where
+  hashWithSalt s (ThreadName ws _) = hashWithSalt s ws
 
 instance Show ThreadName where
-  showsPrec _ (ThreadName ts) =
-    appEndo . foldMap Endo . List.intersperse (showChar '.') . fmap shows $ ts
+  showsPrec _ (ThreadName _ s) = s
+
+deriveChildName :: ThreadName -> ForkCounter -> ThreadName
+deriveChildName (ThreadName ws ss) (ForkCounter w) =
+  ThreadName (w : ws) (ss . showChar '-' . shows (w + 1))
 
 newtype ForkCounter = ForkCounter Word
   deriving newtype (Num)
@@ -341,7 +349,7 @@ runEvalWith settings env (EvalM m) = do
           { evalEnv = env,
             evalState = ref,
             evalSettings = settings,
-            evalThreadName = ThreadName [0]
+            evalThreadName = ThreadName [] (showString "0")
           }
   let main ref = runEvalM (info ref) . EvalM $ do
         m
@@ -674,15 +682,15 @@ readChannel c = do
 
 forkEval :: TcExp -> (Value -> EvalM ()) -> EvalM ()
 forkEval e f = do
-  ForkCounter childId <- EvalM $ get <* modify' (+ 1)
+  childId <- EvalM $ get <* modify' (+ 1)
   parentEnv <- EvalM ask
   let settings = evalSettings parentEnv
-  let ThreadName parentName = evalThreadName parentEnv
-  let childName = ThreadName $ childId : parentName
+  let parentName = evalThreadName parentEnv
+  let childName = deriveChildName parentName childId
   let childEnv = parentEnv {evalThreadName = childName}
   -- Fork evaluation.
   thread <- liftIO . mask_ $ asyncWithUnmask \restore -> do
-    debugLog (Just childName) settings ("┏ starting from " ++ show (ThreadName parentName))
+    debugLog (Just childName) settings ("┏ starting from " ++ show parentName)
     restore (runEvalM childEnv (f =<< eval e)) `catch` \(e :: SomeException) -> do
       debugLog (Just childName) settings $ "┗ failed: " ++ displayException e
       throwIO e
