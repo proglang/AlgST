@@ -186,6 +186,10 @@ Result: Number 30
 
   A type application is not necessary.
 
+* `usleep : Int -> ()`
+
+  Delays execution for the given number of microseconds.
+
 ### Printing
 
 * `trace : forall (a:TL). a -> a`

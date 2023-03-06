@@ -34,7 +34,7 @@ foo#M.0
                   |
                   +- Exp.App
                   |  |
-                  |  +- Exp.Var (+)#Builtin.21
+                  |  +- Exp.Var (+)#Builtin.22
                   |  |
                   |  `- Exp.Var theInt#M.1
                   |

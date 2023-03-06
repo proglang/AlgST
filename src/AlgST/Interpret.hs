@@ -444,7 +444,15 @@ builtinsEnv =
       closure valTraceMsg \(p :@ msgVal) -> do
         msg <- unwrap p TString msgVal
         outputM msg
-        pure Unit
+        pure Unit,
+      closure valUsleep \(p :@ durVal) -> do
+        dur <- unwrap p TNumber durVal
+        let effectiveDur =
+              if dur > toInteger (maxBound :: Int)
+                then maxBound
+                else fromInteger dur
+        liftIO $ threadDelay effectiveDur
+        pure Unit :: EvalM Value
     ]
   where
     closure name body =

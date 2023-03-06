@@ -2,13 +2,13 @@ Exp.App
 |
 +- Exp.App
 |  |
-|  +- Exp.Var (||)#Builtin.13
+|  +- Exp.Var (||)#Builtin.14
 |  |
 |  `- Exp.App
 |     |
 |     +- Exp.App
 |     |  |
-|     |  +- Exp.Var (||)#Builtin.13
+|     |  +- Exp.Var (||)#Builtin.14
 |     |  |
 |     |  `- Exp.Lit
 |     |     |
@@ -18,19 +18,19 @@ Exp.App
 |        |
 |        +- Exp.App
 |        |  |
-|        |  +- Exp.Var (+)#Builtin.21
+|        |  +- Exp.Var (+)#Builtin.22
 |        |  |
 |        |  `- Exp.App
 |        |     |
 |        |     +- Exp.App
 |        |     |  |
-|        |     |  +- Exp.Var (*)#Builtin.23
+|        |     |  +- Exp.Var (*)#Builtin.24
 |        |     |  |
 |        |     |  `- Exp.App
 |        |     |     |
 |        |     |     +- Exp.App
 |        |     |     |  |
-|        |     |     |  +- Exp.Var (*)#Builtin.23
+|        |     |     |  +- Exp.Var (*)#Builtin.24
 |        |     |     |  |
 |        |     |     |  `- Exp.Lit
 |        |     |     |     |
@@ -42,7 +42,7 @@ Exp.App
 |        |     |
 |        |     `- Exp.App
 |        |        |
-|        |        +- Exp.Var negate#Builtin.34
+|        |        +- Exp.Var negate#Builtin.35
 |        |        |
 |        |        `- Exp.Lit
 |        |           |
