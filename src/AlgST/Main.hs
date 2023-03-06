@@ -220,7 +220,9 @@ runInterpret out outMode checkedModules = do
       outputError "No ‘main’ to run."
       pure False
     Just mainName -> do
-      outputSticky out "Running ‘main’"
+      clearSticky out
+      outputStrLn out "Running ‘main’"
+      hSetBuffering stderr LineBuffering
       result <- try do
         let env = foldMap (I.programEnvironment . Driver.resultModule) checkedModules
         I.runEval env $ I.evalName mainName

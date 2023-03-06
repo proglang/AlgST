@@ -290,8 +290,10 @@ colorizeThreadLog tname sett msg = do
 outputM :: String -> EvalM ()
 outputM msg = do
   env <- EvalM ask
-  liftIO . hPutStrLn (evalOutputHandle (evalSettings env)) $
-    colorizeThreadLog (evalThreadName env) (evalSettings env) msg
+  liftIO do
+    hPutStrLn (evalOutputHandle (evalSettings env)) $
+      colorizeThreadLog (evalThreadName env) (evalSettings env) msg
+    hFlush (evalOutputHandle (evalSettings env))
 
 -- | Outputs the given message if debug messages are enabled. The message is
 -- colorized (if colorization is enabled) using the current 'ThreadName'.
@@ -313,6 +315,7 @@ debugLog mname sett msg = liftIO do
           Nothing -> msg
           Just tn -> colorizeThreadLog tn sett msg
     hPutStrLn (evalOutputHandle sett) msg'
+    hFlush (evalOutputHandle sett)
 
 runEval :: Env -> EvalM a -> IO a
 runEval = runEvalWith defaultSettings
