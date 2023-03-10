@@ -482,6 +482,25 @@ synthUntypedLambda lamLoc varLoc var =
     ]
 {-# NOINLINE synthUntypedLambda #-}
 
+benchKindMismatch :: Pos -> K.Kind -> Pos -> K.Kind -> Diagnostic
+benchKindMismatch p1 k1 p2 k2 =
+  PosError p1 . errUnline $
+    [ [Error "Kind mismatch in benchmark pragma."],
+      [ indent,
+        Error "type at",
+        Error p1,
+        Error "has kind",
+        Error k1
+      ],
+      [ indent,
+        Error "type at",
+        Error p2,
+        Error "has kind",
+        Error k2
+      ]
+    ]
+{-# NOINLINE benchKindMismatch #-}
+
 showType :: TcType -> Maybe TcType -> [ErrorMessage]
 showType t mNF
   | Just tNF <- mNF,

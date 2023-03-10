@@ -19,8 +19,8 @@ module AlgST.Rename
     -- * Renaming
     RnM,
     Globals,
-    ModuleMap(..),
-    TopLevels(..),
+    ModuleMap (..),
+    TopLevels (..),
     _TopLevels,
     renameModule,
     renameModuleExtra,
@@ -324,11 +324,16 @@ doRename m = do
     renameGlobalNameMap
       (bitraverse renameConDecl renameValDecl)
       (moduleValues m)
+  benches <-
+    traverse
+      (bitraverse renameSyntax renameSyntax)
+      (moduleBench m)
   pure
     Module
       { moduleTypes = typs,
         moduleValues = vals,
-        moduleSigs = sigs
+        moduleSigs = sigs,
+        moduleBench = benches
       }
 
 renameSyntax :: SynTraversable (s Parse) Parse (s Rn) Rn => s Parse -> RnM (s Rn)

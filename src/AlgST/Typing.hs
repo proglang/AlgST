@@ -166,7 +166,7 @@ checkWithModule ::
   (forall env st. (HasKiEnv env, HasKiSt st) => RunTyM env st -> TcModule -> TcM env st r) ->
   ValidateT Errors Fresh r
 checkWithModule ctxt prog k = do
-  (st, (tcTypes, tcValues, tcSigs)) <- run kiSt0 checkGlobals
+  (st, (tcTypes, tcValues, tcSigs, tcBench)) <- run kiSt0 checkGlobals
   let sigValues = Map.map (ValueGlobal Nothing . signatureType) tcSigs
   let tyEnv =
         TyTypingEnv
@@ -181,7 +181,8 @@ checkWithModule ctxt prog k = do
         Module
           { moduleTypes = tcTypes,
             moduleValues = values,
-            moduleSigs = tcSigs
+            moduleSigs = tcSigs,
+            moduleBench = tcBench
           }
   (st', prog) <- run st $ mkProg <$> checkValueBodies embed tcValues
   fmap snd $ run st' $ k (embedTypeM tyEnv) prog
@@ -204,7 +205,14 @@ checkWithModule ctxt prog k = do
       tcTypes <- checkTypeDecls (moduleTypes prog)
       checkedDefs <- checkValueSignatures (moduleValues prog)
       tcSigs <- traverse checkSignature (moduleSigs prog)
-      pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcSigs)
+      tcBench <- traverse checkBench (moduleBench prog)
+      pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcSigs, tcBench)
+    checkBench (t1, t2) = do
+      (tc1, k1) <- kisynth t1
+      (tc2, k2) <- kisynth t2
+      when (k1 /= k2) do
+        Error.add $ Error.benchKindMismatch (pos t1) k1 (pos t2) k2
+      pure (tc1, tc2)
 
 {- [Note: Empty KiTypingEnv]
 

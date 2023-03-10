@@ -14,7 +14,6 @@ module AlgST.Syntax.Module
   ( -- * Modules
     Module (..),
     emptyModule,
-    withoutDefinitions,
     TypesMap,
     ValuesMap,
     SignaturesMap,
@@ -36,7 +35,6 @@ import AlgST.Syntax.Name
 import AlgST.Syntax.Phases
 import AlgST.Syntax.Type qualified as T
 import Data.HashMap.Strict (HashMap)
-import Data.Map ((\\))
 import Data.Map.Strict qualified as Map
 import Data.Semigroup
 import Instances.TH.Lift ()
@@ -108,7 +106,8 @@ data ImportBehaviour
 data Module x = Module
   { moduleTypes :: !(TypesMap x),
     moduleValues :: !(ValuesMap x),
-    moduleSigs :: !(SignaturesMap x)
+    moduleSigs :: !(SignaturesMap x),
+    moduleBench :: !(BenchList x)
   }
 
 deriving stock instance (ForallX Lift x) => Lift (Module x)
@@ -116,8 +115,8 @@ deriving stock instance (ForallX Lift x) => Lift (Module x)
 -- | Multiple modules can be merged. This is only safe, however, if the names
 -- the maps are keyed by are resolved.
 instance XStage x ~ Resolved => Semigroup (Module x) where
-  Module a1 b1 c1 <> Module a2 b2 c2 =
-    Module (a1 <> a2) (b1 <> b2) (c1 <> c2)
+  Module a1 b1 c1 d1 <> Module a2 b2 c2 d2 =
+    Module (a1 <> a2) (b1 <> b2) (c1 <> c2) (d1 <> d2)
 
   stimes = stimesIdempotentMonoid
 
@@ -125,17 +124,7 @@ instance XStage x ~ Resolved => Monoid (Module x) where
   mempty = emptyModule
 
 emptyModule :: Module x
-emptyModule = Module Map.empty Map.empty Map.empty
-
--- | @withoutDefinitions p1 p2@ removes all definitions from @p1@ which
--- also appear in @p2π /in the same field./
-withoutDefinitions :: XStage x ~ XStage y => Module x -> Module y -> Module x
-withoutDefinitions p1 p2 =
-  Module
-    { moduleTypes = moduleTypes p1 \\ moduleTypes p2,
-      moduleValues = moduleValues p1 \\ moduleValues p2,
-      moduleSigs = moduleSigs p1 \\ moduleSigs p2
-    }
+emptyModule = Module Map.empty Map.empty Map.empty []
 
 -- | Mapping between type names and the type declarations.
 type TypesMap x = NameMapG (XStage x) Types (D.TypeDecl x)
@@ -146,3 +135,5 @@ type ValuesMap x = NameMapG (XStage x) Values (Either (D.ConstructorDecl x) (D.V
 
 -- | Mapping between value/function names and their signatures.
 type SignaturesMap x = NameMapG (XStage x) Values (D.SignatureDecl x)
+
+type BenchList x = [(T.Type x, T.Type x)]
