@@ -1,2 +1,0 @@
-iso : (∀a. Int -> a -> a) -> (Int -> ∀a. a -> a)
-iso f = f
