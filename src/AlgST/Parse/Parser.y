@@ -96,6 +96,8 @@ import           AlgST.Util.ErrorMessage
   '_'      { TokenWild      _ }
   '.'      { TokenDot       _ }
   '(,)'    { TokenPairCon   _ }
+  '{-#'    { TokenLPragma   _ }
+  '#-}'    { TokenRPragma   _ }
 
   -- Identifiers. 'as' and '(*)' can appear as special syntax items.
   as        { TokenLowerId  ($$ :@ "as")  }
@@ -141,11 +143,18 @@ import           AlgST.Util.ErrorMessage
 -------------
 
 Module :: { ParsedModule }
-  : {- empty -}       { ParsedModule [] emptyModule }
-  | Decls             {% ParsedModule [] `fmap` runModuleBuilder $1 }
-  | Imports           { ParsedModule $1 emptyModule }
-  | Imports nl Decls  {% ParsedModule $1 `fmap` runModuleBuilder $3 }
+  : {- empty -}         { ParsedModule [] emptyModule }
+  | TopItems            {% ParsedModule [] `fmap` runModuleBuilder $1 }
+  | Imports             { ParsedModule $1 emptyModule }
+  | Imports nl TopItems {% ParsedModule $1 `fmap` runModuleBuilder $3 }
 
+TopItems :: { ModuleBuilder }
+  : TopItem             { $1 }
+  | TopItems nl TopItem { $1 >>> $3 }
+
+TopItem :: { ModuleBuilder }
+  : Decl              { $1 }
+  | Pragma            { $1 }
 
 -------------------------------------------------------------------------------
 -- Imports
@@ -204,6 +213,17 @@ ImportScope :: { Pos -> Located Scope }
   : {- empty -}   { \p -> p  @- Values }
   | type          { \_ -> $1 @- Types }
 
+-------------------------------------------------------------------------------
+-- Pragmas
+-------------------------------------------------------------------------------
+
+Pragma :: { ModuleBuilder }
+  : '{-#' UPPER_ID nl Type nl Type opt(nl) '#-}' {% do
+    when (unL $2 /= "BENCHMARK") do
+      let msg = "Unknown pragma ‘" ++ unL $2 ++ "’, expected ‘BENCHMARK’"
+      addError (pos $2) [Error msg]
+    pure $ insertBenchmark $4 $6
+  }
 
 -------------------------------------------------------------------------------
 -- Declarations

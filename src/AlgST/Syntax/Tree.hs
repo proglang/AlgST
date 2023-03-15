@@ -291,7 +291,7 @@ instance (D.ForallConX LabeledTree x, T.ForallX LabeledTree x) => LabeledTree (D
           ]
 
 instance ForallX LabeledTree x => LabeledTree (Module x) where
-  labeledTree pp = types ++ sigs ++ values
+  labeledTree pp = types ++ sigs ++ values ++ (showBench <$> moduleBench pp)
     where
       types =
         labeledMapTree
@@ -308,6 +308,8 @@ instance ForallX LabeledTree x => LabeledTree (Module x) where
           (\pv _ -> describeName pv)
           (\_ d -> either labeledTree labeledTree d)
           (moduleValues pp)
+      showBench (t1, t2) =
+        tree "benchmark" [labeledTree t1, labeledTree t2]
 
 instance LabeledTree a => LabeledTree (Import a) where
   labeledTree i =

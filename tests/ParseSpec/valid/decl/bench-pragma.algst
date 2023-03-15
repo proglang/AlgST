@@ -1,0 +1,9 @@
+{-# BENCHMARK
+T
+U
+#-}
+
+{-# BENCHMARK
+∀(s:S). ?Int.s
+∀(s:S). !-Int.s
+#-}

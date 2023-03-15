@@ -1,0 +1,31 @@
+imports
+|
+
+declarations
+|
++- benchmark
+|  |
+|  +- Type.Con T
+|  |
+|  `- Type.Con U
+|
+`- benchmark
+   |
+   +- Type.Forall s:SL
+   |  |
+   |  `- Type.Session (?)
+   |     |
+   |     +- Type.Con Int
+   |     |
+   |     `- Type.Var s
+   |
+   `- Type.Forall s:SL
+      |
+      `- Type.Session (!)
+         |
+         +- Type.Negate
+         |  |
+         |  `- Type.Con Int
+         |
+         `- Type.Var s
+

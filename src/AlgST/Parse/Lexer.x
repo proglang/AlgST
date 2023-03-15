@@ -39,15 +39,21 @@ $opsymbol = [\!\?\#\$\%\&\+\-\*\/\<\=\>\@\\\^\|\~\:]
 $eol = [\n]
 
 -- The regex looks strange because complementing a character set never includes
--- the newline character. We can use nested character sets to create -- the
+-- the newline character. We can use nested character sets to create the
 -- desired set.
-@blockComment = "{-" ([[^\-] $eol] | \-[[^\}] $eol])* "-}"
+@blockComment0 = "{--}"
+@blockComment1 = "{-" [. $eol] "-}"
+@blockCommentM = "{-" [[^\#] $eol] ([[^\-] $eol] | \-[[^\}] $eol])* [[^\#] $eol] "-}"
 
 tokens :-
+  "{-#"                         { simpleToken TokenLPragma }
+  "#-}"                         { simpleToken TokenRPragma }
   $white*$eol+                  { simpleToken TokenNL }
   $white+                       ;
   $white*"--".*                 ;
-  @blockComment                 ;
+  @blockComment0                ;
+  @blockComment1                ;
+  @blockCommentM                ;
   ("->"|→)                      { simpleToken TokenUnArrow }
   ("-o"|⊸)                      { simpleToken TokenLinArrow }
   [\\ λ]                        { simpleToken TokenLambda }
@@ -147,6 +153,8 @@ data Token =
   | TokenEnd (Located Polarity)
   | TokenWild Pos
   | TokenImport Pos
+  | TokenLPragma Pos
+  | TokenRPragma Pos
 
 instance Show Token where
   show (TokenNL _) = "\\n"
@@ -195,6 +203,8 @@ instance Show Token where
   show (TokenDualof _) = "dualof"
   show (TokenEnd (_ :@ p)) = "End" ++ show p
   show (TokenImport _) = "import"
+  show (TokenLPragma _) = "{-#"
+  show (TokenRPragma _) = "#-}"
 
 data TokenList = TokenList
   { tl_toks :: DL.DList Token
@@ -308,6 +318,8 @@ instance HasPos Token where
   pos (TokenDualof p) = p
   pos (TokenEnd (p :@ _)) = p
   pos (TokenImport p) = p
+  pos (TokenLPragma p) = p
+  pos (TokenRPragma p) = p
 
 simpleToken :: (Pos -> t) -> AlexPosn -> a -> t
 simpleToken t p _ = t (internalPos p)

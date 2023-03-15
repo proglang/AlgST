@@ -50,6 +50,7 @@ module AlgST.Parse.ParseUtils
     moduleValueDecl,
     moduleValueBinding,
     moduleTypeDecl,
+    insertBenchmark,
 
     -- ** Import statements
     ImportItem (..),
@@ -202,8 +203,12 @@ type ModuleBuilder =
   Kleisli (StateT IncompleteValueDecl ParseM) PModule PModule
 
 runModuleBuilder :: ModuleBuilder -> ParseM PModule
-runModuleBuilder builder =
-  evalStateT (runKleisli (builder >>> completePrevious) emptyModule) Nothing
+runModuleBuilder builder = evalStateT (buildModule emptyModule) Nothing
+  where
+    Kleisli buildModule =
+      builder >>> completePrevious >>> reverseBench
+    reverseBench = Kleisli \p ->
+      pure p {moduleBench = reverse (moduleBench p)}
 
 completePrevious :: ModuleBuilder
 completePrevious = Kleisli \p -> do
@@ -216,6 +221,12 @@ completePrevious = Kleisli \p -> do
       let decl = SignatureDecl loc sig
       sigs <- lift $ insertNoDuplicates name decl (moduleSigs p)
       pure p {moduleSigs = sigs}
+
+insertBenchmark :: PType -> PType -> ModuleBuilder
+insertBenchmark t u =
+  completePrevious >>> Kleisli \p ->
+    -- We accumulate the benchmarks in reverse.
+    pure p {moduleBench = (t, u) : moduleBench p}
 
 moduleValueDecl :: Located (ProgVar PStage) -> PType -> ModuleBuilder
 moduleValueDecl valueName ty =
@@ -232,9 +243,9 @@ moduleValueBinding valueName params e = Kleisli \p0 -> do
     if
         | Just (prevName, _) <- mincomplete,
           onUnL (/=) valueName prevName ->
-          runKleisli completePrevious p0
+            runKleisli completePrevious p0
         | otherwise ->
-          pure p0
+            pure p0
 
   -- Re-read the incomplete binding, might be changed by the call to
   -- 'validateNotIncomplete' and remember that there is no incomplete binding
@@ -337,36 +348,36 @@ addImportItem stmtLoc ims ii@ImportItem {..} = case importBehaviour of
   ImportHide
     | Just other <- HM.lookup (importKey ii) (imsRenamed ims),
       HS.member (importKey ii) (imsAsIs ims) ->
-      -- Hiding once and importing as-is conflicts.
-      conflict $ other @- ImportAsIs
+        -- Hiding once and importing as-is conflicts.
+        conflict $ other @- ImportAsIs
     | otherwise ->
-      -- Hiding twice is alright (we might want to emit a warning). Hiding also
-      -- explicitly allows some other identifier to reuse the name.
-      ok $ imsHiddenL . L.hashAt (importKey ii) .~ Just importLocation
+        -- Hiding twice is alright (we might want to emit a warning). Hiding also
+        -- explicitly allows some other identifier to reuse the name.
+        ok $ imsHiddenL . L.hashAt (importKey ii) .~ Just importLocation
   ImportAsIs
     | Just hideLoc <- HM.lookup (importKey ii) (imsHidden ims) ->
-      -- Hiding once and importing as-is conflicts.
-      conflict $ hideLoc @- ImportHide
+        -- Hiding once and importing as-is conflicts.
+        conflict $ hideLoc @- ImportHide
     | Just (otherLoc :@ orig) <- HM.lookup (importKey ii) (imsRenamed ims),
       not $ HS.member (importKey ii) (imsAsIs ims) ->
-      -- Importing once as-is and mapping another identifier to this name
-      -- conflicts.
-      conflict $ otherLoc @- ImportFrom orig
+        -- Importing once as-is and mapping another identifier to this name
+        -- conflicts.
+        conflict $ otherLoc @- ImportFrom orig
     | otherwise ->
-      -- Importing twice as-is is alright (we might want to emit a warning).
-      -- Remeber this import.
-      ok $
-        imsAsIsL %~ HS.insert (importKey ii)
-          >>> imsRenamedL . L.hashAt (importKey ii) .~ Just (importLocation @- importIdent)
+        -- Importing twice as-is is alright (we might want to emit a warning).
+        -- Remeber this import.
+        ok $
+          imsAsIsL %~ HS.insert (importKey ii)
+            >>> imsRenamedL . L.hashAt (importKey ii) .~ Just (importLocation @- importIdent)
   ImportFrom orig
     | Just (otherLoc :@ otherName) <- HM.lookup (importKey ii) (imsRenamed ims) -> do
-      -- Mapping another identifier to the same name conflicts, be it via an
-      -- explicit rename or an as-is import.
-      let isAsIs = HS.member (importKey ii) (imsAsIs ims)
-      conflict $ otherLoc @- if isAsIs then ImportAsIs else ImportFrom otherName
+        -- Mapping another identifier to the same name conflicts, be it via an
+        -- explicit rename or an as-is import.
+        let isAsIs = HS.member (importKey ii) (imsAsIs ims)
+        conflict $ otherLoc @- if isAsIs then ImportAsIs else ImportFrom otherName
     | otherwise ->
-      -- An explicit hide is ok.
-      ok $ imsRenamedL . L.hashAt (importKey ii) .~ Just (importLocation @- orig)
+        -- An explicit hide is ok.
+        ok $ imsRenamedL . L.hashAt (importKey ii) .~ Just (importLocation @- orig)
   where
     ok f = pure (f ims)
     conflict other =
