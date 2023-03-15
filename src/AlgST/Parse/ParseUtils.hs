@@ -46,6 +46,7 @@ module AlgST.Parse.ParseUtils
 
     -- * Assembling of modules
     ModuleBuilder,
+    BuilderState,
     runModuleBuilder,
     moduleValueDecl,
     moduleValueBinding,
@@ -94,6 +95,7 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe
 import Data.Singletons
 import Lens.Family2 hiding ((&))
+import Numeric.Natural
 
 data ParsedModule = ParsedModule
   { parsedImports :: [Located (Import ModuleName)],
@@ -197,46 +199,59 @@ typeConstructors ::
   NameMap Values (ConstructorDecl Parse)
 typeConstructors = declConstructors
 
-type IncompleteValueDecl = Maybe (Located (PName Values), PType)
+data BuilderState = BuilderState
+  { builderCurValueDecl :: !(Maybe (Located (PName Values), PType)),
+    builderBenchmarkCount :: !Natural
+  }
 
 type ModuleBuilder =
-  Kleisli (StateT IncompleteValueDecl ParseM) PModule PModule
+  Kleisli (StateT BuilderState ParseM) PModule PModule
 
 runModuleBuilder :: ModuleBuilder -> ParseM PModule
-runModuleBuilder builder = evalStateT (buildModule emptyModule) Nothing
+runModuleBuilder builder = evalStateT (buildModule emptyModule) builderState
   where
     Kleisli buildModule =
       builder >>> completePrevious >>> reverseBench
     reverseBench = Kleisli \p ->
       pure p {moduleBench = reverse (moduleBench p)}
+    builderState =
+      BuilderState
+        { builderCurValueDecl = Nothing,
+          builderBenchmarkCount = 0
+        }
 
 completePrevious :: ModuleBuilder
 completePrevious = Kleisli \p -> do
-  msig <- get
-  case msig of
+  bst <- get
+  case builderCurValueDecl bst of
     Nothing ->
       pure p
     Just (loc :@ name, sig) -> do
-      put Nothing
+      put $! bst {builderCurValueDecl = Nothing}
       let decl = SignatureDecl loc sig
       sigs <- lift $ insertNoDuplicates name decl (moduleSigs p)
       pure p {moduleSigs = sigs}
 
-insertBenchmark :: PType -> PType -> ModuleBuilder
-insertBenchmark t u =
-  completePrevious >>> Kleisli \p ->
-    -- We accumulate the benchmarks in reverse.
-    pure p {moduleBench = (t, u) : moduleBench p}
+insertBenchmark :: Maybe String -> PType -> PType -> ModuleBuilder
+insertBenchmark mname t u =
+  completePrevious >>> Kleisli \p -> do
+    bst <- get
+    let n = builderBenchmarkCount bst + 1
+    let name = show n `fromMaybe` mname
+    put $! bst {builderBenchmarkCount = n}
+    -- We accumulate the benchmarks in reverse. They will be reversed (to be in
+    -- the correct order) by `runModuleBuilder`.
+    pure p {moduleBench = Benchmark name t u : moduleBench p}
 
 moduleValueDecl :: Located (ProgVar PStage) -> PType -> ModuleBuilder
 moduleValueDecl valueName ty =
   completePrevious >>> Kleisli \p -> do
-    put $ Just (valueName, ty)
+    modify' \bst -> bst {builderCurValueDecl = Just (valueName, ty)}
     pure p
 
 moduleValueBinding :: Located (ProgVar PStage) -> [Located AName] -> PExp -> ModuleBuilder
 moduleValueBinding valueName params e = Kleisli \p0 -> do
-  mincomplete <- get
+  mincomplete <- gets builderCurValueDecl
   p <-
     -- If there is an incomplete definition which does not match the current
     -- variable, we have to add it to the "imported" signatures.
@@ -250,7 +265,8 @@ moduleValueBinding valueName params e = Kleisli \p0 -> do
   -- Re-read the incomplete binding, might be changed by the call to
   -- 'validateNotIncomplete' and remember that there is no incomplete binding
   -- now.
-  mincomplete' <- get <* put Nothing
+  mincomplete' <- gets builderCurValueDecl
+  modify' \bst -> bst {builderCurValueDecl = Nothing}
   case mincomplete' of
     Nothing -> lift do
       addError

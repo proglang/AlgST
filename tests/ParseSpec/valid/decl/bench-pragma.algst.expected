@@ -3,13 +3,13 @@ imports
 
 declarations
 |
-+- benchmark
++- benchmark "1"
 |  |
 |  +- Type.Con T
 |  |
 |  `- Type.Con U
 |
-`- benchmark
+`- benchmark "this one has a name"
    |
    +- Type.Forall s:SL
    |  |

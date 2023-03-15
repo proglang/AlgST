@@ -43,7 +43,6 @@ import Gauge qualified
 import Main.Utf8
 import System.Console.ANSI qualified as ANSI
 import System.Exit
-import System.FilePath
 import System.FilePath qualified as FP
 import System.IO
 
@@ -246,10 +245,9 @@ runBenchmarks outH outMode fp modules
   where
     benchmarks = fold do
       res <- HM.lookup MainModule modules
-      let benches = moduleBench $ Driver.resultModule res
-      pure $ zipWith mkBench [(1 :: Int) ..] benches
-    mkBench i types =
-      Gauge.bench (show i) $ Gauge.nf (uncurry checkEq) types
+      pure $ mkBench <$> moduleBench (Driver.resultModule res)
+    mkBench (Benchmark n t1 t2) =
+      Gauge.bench n $ Gauge.nf (uncurry checkEq) (t1, t2)
     checkEq t u =
       error "internal error: NF calculation failed during benchmark" `fromMaybe` do
         tNF <- Typing.nf t

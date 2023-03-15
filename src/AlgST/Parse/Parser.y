@@ -218,11 +218,11 @@ ImportScope :: { Pos -> Located Scope }
 -------------------------------------------------------------------------------
 
 Pragma :: { ModuleBuilder }
-  : '{-#' UPPER_ID nl Type nl Type opt(nl) '#-}' {% do
+  : '{-#' UPPER_ID opt(STR) nl Type nl Type opt(nl) '#-}' {% do
     when (unL $2 /= "BENCHMARK") do
       let msg = "Unknown pragma ‘" ++ unL $2 ++ "’, expected ‘BENCHMARK’"
       addError (pos $2) [Error msg]
-    pure $ insertBenchmark $4 $6
+    pure $ insertBenchmark (fmap unL $3) $5 $7
   }
 
 -------------------------------------------------------------------------------

@@ -129,7 +129,7 @@ benchmarksOutParser =
   optional . O.strOption . mconcat $
     [ O.long "bench",
       O.metavar "FILE",
-      O.help "Run benchmarks specified in Main module and write outputs to FILE.",
+      O.help "Run benchmarks specified in Main module and write results to FILE (CSV).",
       O.hidden
     ]
 

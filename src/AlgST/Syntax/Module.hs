@@ -18,6 +18,7 @@ module AlgST.Syntax.Module
     ValuesMap,
     SignaturesMap,
     ForallX,
+    Benchmark (..),
 
     -- * Imports
     Import (..),
@@ -107,7 +108,7 @@ data Module x = Module
   { moduleTypes :: !(TypesMap x),
     moduleValues :: !(ValuesMap x),
     moduleSigs :: !(SignaturesMap x),
-    moduleBench :: !(BenchList x)
+    moduleBench :: [Benchmark x]
   }
 
 deriving stock instance (ForallX Lift x) => Lift (Module x)
@@ -126,6 +127,10 @@ instance XStage x ~ Resolved => Monoid (Module x) where
 emptyModule :: Module x
 emptyModule = Module Map.empty Map.empty Map.empty []
 
+data Benchmark x = Benchmark String (T.Type x) (T.Type x)
+
+deriving stock instance (T.ForallX Lift x) => Lift (Benchmark x)
+
 -- | Mapping between type names and the type declarations.
 type TypesMap x = NameMapG (XStage x) Types (D.TypeDecl x)
 
@@ -135,5 +140,3 @@ type ValuesMap x = NameMapG (XStage x) Values (Either (D.ConstructorDecl x) (D.V
 
 -- | Mapping between value/function names and their signatures.
 type SignaturesMap x = NameMapG (XStage x) Values (D.SignatureDecl x)
-
-type BenchList x = [(T.Type x, T.Type x)]

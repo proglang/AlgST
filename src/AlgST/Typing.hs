@@ -207,12 +207,12 @@ checkWithModule ctxt prog k = do
       tcSigs <- traverse checkSignature (moduleSigs prog)
       tcBench <- traverse checkBench (moduleBench prog)
       pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcSigs, tcBench)
-    checkBench (t1, t2) = do
+    checkBench (Benchmark n t1 t2) = do
       (tc1, k1) <- kisynth t1
       (tc2, k2) <- kisynth t2
       when (k1 /= k2) do
         Error.add $ Error.benchKindMismatch (pos t1) k1 (pos t2) k2
-      pure (tc1, tc2)
+      pure $ Benchmark n tc1 tc2
 
 {- [Note: Empty KiTypingEnv]
 

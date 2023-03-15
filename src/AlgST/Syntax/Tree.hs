@@ -308,8 +308,8 @@ instance ForallX LabeledTree x => LabeledTree (Module x) where
           (\pv _ -> describeName pv)
           (\_ d -> either labeledTree labeledTree d)
           (moduleValues pp)
-      showBench (t1, t2) =
-        tree "benchmark" [labeledTree t1, labeledTree t2]
+      showBench (Benchmark n t1 t2) =
+        tree ("benchmark " ++ show n) [labeledTree t1, labeledTree t2]
 
 instance LabeledTree a => LabeledTree (Import a) where
   labeledTree i =
