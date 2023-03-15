@@ -103,7 +103,8 @@ data RunOpts = RunOpts
     optsDriverPaths :: !(Seq FilePath),
     optsDriverSeq :: !Bool,
     optsDriverDeps :: !Bool,
-    optsDriverModSearch :: !Bool
+    optsDriverModSearch :: !Bool,
+    optsBenchmarksOutput :: !(Maybe FilePath)
   }
   deriving (Show)
 
@@ -120,7 +121,17 @@ optsParser = do
   optsDriverSeq <- driverSeqParser
   optsDriverDeps <- driverDepsParser
   optsDriverModSearch <- driverModSearchParser
+  optsBenchmarksOutput <- benchmarksOutParser
   pure RunOpts {..}
+
+benchmarksOutParser :: O.Parser (Maybe FilePath)
+benchmarksOutParser =
+  optional . O.strOption . mconcat $
+    [ O.long "bench",
+      O.metavar "FILE",
+      O.help "Run benchmarks specified in Main module and write outputs to FILE.",
+      O.hidden
+    ]
 
 modeParser :: O.Parser OutputMode
 modeParser = plain <|> colorized

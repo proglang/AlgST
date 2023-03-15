@@ -26,6 +26,7 @@ dependencies:
 - dlist
 - filepath >= 1.4.2
 - foldl
+- gauge
 - generic-lens-lite
 - hashable
 - indexed-traversable

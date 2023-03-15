@@ -21,6 +21,8 @@ import AlgST.Syntax.Traversal
 import AlgST.Typing (Tc)
 import AlgST.Typing qualified as Tc
 import AlgST.Typing.Align
+import AlgST.Typing.Align qualified as Typing
+import AlgST.Typing.NormalForm qualified as Typing
 import AlgST.Util qualified as Util
 import AlgST.Util.Error
 import AlgST.Util.Output
@@ -35,10 +37,13 @@ import Data.Function
 import Data.HashMap.Strict (HashMap)
 import Data.HashMap.Strict qualified as HM
 import Data.List.NonEmpty (NonEmpty)
+import Data.Maybe
 import Data.Traversable
+import Gauge qualified
 import Main.Utf8
 import System.Console.ANSI qualified as ANSI
 import System.Exit
+import System.FilePath
 import System.FilePath qualified as FP
 import System.IO
 
@@ -62,17 +67,27 @@ main = withUtf8 do
         checkSources runOpts outputHandle stderrMode src
           >>= maybe exitFailure pure
 
-    allGood <-
+    -- Use the checked results to answer any queries.
+    queriesGood <-
       answerQueries
         outputHandle
         stderrMode
         (optsQueries runOpts)
         checkResult
+
+    -- If benchmarks were requested run them now.
+    benchGood <-
+      case optsBenchmarksOutput runOpts of
+        Nothing -> pure True
+        Just fp -> runBenchmarks outputHandle stderrMode fp checkResult
+
+    -- Run the interpreter if requested.
     runGood <-
       if optsDoEval runOpts
         then runInterpret runOpts outputHandle stderrMode checkResult
         else pure True
-    when (not allGood || not runGood) do
+
+    when (not queriesGood || not benchGood || not runGood) do
       exitFailure
 
 checkSources ::
@@ -206,18 +221,51 @@ answerQueries out outMode queries checkResult = do
         [ln] -> Util.truncate' 60 "..." ln
         ln : _ -> take 60 ln ++ "..."
 
+-- | Run the benchmarks and write the result to the given file path.
+runBenchmarks ::
+  OutputHandle ->
+  OutputMode ->
+  FilePath ->
+  HashMap ModuleName (Driver.Result Tc) ->
+  IO Bool
+runBenchmarks outH outMode fp modules
+  | null benchmarks = do
+      let msg = "Benchmarks requested but Main module does not specify any."
+      outputError outH outMode msg
+      pure False
+  | otherwise = do
+      outputSticky outH "Running benchmarks..."
+      let benchOpts =
+            Gauge.defaultConfig
+              { Gauge.csvFile = Just fp,
+                Gauge.verbosity = Gauge.Quiet
+              }
+      Gauge.runMode Gauge.DefaultMode benchOpts [] benchmarks
+      clearSticky outH
+      pure True
+  where
+    benchmarks = fold do
+      res <- HM.lookup MainModule modules
+      let benches = moduleBench $ Driver.resultModule res
+      pure $ zipWith mkBench [(1 :: Int) ..] benches
+    mkBench i types =
+      Gauge.bench (show i) $ Gauge.nf (uncurry checkEq) types
+    checkEq t u =
+      error "internal error: NF calculation failed during benchmark" `fromMaybe` do
+        tNF <- Typing.nf t
+        uNF <- Typing.nf u
+        pure $ Typing.Alpha tNF == Typing.Alpha uNF
+
 runInterpret ::
   RunOpts -> OutputHandle -> OutputMode -> HashMap ModuleName (Driver.Result Tc) -> IO Bool
 runInterpret opts out outMode checkedModules = do
   let mmainName = do
         HM.lookup MainModule checkedModules
           >>= Driver.lookupRenamed MainFunction
-  let outputError =
-        outputLnS out . applyStyle outMode (styleFG ANSI.Red) . showString
   outputStrLn out ""
   case mmainName of
     Nothing -> do
-      outputError "No ‘main’ to run."
+      outputError out outMode "No ‘main’ to run."
       pure False
     Just mainName -> do
       clearSticky out
@@ -240,6 +288,10 @@ runInterpret opts out outMode checkedModules = do
         Right val ->
           outputLnS out $ applyStyle outMode styleBold (showString "Result: ") . shows val
       pure $ isRight result
+
+outputError :: OutputHandle -> OutputMode -> String -> IO ()
+outputError out mode =
+  outputLnS out . applyStyle mode (styleFG ANSI.Red) . showString
 
 outputException :: Exception e => OutputHandle -> OutputMode -> String -> e -> IO ()
 outputException h m s e =
