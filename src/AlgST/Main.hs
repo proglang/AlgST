@@ -233,14 +233,13 @@ runBenchmarks outH outMode fp modules
       outputError outH outMode msg
       pure False
   | otherwise = do
-      outputSticky outH "Running benchmarks..."
-      let benchOpts =
-            Gauge.defaultConfig
-              { Gauge.csvFile = Just fp,
-                Gauge.verbosity = Gauge.Quiet
-              }
+      -- Truncate the CSV file before running the benchmarks. Gauge only ever appends.
+      writeFile fp ""
+      -- I would like to have a sticky "Running benchmarks..." at the bottom
+      -- which is cleared when the program finishes. However, gauge always
+      -- writes something to stdout, which conflicts with our use.
+      let benchOpts = Gauge.defaultConfig { Gauge.csvFile = Just fp }
       Gauge.runMode Gauge.DefaultMode benchOpts [] benchmarks
-      clearSticky outH
       pure True
   where
     benchmarks = fold do
