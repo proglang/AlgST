@@ -246,7 +246,7 @@ runBenchmarks outH outMode fp modules
       res <- HM.lookup MainModule modules
       pure $ mkBench <$> moduleBench (Driver.resultModule res)
     mkBench (Benchmark n t1 t2) =
-      Gauge.bench n $ Gauge.nf (uncurry checkEq) (t1, t2)
+      Gauge.bench (n ++ " [AlgST]") $ Gauge.nf (uncurry checkEq) (t1, t2)
     checkEq t u =
       error "internal error: NF calculation failed during benchmark" `fromMaybe` do
         tNF <- Typing.nf t
