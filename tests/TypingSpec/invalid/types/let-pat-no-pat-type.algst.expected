@@ -1,5 +1,5 @@
 
 2:14: error:
 	 Pattern let expression has type
-	     !P0.s
+	       !P0.s
 	 which is not allowed in pattern expressions.

@@ -5,7 +5,7 @@
 
 2:8: error:
 	 Linear variable c of type
-	     End!
+	       End!
 	 is unused.
 
 3:3: error:

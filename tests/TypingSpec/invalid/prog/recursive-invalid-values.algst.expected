@@ -3,14 +3,14 @@
 	 Expression
 	     bar
 	 has type
-	     D2 -> D2
+	       D2 -> D2
 	 but context demands a subtype of
-	     D1 -o D1
+	       D1 -o D1
 
 12:9: error:
 	 Expression
 	     foo
 	 has type
-	     D1 -> D1
+	       D1 -> D1
 	 but context demands a subtype of
-	     D2 -o D2
+	       D2 -o D2

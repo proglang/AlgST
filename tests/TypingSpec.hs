@@ -203,7 +203,9 @@ runKiAction p m src = do
 
 parseAndCheckProgram :: String -> Assertion (Module Tc)
 parseAndCheckProgram src = do
-  parsed <- shouldParse parseDecls src
+  ParsedModule pimports parsed <- shouldParse parseModule src
+  when (not (null pimports)) do
+    expectationFailure "imports are not supported"
   let (_, getExtra) = renameModuleExtra (ModuleName "M") parsed
   RenameExtra f <- shouldNotError $ getExtra fullEnv
   shouldNotError $ f $ checkResultAsRnM . checkModule fullCtxt

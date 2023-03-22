@@ -3,6 +3,6 @@
 	 Expression
 	     \(i:Int) -> i
 	 has type
-	     Int -> Int
+	       Int -> Int
 	 but context demands a subtype of
-	     () -> Int
+	       () -> Int

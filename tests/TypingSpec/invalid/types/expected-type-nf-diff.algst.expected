@@ -1,14 +1,14 @@
 
 1:1: error:
 	 Linear variable x of type
-	     dual dual End!
+	       dual dual End!
 	 is unused.
 
 1:28: error:
 	 Expression
 	     ()
 	 has type
-	     ()
+	       ()
 	 but context demands a subtype of
 	  [NF] End!
 	 [LIT] dual dual End!

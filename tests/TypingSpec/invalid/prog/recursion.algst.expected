@@ -3,9 +3,9 @@
 	 Expression
 	     rec go : Bool -o Int = \(a:Bool) -o go a
 	 has type
-	     Bool -o Int
+	       Bool -o Int
 	 but context demands a subtype of
-	     Bool -> Int
+	       Bool -> Int
 
 2:21: error:
 	 Unexpected kind TL for type Bool -o Int

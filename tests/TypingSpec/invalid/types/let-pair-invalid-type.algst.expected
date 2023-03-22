@@ -1,5 +1,5 @@
 
 1:14: error:
 	 Pattern let expression has type
-	     ()
+	       ()
 	 which is not allowed in pattern expressions.

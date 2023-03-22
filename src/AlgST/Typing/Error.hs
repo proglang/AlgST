@@ -515,7 +515,7 @@ showType t mNF
         Error t
       ]
   | otherwise =
-      [indent, Error t]
+      [Error "     ", Error t]
 
 errUnline :: [[ErrorMessage]] -> [ErrorMessage]
 errUnline = List.intercalate [ErrLine]

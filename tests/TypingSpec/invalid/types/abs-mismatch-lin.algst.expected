@@ -3,6 +3,6 @@
 	 Expression
 	     \i -o i
 	 has type
-	     Int -o Int
+	       Int -o Int
 	 but context demands a subtype of
-	     Int -> Int
+	       Int -> Int
