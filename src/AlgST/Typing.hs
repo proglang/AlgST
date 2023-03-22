@@ -207,12 +207,19 @@ checkWithModule ctxt prog k = do
       tcSigs <- traverse checkSignature (moduleSigs prog)
       tcBench <- traverse checkBench (moduleBench prog)
       pure (tcTypes, checkedConstructors tcTypes <> checkedDefs, tcSigs, tcBench)
-    checkBench (Benchmark n t1 t2) = do
-      (tc1, k1) <- kisynth t1
-      (tc2, k2) <- kisynth t2
+    checkBench bench = do
+      (tc1, k1) <- kisynth (benchT1 bench)
+      (tc2, k2) <- kisynth (benchT2 bench)
       when (k1 /= k2) do
-        Error.add $ Error.benchKindMismatch (pos t1) k1 (pos t2) k2
-      pure $ Benchmark n tc1 tc2
+        Error.add $ Error.benchKindMismatch (pos tc1) k1 (pos tc2) k2
+      -- We only check that the types are different for the "BENCHMARK!" case.
+      -- If the user wants to ensure that the types are the same it is quite
+      -- simple to write two functions witnessing the equality.
+      when (not (benchExpect bench)) do
+        n1 <- normalize tc1
+        n2 <- normalize tc2
+        Error.adds [Error.benchTypesEqual (pos tc1) | Alpha n1 == Alpha n2]
+      pure bench {benchT1 = tc1, benchT2 = tc2}
 
 {- [Note: Empty KiTypingEnv]
 

@@ -1,0 +1,6 @@
+{-# BENCHMARK! Int Int #-}
+
+{-# BENCHMARK!
+dual ?Int.End!
+!Int.End?
+#-}

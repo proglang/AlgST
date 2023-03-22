@@ -5,27 +5,47 @@ declarations
 |
 +- benchmark "1"
 |  |
-|  +- Type.Con T
+|  +- Type.Pair
+|  |  |
+|  |  +- Type.Con T
+|  |  |
+|  |  `- Type.Con Int
 |  |
-|  `- Type.Con U
+|  `- Type.App
+|     |
+|     +- Type.Con U
+|     |
+|     `- Type.Con Int
 |
-`- benchmark "this one has a name"
++- benchmark "this one has a name"
+|  |
+|  +- Type.Forall s:SL
+|  |  |
+|  |  `- Type.Session (?)
+|  |     |
+|  |     +- Type.Con Int
+|  |     |
+|  |     `- Type.Var s
+|  |
+|  `- Type.Forall s:SL
+|     |
+|     `- Type.Session (!)
+|        |
+|        +- Type.Negate
+|        |  |
+|        |  `- Type.Con Int
+|        |
+|        `- Type.Var s
+|
++- benchmark! "3"
+|  |
+|  +- Type.Con X
+|  |
+|  `- Type.Con Y
+|
+`- benchmark! "4"
    |
-   +- Type.Forall s:SL
-   |  |
-   |  `- Type.Session (?)
-   |     |
-   |     +- Type.Con Int
-   |     |
-   |     `- Type.Var s
+   +- Type.Con X
    |
-   `- Type.Forall s:SL
-      |
-      `- Type.Session (!)
-         |
-         +- Type.Negate
-         |  |
-         |  `- Type.Con Int
-         |
-         `- Type.Var s
+   `- Type.Con Y
 

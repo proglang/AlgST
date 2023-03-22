@@ -326,7 +326,7 @@ doRename m = do
       (moduleValues m)
   benches <-
     traverse
-      (\(Benchmark n t1 t2) -> Benchmark n <$> renameSyntax t1 <*> renameSyntax t2)
+      (\(Benchmark n x t1 t2) -> Benchmark n x <$> renameSyntax t1 <*> renameSyntax t2)
       (moduleBench m)
   pure
     Module

@@ -1,0 +1,6 @@
+{-# BENCHMARK Int String #-}
+
+{-# BENCHMARK
+∀(a:TU). a
+∀(x:TU). x
+#-}

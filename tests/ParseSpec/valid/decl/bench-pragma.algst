@@ -1,9 +1,16 @@
-{-# BENCHMARK
-T
-U
-#-}
+-- Simple types in one line
+{-# BENCHMARK (T, Int) (U Int) #-}
 
+-- Longer types on multiple lines
 {-# BENCHMARK "this one has a name"
 ∀(s:S). ?Int.s
 ∀(s:S). !-Int.s
+#-}
+
+-- Enforced negative benchmarks
+{-# BENCHMARK! X Y #-}
+
+{-# BENCHMARK!
+X
+Y
 #-}

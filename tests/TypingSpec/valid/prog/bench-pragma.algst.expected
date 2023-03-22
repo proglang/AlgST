@@ -1,0 +1,28 @@
+benchmark "1"
+|
++- Type.Type
+|  |
+|  `- TypeRef
+|     |
+|     `- Int
+|
+`- Type.Type
+   |
+   `- TypeRef
+      |
+      `- String
+
+benchmark "2"
+|
++- Type.Forall a#M.0:TU
+|  |
+|  `- Type.Var a#M.0
+|     |
+|     `- TU
+|
+`- Type.Forall x#M.1:TU
+   |
+   `- Type.Var x#M.1
+      |
+      `- TU
+

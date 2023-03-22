@@ -238,15 +238,15 @@ runBenchmarks outH outMode fp modules
       -- I would like to have a sticky "Running benchmarks..." at the bottom
       -- which is cleared when the program finishes. However, gauge always
       -- writes something to stdout, which conflicts with our use.
-      let benchOpts = Gauge.defaultConfig { Gauge.csvFile = Just fp }
+      let benchOpts = Gauge.defaultConfig {Gauge.csvFile = Just fp}
       Gauge.runMode Gauge.DefaultMode benchOpts [] benchmarks
       pure True
   where
     benchmarks = fold do
       res <- HM.lookup MainModule modules
       pure $ mkBench <$> moduleBench (Driver.resultModule res)
-    mkBench (Benchmark n t1 t2) =
-      Gauge.bench (n ++ " [AlgST]") $ Gauge.nf (uncurry checkEq) (t1, t2)
+    mkBench bench = Gauge.bench (benchName bench ++ " [AlgST]") do
+      Gauge.nf (uncurry checkEq) (benchT1 bench, benchT2 bench)
     checkEq t u =
       error "internal error: NF calculation failed during benchmark" `fromMaybe` do
         tNF <- Typing.nf t

@@ -127,7 +127,14 @@ instance XStage x ~ Resolved => Monoid (Module x) where
 emptyModule :: Module x
 emptyModule = Module Map.empty Map.empty Map.empty []
 
-data Benchmark x = Benchmark String (T.Type x) (T.Type x)
+data Benchmark x = Benchmark
+  { benchName :: String,
+    -- | A @benchExpect = False@ indicates that we should check that the two
+    -- types are not equivalent before benchmarking.
+    benchExpect :: Bool,
+    benchT1 :: T.Type x,
+    benchT2 :: T.Type x
+  }
 
 deriving stock instance (T.ForallX Lift x) => Lift (Benchmark x)
 

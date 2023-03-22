@@ -204,9 +204,9 @@ ImportItem :: { ImportItem }
     { mkImportItem $1 $2 ImportHide }
   | ImportScope UnqualifiedCon as '_'
     { mkImportItem $1 $2 ImportHide }
-  | ImportScope UnqualifiedVar as UnqualifiedVar 
+  | ImportScope UnqualifiedVar as UnqualifiedVar
     { mkImportItem $1 $4 (ImportFrom (unL $2)) }
-  | ImportScope UnqualifiedCon as UnqualifiedCon 
+  | ImportScope UnqualifiedCon as UnqualifiedCon
     { mkImportItem $1 $4 (ImportFrom (unL $2)) }
 
 ImportScope :: { Pos -> Located Scope }
@@ -217,13 +217,30 @@ ImportScope :: { Pos -> Located Scope }
 -- Pragmas
 -------------------------------------------------------------------------------
 
+PragmaBenchmark :: { () }
+  : UPPER_ID {% do
+      when (unL $1 /= "BENCHMARK") do
+        let msg = "Unknown pragma ‘" ++ unL $1 ++ "’, expected ‘BENCHMARK’"
+        addError (pos $1) [Error msg]
+    }
+
 Pragma :: { ModuleBuilder }
-  : '{-#' UPPER_ID opt(STR) nl Type nl Type opt(nl) '#-}' {% do
-    when (unL $2 /= "BENCHMARK") do
-      let msg = "Unknown pragma ‘" ++ unL $2 ++ "’, expected ‘BENCHMARK’"
-      addError (pos $2) [Error msg]
-    pure $ insertBenchmark (fmap unL $3) $5 $7
-  }
+  : '{-#' PragmaBenchmark opt('!') opt(STR) TypeAtom opt(nl) TypeAtom opt(nl) '#-}' {
+      insertBenchmark Benchmark
+        { benchName   = foldMap unL $4
+        , benchExpect = isNothing $3
+        , benchT1     = $5
+        , benchT2     = $7
+        }
+    }
+  | '{-#' PragmaBenchmark opt('!') opt(STR) nl Type nl Type opt(nl) '#-}' {
+      insertBenchmark Benchmark
+        { benchName   = foldMap unL $4
+        , benchExpect = isNothing $3
+        , benchT1     = $6
+        , benchT2     = $8
+        }
+    }
 
 -------------------------------------------------------------------------------
 -- Declarations
@@ -383,7 +400,7 @@ Exp :: { PExp }
 TypeApps :: { DL.DList PType }
   : Type                           { DL.singleton $1 }
   | TypeApps ',' Type              { $1 `DL.snoc` $3 }
-  
+
 RecExp :: { forall a. (Pos -> ProgVar PStage -> PType -> E.RecLam Parse -> a) -> ParseM a }
   : rec ProgVar TySig '=' Exp {
       \f -> case $5 of

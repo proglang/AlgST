@@ -232,16 +232,18 @@ completePrevious = Kleisli \p -> do
       sigs <- lift $ insertNoDuplicates name decl (moduleSigs p)
       pure p {moduleSigs = sigs}
 
-insertBenchmark :: Maybe String -> PType -> PType -> ModuleBuilder
-insertBenchmark mname t u =
+insertBenchmark :: Benchmark Parse -> ModuleBuilder
+insertBenchmark bench =
   completePrevious >>> Kleisli \p -> do
     bst <- get
     let n = builderBenchmarkCount bst + 1
-    let name = show n `fromMaybe` mname
+    let namedBench
+          | null (benchName bench) = bench {benchName = show n}
+          | otherwise = bench
     put $! bst {builderBenchmarkCount = n}
     -- We accumulate the benchmarks in reverse. They will be reversed (to be in
     -- the correct order) by `runModuleBuilder`.
-    pure p {moduleBench = Benchmark name t u : moduleBench p}
+    pure p {moduleBench = namedBench : moduleBench p}
 
 moduleValueDecl :: Located (ProgVar PStage) -> PType -> ModuleBuilder
 moduleValueDecl valueName ty =

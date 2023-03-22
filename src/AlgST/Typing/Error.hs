@@ -501,6 +501,9 @@ benchKindMismatch p1 k1 p2 k2 =
     ]
 {-# NOINLINE benchKindMismatch #-}
 
+benchTypesEqual :: Pos -> Diagnostic
+benchTypesEqual p = PosError p [Error "Types in benchmark are equal."]
+
 showType :: TcType -> Maybe TcType -> [ErrorMessage]
 showType t mNF
   | Just tNF <- mNF,
