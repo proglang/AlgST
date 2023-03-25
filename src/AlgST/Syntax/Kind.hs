@@ -7,7 +7,7 @@ module AlgST.Syntax.Kind
   ( -- * Kinds
     Basic (..),
     Multiplicity (..),
-    Kind (Kind, TL, TU, SL, SU, ML, MU, P),
+    Kind (Kind, TL, TU, SL, SU, P),
 
     -- ** Operations
     multiplicity,
@@ -49,8 +49,6 @@ instance Show Kind where
   show TL = "TL"
   show SU = "SU"
   show SL = "SL"
-  show MU = "MU"
-  show ML = "ML"
 
 instance Read Kind where
   readPrec =
@@ -62,24 +60,19 @@ instance Read Kind where
       Ident "S" -> pure SL
       Ident "SL" -> pure SL
       Ident "SU" -> pure SU
-      Ident "M" -> pure ML
-      Ident "ML" -> pure ML
-      Ident "MU" -> pure MU
       _ -> empty
 
   readListPrec = readListPrecDefault
 
 {- ORMOLU_DISABLE -}
-pattern TL, TU, SL, SU, ML, MU :: Kind
+pattern TL, TU, SL, SU :: Kind
 pattern TL = Kind Top Lin
 pattern TU = Kind Top Un
-pattern ML = Kind Message Lin
-pattern MU = Kind Message Un
 pattern SL = Kind Session Lin
 pattern SU = Kind Session Un
 {- ORMOLU_ENABLE -}
 
-{-# COMPLETE TL, TU, SL, SU, ML, MU, P #-}
+{-# COMPLETE TL, TU, SL, SU, P #-}
 
 -- | Kinds are partially ordered corresponding to the subkinding relationship.
 instance PartialOrd Kind where

@@ -26,9 +26,9 @@ builtinsModuleMap :: ModuleMap
 builtinsModuleCtxt :: Tc.CheckContext
 (builtinsModuleMap, builtinsModuleCtxt, builtinsModule) =
   $$( let defs =
-            [ "data String : MU",
-              "data Char : MU",
-              "data Int : MU",
+            [ "data String : TU",
+              "data Char : TU",
+              "data Int : TU",
               "data Bool = True | False",
               --
               "negate : Int -> Int",
@@ -83,22 +83,22 @@ builtinsModuleCtxt :: Tc.CheckContext
               "snd : ∀(a:TU). ∀(b:TL). (a, b) -> b",
               "snd ab = let (_, b) = ab in b",
               -- Session operations.
-              "sendLin : ∀(a : ML). ∀(s : SL). a -> !a.s -o s",
-              "receive : ∀(a : ML). ∀(s : SL). ?a.s -> (a, s)",
+              "sendLin : ∀(a:TL). ∀(s:SL). a -> !a.s -o s",
+              "receive : ∀(a:TL). ∀(s:SL). ?a.s -> (a, s)",
               --
-              "send : ∀(a : MU). ∀(s : SL). a -> !a.s -> s",
+              "send : ∀(a:TU). ∀(s:SL). a -> !a.s -> s",
               "send [a] [s] a s = sendLin [a, s] a s",
               --
               "wait : End? -> ()",
               "terminate : End! -> ()",
               --
-              "fstClose : ∀(b : TL). (b -> ()) -> ∀(a : TL). (a, b) -> a",
+              "fstClose : ∀(b:TL). (b -> ()) -> ∀(a:TL). (a, b) -> a",
               "fstClose close ab = let (a, b) = ab in let _ = close b in a",
               --
-              "fstWait : ∀(a : TL). (a, End?) -> a",
+              "fstWait : ∀(a:TL). (a, End?) -> a",
               "fstWait = fstClose [End?] wait",
               --
-              "fstTerminate : ∀(a : TL). (a, End!) -> a",
+              "fstTerminate : ∀(a:TL). (a, End!) -> a",
               "fstTerminate = fstClose [End!] terminate",
               -- Arithmetic operations.
               "(+) : Int -> Int -> Int",
@@ -107,7 +107,7 @@ builtinsModuleCtxt :: Tc.CheckContext
               "(/) : Int -> Int -> Int",
               "(%) : Int -> Int -> Int",
               --
-              "trace : ∀(a : TL). a -> a",
+              "trace : ∀(a:TL). a -> a",
               "traceMsg : String -> ()",
               "usleep : Int -> ()"
             ]

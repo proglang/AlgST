@@ -61,11 +61,10 @@ spec = do
 
   describe "kind checking" do
     specify "builtin types" do
-      "()" `kindShouldBe` K.MU
-      "Int" `kindShouldBe` K.MU
-      "Char" `kindShouldBe` K.MU
-      "String" `kindShouldBe` K.MU
-      -- Enumeration types could be very sensibly be MU by default.
+      "()" `kindShouldBe` K.TU
+      "Int" `kindShouldBe` K.TU
+      "Char" `kindShouldBe` K.TU
+      "String" `kindShouldBe` K.TU
       "Bool" `kindShouldBe` K.TU
       -- Since we have explicit wait/terminate our End types have to be linear!
       "End!" `kindShouldBe` K.SL
@@ -83,7 +82,8 @@ spec = do
 
     context "syntax elements" do
       specify "forall" do
-        "forall (a:MU). a" `kindShouldBe` K.TU
+        "forall (a:TU). a" `kindShouldBe` K.TU
+        "forall (a:TL). a" `kindShouldBe` K.TL
         "forall (a:SL). a" `kindShouldBe` K.TL
 
       specify "arrow" do
@@ -114,9 +114,6 @@ spec = do
           f ("dual (" ++ s ++ ")") k
 
     context "type application" do
-      specify "same kind application" do
-        "Id_MU ()" `kindShouldBe` K.MU
-
       specify "subkind application" do
         "Id_TL ()" `kindShouldBe` K.TL
 
@@ -126,7 +123,7 @@ spec = do
         "forall (p:P). ?P3 p (!p.End!) ().End!" `kindShouldBe` K.TL
 
       specify "nested application" do
-        "Id_TL (Id_TL (Id_MU ()))" `kindShouldBe` K.TL
+        "Id_TL (Id_TL (Id_TU ()))" `kindShouldBe` K.TL
 
     describe "invalid" do
       goldenTests
@@ -222,7 +219,6 @@ declCtxt :: CheckContext
                 "protocol P0      = P0",
                 "protocol P0' : P = P0'",
                 --
-                "type Id_MU : MU (a:MU) = a",
                 "type Id_TU : TU (a:TU) = a",
                 "type Id_TL : TL (a:TL) = a",
                 --

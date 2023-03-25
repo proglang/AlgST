@@ -1,7 +1,7 @@
 protocol EStack a = PushE a (NStack a) (EStack a) | Quit
 protocol NStack a = PushN a (NStack a) (NStack a) | Pop -a
 
-estack_server : forall(a:MU).forall(s:S). ?EStack a.s -> s
+estack_server : forall(a:TU).forall(s:S). ?EStack a.s -> s
 estack_server [a,s] c =
   match c with {
     PushE c ->
@@ -11,7 +11,7 @@ estack_server [a,s] c =
     Quit c ->
       c }
 
-nstack_server : forall(a:MU). a -> forall(s:S). ?NStack a.s -> s
+nstack_server : forall(a:TU). a -> forall(s:S). ?NStack a.s -> s
 nstack_server [a] x [s] c =
   match c with {
     PushN c ->
@@ -26,7 +26,7 @@ nstack_server [a] x [s] c =
 
 protocol LStack a = Elem a (LStack a) -a | Turn
 
-lstack_server : forall(a:MU).forall(s:S). ?LStack a.s -> s
+lstack_server : forall(a:TU).forall(s:S). ?LStack a.s -> s
 lstack_server [a,s] c =
   match c with {
     Elem c ->

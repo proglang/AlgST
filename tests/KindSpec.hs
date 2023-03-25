@@ -16,8 +16,6 @@ spec = do
     multiplicity P `shouldBe` Nothing
     multiplicity TL `shouldBe` Just Lin
     multiplicity TU `shouldBe` Just Un
-    multiplicity ML `shouldBe` Just Lin
-    multiplicity MU `shouldBe` Just Un
     multiplicity SL `shouldBe` Just Lin
     multiplicity SU `shouldBe` Just Un
 
@@ -92,7 +90,7 @@ spec = do
         k == leastUpperBound k2 k
 
 allKinds :: [Kind]
-allKinds = [TL, TU, ML, MU, SL, SU, P]
+allKinds = [TL, TU, SL, SU, P]
 
 infix 1 ==>
 

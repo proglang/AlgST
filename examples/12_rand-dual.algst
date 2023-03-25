@@ -1,8 +1,8 @@
 protocol Repeat (x:P) = More x (Repeat x) | Quit
 protocol Dual (x:P) = Dual -x
 
-type Seed : MU = Int
-type RNG  : SL = !Repeat (Dual Int).End!
+type Seed = Int
+type RNG  = !Repeat (Dual Int).End!
 
 seedRNG : Seed -> RNG
 

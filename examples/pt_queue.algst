@@ -50,10 +50,10 @@ protocol Queue a =
   | Ins a (Queue a)
   | Del -(PMaybe (Seq a -(Queue a)))
 
-serverQueue : forall(a:MU).forall(s:S). ?(Queue a).s -> s
+serverQueue : forall(a:TU).forall(s:S). ?(Queue a).s -> s
 serverQueue [a,s] c = serverBack[a,s] (Nil[a]) c
 
-serverBack : forall(a:MU). List a -> forall(s:S). ?(Queue a).s -> s
+serverBack : forall(a:TU). List a -> forall(s:S). ?(Queue a).s -> s
 serverBack [a] xs [s] c = match c with {
   Ins c ->
     let (x, c) = receive [a, ?(Queue a).s] c in
@@ -89,7 +89,7 @@ protocol NNone =
 -- but they really behave like a stack
 -- not clear how to change that...
 
-nserverBack : forall(a:MU). List a ->
+nserverBack : forall(a:TU). List a ->
               forall (x:P). (forall (s:S). ?x.s -> s) ->
 	      forall(s:S). ?(NQueue a x).s -> s
 nserverBack [a] qs [x] subServer [s] c = match c with {
@@ -101,7 +101,7 @@ nserverBack [a] qs [x] subServer [s] c = match c with {
     subServer [s] c
   }
 
-nsomeBack : forall(a:MU).NCons a (List a) ->
+nsomeBack : forall(a:TU).NCons a (List a) ->
             forall(x:P).(forall (s:S). ?x.s -> s) ->
 	    forall(s:S). ?(NSome a x).s -> s
 nsomeBack [a] qs [x] subServer [s] c = case qs of {
@@ -118,5 +118,5 @@ nnoneBack [s] c = match c with {
   NNone c -> c
 }
 
-nserverFront : forall(a:MU). forall(s:S). ?(NQueue a NNone).s -> s
+nserverFront : forall(a:TU). forall(s:S). ?(NQueue a NNone).s -> s
 nserverFront [a][s] = nserverBack [a] (Nil[a]) [NNone] nnoneBack [s]

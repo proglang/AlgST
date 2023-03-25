@@ -1,4 +1,4 @@
-printThree : ∀ (a:MU). ?a.?a.?a.End? -> ()
+printThree : ∀ (a:TU). ?a.?a.?a.End? -> ()
 printThree [a] c =
   let (x, c) = receive [a, ?a.?a.End?] c in
   let _ = trace [a] x in
@@ -10,7 +10,7 @@ printThree [a] c =
   let _ = trace [a] z in
   wait c
 
-sendThree : ∀ (a:MU). a -> a -> a -> !a.!a.!a.End! -o ()
+sendThree : ∀ (a:TU). a -> a -> a -> !a.!a.!a.End! -o ()
 sendThree [a] x y z c =
   let _ = trace [(String, a)] ("Sending first", x) in
   let c = send [a, !a.!a.End!] x c in

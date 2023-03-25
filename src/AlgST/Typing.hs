@@ -262,14 +262,8 @@ checkTypeDecl name = \case
   AliasDecl _ _ ->
     pure Nothing
   DataDecl origin decl -> do
-    -- A builtin declaration may declare types as ML/MU. Usually only TL/TU is
-    -- allowed.
-    let allowed
-          | nameResolvedModule name == BuiltinsModule =
-              K.ML <| K.MU <| alwaysAllowed
-          | otherwise =
-              alwaysAllowed
-        alwaysAllowed = K.TL :| [K.TU]
+    -- New data declarations are allowed to be TL or TU.
+    let allowed = K.TL :| [K.TU]
     kind <- expectNominalKind (pos origin) "data" name (nominalKind decl) allowed
     tcConstructors <- local (bindParams (nominalParams decl)) do
       traverseConstructors (checkDataCon kind) (nominalConstructors decl)
@@ -574,7 +568,7 @@ kisynth ::
 kisynth =
   etaTcM . \case
     T.Unit p -> do
-      pure (T.Unit p, K.MU)
+      pure (T.Unit p, K.TU)
     T.Var p v -> do
       mk <- asks $ view kiEnvL >>> tcKindEnv >>> Map.lookup v
       k <- Error.ifNothing (Error.unboundVar p v) mk
@@ -686,8 +680,8 @@ tysynth =
       -- might be shadowed.
       (e', ty) <- tysynth e
       let k = typeKind ty
-      when (k </=? K.ML) do
-        Error.add $ Error.unexpectedForkKind "fork" e ty k K.ML
+      when (k </=? K.TL) do
+        Error.add $ Error.unexpectedForkKind "fork" e ty k K.TL
       -- Here we can choose between T.In and T.Out: should an expression
       --    fork 1
       -- should have type ?Int.End? or ?Int.End!  ? For now I have decided upon
@@ -1283,7 +1277,7 @@ litType p = \case
           { typeRefPos = p,
             typeRefName = name,
             typeRefArgs = [],
-            typeRefKind = K.MU
+            typeRefKind = K.TU
           }
 
 -- | Synthesizes the 'T.Arrow' type of a @"AlgST.Syntax.Expression".'Bind'@

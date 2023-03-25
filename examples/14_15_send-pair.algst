@@ -15,8 +15,8 @@ recvPair [a] recvA [b] recvB [s] c =
   let (b, c) = recvB [s] c in
   ((a, b), c)
 
-sendPairM : ∀(a:MU). ∀(b:MU). Send (a, b)
+sendPairM : ∀(a:TU). ∀(b:TU). Send (a, b)
 sendPairM [a, b] = sendPair [a, b] (send [a]) (send [b])
 
-recvPairM : ∀(a:MU). ∀(b:MU). Recv (a, b)
+recvPairM : ∀(a:TU). ∀(b:TU). Recv (a, b)
 recvPairM [a, b] = recvPair [a, b] (receive [a]) (receive [b])

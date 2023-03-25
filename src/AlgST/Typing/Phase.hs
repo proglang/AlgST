@@ -107,13 +107,13 @@ instance LabeledTree TypeRef where
       leaf (pprName (typeRefName ref))
         : concatMap labeledTree (typeRefArgs ref)
 
--- | Returns the types kind.
+-- | Returns the type's kind.
 --
 -- This function does no checking but assumes that the given type is well
 -- formed. It does the minmal amount of work to determine the type's kind.
 typeKind :: TcType -> K.Kind
 typeKind t = case t of
-  T.Unit _ -> K.MU
+  T.Unit _ -> K.TU
   T.Arrow _ m _ _ -> K.Kind K.Top m
   T.Pair _ t u ->
     K.leastUpperBound (typeKind t) (typeKind u)

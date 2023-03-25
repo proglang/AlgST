@@ -72,7 +72,7 @@ matchD0#M.2
                |
                +- Exp.Var d0#M.6
                |
-               `- D0#Declarations.14
+               `- D0#Declarations.13
                   |
                   `- Exp.Lit
                      |

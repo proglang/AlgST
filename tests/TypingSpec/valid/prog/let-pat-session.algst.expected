@@ -166,7 +166,7 @@ skipD0#M.3
                   |
                   +- Exp.Var c#M.10
                   |
-                  `- D0#Declarations.14 c#M.12
+                  `- D0#Declarations.13 c#M.12
                      |
                      `- Exp.Var c#M.12
 
