@@ -10,6 +10,7 @@ module AlgST.CommandLine
   )
 where
 
+import AlgST.Benchmark qualified as Bench
 import AlgST.Interpret qualified as I
 import AlgST.Util.Output
 import Control.Applicative
@@ -125,13 +126,18 @@ optsParser = do
   pure RunOpts {..}
 
 benchmarksOutParser :: O.Parser (Maybe FilePath)
-benchmarksOutParser =
-  optional . O.strOption . mconcat $
-    [ O.long "bench",
-      O.metavar "FILE",
-      O.help "Run benchmarks specified in Main module and write results to FILE (CSV).",
-      O.hidden
-    ]
+benchmarksOutParser
+  | Bench.enabled = optional $ O.strOption (O.hidden <> opts)
+  | otherwise = O.abortOption disabledError (O.internal <> opts) <*> pure Nothing
+  where
+    opts =
+      mconcat
+        [ O.long "bench",
+          O.metavar "FILE",
+          O.help "Run benchmarks specified in Main module and write results to FILE (CSV)."
+        ]
+    disabledError =
+      O.ErrorMsg "AlgST benchmarker is not enabled in this build."
 
 modeParser :: O.Parser OutputMode
 modeParser = plain <|> colorized

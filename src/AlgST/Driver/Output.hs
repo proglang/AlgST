@@ -25,6 +25,7 @@ module AlgST.Driver.Output
     outputShow,
     outputLnS,
     outputS,
+    outputError,
 
     -- ** Sticky messages
     -- $sticky
@@ -49,6 +50,7 @@ module AlgST.Driver.Output
 where
 
 import AlgST.Util.Lenses
+import AlgST.Util.Output
 import Control.Category ((>>>))
 import Control.Concurrent
 import Control.Concurrent.Async (Async)
@@ -220,6 +222,10 @@ outputLnS h s = outputS h (s . showChar '\n')
 outputS :: MonadIO m => OutputHandle -> ShowS -> m ()
 outputS (OutputHandle buf) =
   liftIO . writeActionBuffer buf . WriteMessage
+
+outputError :: MonadIO m => OutputHandle -> OutputMode -> String -> m ()
+outputError out mode =
+  outputLnS out . applyStyle mode (styleFG ANSI.Red) . showString
 
 -- | Replaces the current sticky message with the given string.
 outputSticky :: MonadIO m => OutputHandle -> String -> m ()

@@ -6,6 +6,7 @@
 
 module AlgST.Main (main) where
 
+import AlgST.Benchmark qualified as Bench
 import AlgST.Builtins
 import AlgST.CommandLine
 import AlgST.Driver (Settings (..))
@@ -21,8 +22,6 @@ import AlgST.Syntax.Traversal
 import AlgST.Typing (Tc)
 import AlgST.Typing qualified as Tc
 import AlgST.Typing.Align
-import AlgST.Typing.Align qualified as Typing
-import AlgST.Typing.NormalForm qualified as Typing
 import AlgST.Util qualified as Util
 import AlgST.Util.Error
 import AlgST.Util.Output
@@ -37,9 +36,7 @@ import Data.Function
 import Data.HashMap.Strict (HashMap)
 import Data.HashMap.Strict qualified as HM
 import Data.List.NonEmpty (NonEmpty)
-import Data.Maybe
 import Data.Traversable
-import Gauge qualified
 import Main.Utf8
 import System.Console.ANSI qualified as ANSI
 import System.Exit
@@ -78,7 +75,7 @@ main = withUtf8 do
     benchGood <-
       case optsBenchmarksOutput runOpts of
         Nothing -> pure True
-        Just fp -> runBenchmarks outputHandle stderrMode fp checkResult
+        Just fp -> Bench.run outputHandle stderrMode fp checkResult
 
     -- Run the interpreter if requested.
     runGood <-
@@ -220,39 +217,6 @@ answerQueries out outMode queries checkResult = do
         [ln] -> Util.truncate' 60 "..." ln
         ln : _ -> take 60 ln ++ "..."
 
--- | Run the benchmarks and write the result to the given file path.
-runBenchmarks ::
-  OutputHandle ->
-  OutputMode ->
-  FilePath ->
-  HashMap ModuleName (Driver.Result Tc) ->
-  IO Bool
-runBenchmarks outH outMode fp modules
-  | null benchmarks = do
-      let msg = "Benchmarks requested but Main module does not specify any."
-      outputError outH outMode msg
-      pure False
-  | otherwise = do
-      -- Truncate the CSV file before running the benchmarks. Gauge only ever appends.
-      writeFile fp ""
-      -- I would like to have a sticky "Running benchmarks..." at the bottom
-      -- which is cleared when the program finishes. However, gauge always
-      -- writes something to stdout, which conflicts with our use.
-      let benchOpts = Gauge.defaultConfig {Gauge.csvFile = Just fp}
-      Gauge.runMode Gauge.DefaultMode benchOpts [] benchmarks
-      pure True
-  where
-    benchmarks = fold do
-      res <- HM.lookup MainModule modules
-      pure $ mkBench <$> moduleBench (Driver.resultModule res)
-    mkBench bench = Gauge.bench (benchName bench ++ " [AlgST]") do
-      Gauge.nf (uncurry checkEq) (benchT1 bench, benchT2 bench)
-    checkEq t u =
-      error "internal error: NF calculation failed during benchmark" `fromMaybe` do
-        tNF <- Typing.nf t
-        uNF <- Typing.nf u
-        pure $ Typing.Alpha tNF == Typing.Alpha uNF
-
 runInterpret ::
   RunOpts -> OutputHandle -> OutputMode -> HashMap ModuleName (Driver.Result Tc) -> IO Bool
 runInterpret opts out outMode checkedModules = do
@@ -285,10 +249,6 @@ runInterpret opts out outMode checkedModules = do
         Right val ->
           outputLnS out $ applyStyle outMode styleBold (showString "Result: ") . shows val
       pure $ isRight result
-
-outputError :: OutputHandle -> OutputMode -> String -> IO ()
-outputError out mode =
-  outputLnS out . applyStyle mode (styleFG ANSI.Red) . showString
 
 outputException :: Exception e => OutputHandle -> OutputMode -> String -> e -> IO ()
 outputException h m s e =

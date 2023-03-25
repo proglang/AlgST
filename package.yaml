@@ -26,7 +26,6 @@ dependencies:
 - dlist
 - filepath >= 1.4.2
 - foldl
-- gauge
 - generic-lens-lite
 - hashable
 - indexed-traversable
@@ -66,11 +65,23 @@ default-extensions:
   - ImportQualifiedPost
   - LambdaCase
 
+flags:
+  benchmarker:
+    description: "Build type equivalence benchmarker into AlgST"
+    manual: True
+    default: False
+
 library:
   source-dirs: src
   build-tools:
     - alex
     - happy
+  when:
+    - condition: flag(benchmarker)
+      dependencies:
+        - gauge
+      cpp-options:
+        - -DALGST_BENCHMARKER
 
 executables:
   algst:
