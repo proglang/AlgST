@@ -1,5 +1,5 @@
 # For a smaller final image we do a multi-stage build.
-FROM haskell:9.2.5-slim-buster AS builder
+FROM haskell:9.2.7-slim-buster AS builder
 
 WORKDIR /opt/algst
 
