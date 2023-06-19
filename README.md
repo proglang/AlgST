@@ -1,9 +1,11 @@
 # AlgST
 
-AlgST is an implementation of *Parameterized Algebraic Protocols* by Andreia
-Mordido et al. (unpublished).
+AlgST is an implementation of [Parameterized Algebraic Protocols][paper-doi] by
+Mordido et al. It includes a typechecker, interpreter and a simple module
+system. You can find the artifact in the [pldi23-artifact][artifact-branch] branch.
 
-It includes a typechecker, interpreter and a simple module system.
+[paper-doi]: https://doi.org/10.1145/3591277
+[artifact-branch]: https://github.com/proglang/AlgST/tree/pldi23-artifact
 
 
 ## Building
