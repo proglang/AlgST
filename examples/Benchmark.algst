@@ -1,0 +1,11 @@
+import Stack
+
+{-# BENCHMARK
+forall a b. a -> b -> a
+forall a. a -> forall b. b -> a
+#-}
+
+{-# BENCHMARK
+!Stack Int.End!
+dual (?Stack Int.End?)
+#-}

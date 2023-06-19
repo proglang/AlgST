@@ -45,7 +45,9 @@ extra-deps:
   - monad-validate-1.2.0.1
 
 # Override default flag values for local packages and extra-deps
-# flags: {}
+flags:
+  AlgST:
+    benchmarker: true
 
 # Extra package databases containing global packages
 # extra-package-dbs: []

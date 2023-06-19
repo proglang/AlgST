@@ -1,0 +1,25 @@
+protocol Stream (a:P) = Next a (Stream a)
+
+ones : !Stream Int.End! -> ()
+ones c =
+  c |> select Next [Int, End!]
+    |> send [Int, !Stream Int.End!] 1
+    |> ones
+
+showAll : forall (a:MU). (!Stream a.End! -> ()) -> ()
+showAll [a] genAs =
+  let (c1, c2) = new [!Stream a.End!] in
+  let _ = fork_ (genAs c1) in
+  let rec loop : ?Stream a.End? -> () = \c ->
+    match c with {
+      Next c ->
+        let (n, c) = receive [a, ?Stream a.End?] c in
+        let _ = trace [a] n in
+        let _ = usleep 500000 in
+        loop c
+    }
+  in
+  loop c2
+
+main : ()
+main = showAll [Int] ones

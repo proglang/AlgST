@@ -1,5 +1,6 @@
 printThree : ∀ (a:TU). ?a.?a.?a.End? -> ()
 printThree [a] c =
+  let _ = traceMsg "Receiver started" in
   let (x, c) = receive [a, ?a.?a.End?] c in
   let _ = trace [a] x in
   let _ = usleep 1500000 in
@@ -12,11 +13,11 @@ printThree [a] c =
 
 sendThree : ∀ (a:TU). a -> a -> a -> !a.!a.!a.End! -o ()
 sendThree [a] x y z c =
-  let _ = trace [(String, a)] ("Sending first", x) in
+  let _ = traceMsg "Sending first" in
   let c = send [a, !a.!a.End!] x c in
-  let _ = trace [(String, a)] ("Sending second", y) in
+  let _ = traceMsg "Sending second" in
   let c = send [a, !a.End!] y c in
-  let _ = trace [(String, a)] ("Sending third", z) in
+  let _ = traceMsg "Sending third" in
   let c = send [a, End!] z c in
   let _ = terminate c in
   traceMsg "all sent"

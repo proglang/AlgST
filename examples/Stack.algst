@@ -1,0 +1,46 @@
+protocol EStack a = Bottom a (Stack a) (EStack a) | Quit
+protocol Stack  a = Push a (Stack a) (Stack a) | Pop -a
+
+estackServer : forall (a:TU). forall (s:S). ?EStack a.s -> s
+estackServer [a, s] c = match c with {
+  Bottom c ->
+    let (x, c) = receive [a, ?Stack a.?EStack a.s] c in
+    let c = stackServer [a] x [?EStack a.s] c in
+    estackServer [a, s] c,
+  Quit c ->
+    c
+}
+
+stackServer : forall(a:TU). a -> forall(s:S). ?Stack a.s -> s
+stackServer [a] x [s] c = match c with {
+  Push c ->
+    let (y, c) = receive [a,?Stack a.?Stack a.s] c in
+    let c = stackServer [a] y [?Stack a.s] c in
+    stackServer [a] x [s] c,
+  Pop c ->
+    send [a] x [s] c
+}
+
+main : (Int, Int)
+main =
+  let (c1, c2) = new [!EStack Int.End!] in
+  let _ = fork_ (estackServer [Int, End?] c2 |> wait) in
+  let c1 =
+    c1 |> select Bottom [Int, End!]
+       |> send [Int, !Stack Int.!EStack Int.End!] 21
+       |> select Push [Int, !EStack Int.End!]
+       |> send [Int, !Stack Int.!Stack Int.!EStack Int.End!] 42
+  in
+  let (top, c1) =
+    c1 |> select Pop [Int, !Stack Int.!EStack Int.End!]
+       |> receive [Int, !Stack Int.!EStack Int.End!]
+  in
+  let (bot, c1) =
+    c1 |> select Pop [Int, !EStack Int.End!]
+       |> receive [Int, !EStack Int.End!]
+  in
+  let _ =
+    c1 |> select Quit [Int, End!]
+       |> terminate
+  in
+  (top, bot)

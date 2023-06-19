@@ -1,0 +1,5 @@
+packages:
+  ./FreeST/FreeST.cabal
+
+optional-packages:
+  ./overrides/*/*.cabal

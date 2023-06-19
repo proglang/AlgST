@@ -1,0 +1,355 @@
+-------------------------------------------------------------------------------
+-- Modules
+-------------------------------------------------------------------------------
+
+Module
+  : {- empty -}
+  | TopItems
+  | Imports
+  | Imports nl TopItems
+
+TopItems
+  : TopItem
+  | TopItems nl TopItem
+
+TopItem
+  : Decl
+  | Pragma
+
+
+-------------------------------------------------------------------------------
+-- Imports
+-------------------------------------------------------------------------------
+
+Imports
+  : Import
+  | Imports nl Import
+
+Import
+  : import ModuleName ImportList
+
+ImportList
+  : {- empty -}
+  | '(*)'
+  | '(' ')'
+  | '(' ImportSelection ')'
+
+ImportSelection
+  : ImportItems opt(',')
+  | '*' ',' ImportItems opt(',')
+  | '*' opt(',')
+
+ImportItems
+  : ImportItem
+  | ImportItems ',' ImportItem
+
+ImportItem
+  : ImportScope UnqualifiedVar
+  | ImportScope UnqualifiedCon
+  | ImportScope UnqualifiedVar as '_'
+  | ImportScope UnqualifiedCon as '_'
+  | ImportScope UnqualifiedVar as UnqualifiedVar
+  | ImportScope UnqualifiedCon as UnqualifiedCon
+
+ImportScope
+  : {- empty -}
+  | type
+
+
+-------------------------------------------------------------------------------
+-- Pragmas
+-------------------------------------------------------------------------------
+
+Pragma
+  : '{-#' 'BENCHMARK' opt('!') opt(STR) TypeAtom opt(nl) TypeAtom opt(nl) '#-}'
+  | '{-#' 'BENCHMARK' opt('!') opt(STR) nl Type nl Type opt(nl) '#-}'
+
+
+-------------------------------------------------------------------------------
+-- Declarations
+-------------------------------------------------------------------------------
+
+Decls
+  : Decl
+  | Decls nl Decl
+
+Decl
+  : ProgVar TySig
+  | ProgVar ValueParams '=' Exp
+  | type KindedTVar TypeParams '=' Type
+  | data KindedTVar TypeParams
+  | data KindedTVar TypeParams '=' DataCons
+  | protocol KindedTVar TypeParams '=' DataCons
+
+TySig
+  : ':' Type
+
+TypeParams
+  : {- empty -}
+  | TypeParams1
+
+-- A `forall` requires a non-empty list of type var bindings.
+TypeParams1
+  : bindings1(KindBind)
+
+DataCons
+  : DataCon
+  | '|' DataCon
+  | DataCons '|' DataCon
+
+DataCon
+  : Constructor TypeSeq
+
+ValueParams
+  : bindings(ValueParam)
+
+ValueParam
+  : ProgVarWild
+  | '[' TyVarList ']'
+
+TyVarList
+  : wildcard(TypeVar)
+  | TyVarList ',' wildcard(TypeVar)
+
+
+-------------------------------------------------------------------------------
+-- Expressions
+-------------------------------------------------------------------------------
+
+EAtom
+  : INT
+  | CHAR
+  | STR
+  | '()'
+  | '(,)'
+  | ProgVar
+  | Constructor
+  | '(' ExpInner ')'
+  | '(' Exp ',' Exp ')'
+  | case Exp of Cases
+
+ETail
+  : LamExp
+  | if Exp then Exp else Exp
+  | let LetBind '=' Exp in Exp
+  | RecExp
+  | let RecExp in Exp
+
+EApp
+  : EAtom
+  | EApp EAtom
+  | EApp '[' TypeApps ']'
+  | select Constructor
+  | select '(,)'
+
+EAppTail
+  : EApp
+  | ETail
+  | EApp ETail
+
+EOps
+  : OpTys
+  | OpsExp
+  | OpTys EAppTail
+  | OpTys OpsExp
+
+
+ExpInner
+  : EOps
+  | EAppTail
+
+Exp
+  : ExpInner
+
+TypeApps
+  : Type
+  | TypeApps ',' Type
+
+RecExp
+  : rec ProgVar TySig '=' Exp
+
+LetBind
+  : ProgVarWild opt(TySig)
+  | Pattern
+
+LamExp
+  : lambda Abs Arrow Exp
+
+Abs
+  : bindings1(Abs1)
+
+Abs1
+  : wildcard(ProgVar)
+  | '(' wildcard(ProgVar) ')'
+  | '(' wildcard(ProgVar) ':' Type ')'
+  | '[' wildcard(TypeVar) ':' Kind ']'
+
+Cases
+  : '{' CaseMap opt(',') '}'
+
+CaseMap
+  : Case
+  | CaseMap ',' Case
+
+Case
+  : Pattern '->' Exp
+  | ProgVarWild '->' Exp
+
+Pattern
+  : Constructor ProgVarWildSeq
+  | '(,)' ProgVarWildSeq
+  | '(' ProgVarWild ',' ProgVarWild ')'
+
+ProgVarWildSeq
+  : bindings(ProgVarWild)
+
+Op
+  : OPERATOR
+
+OpTys
+  : Op
+  | OpTys '[' TypeApps ']'
+
+OpsExp
+  : EApp OpTys
+  | EApp OpTys EAppTail
+  | EApp OpTys OpsExp
+
+
+-------------------------------------------------------------------------------
+-- Types
+-------------------------------------------------------------------------------
+
+-- polarised(t :: PType) :: PType
+polarised(t)
+  :     t
+  | '+' polarised(t)
+  | '-' polarised(t)
+
+TypeAtom
+  : '()'
+  | '(,)'
+  | '(' Type ',' TupleType ')'
+  | end
+  | TypeVar
+  | TypeName
+  | '(' Type ')'
+
+Type1
+  : TypeAtom
+  | Type1 polarised(TypeAtom)
+
+Type2
+  : polarised(Type1)
+
+Type3
+  : Type2
+  | Polarity Type2 '.' Type3
+
+Type4
+  : Type3
+  | dual Type4
+
+Type5
+  : Type4
+  | Type4 Arrow Type5
+  | Forall Type5
+
+Type
+  : Type5
+
+Forall
+  : forall TypeParams1 '.'
+
+TupleType
+  : Type
+  | Type ',' TupleType
+
+Arrow
+  : '->'
+  | '-o'
+
+Polarity
+  : '!'
+  | '?'
+
+TypeSeq
+  : {- empty -}
+  | TypeSeq polarised(TypeAtom)
+
+
+-------------------------------------------------------------------------------
+-- Kinds
+-------------------------------------------------------------------------------
+
+Kind
+  : 'T'   -- alias for 'T'
+  | 'TU'
+  | 'TL'
+  | 'S'   -- alias for SL
+  | 'SU'
+  | 'SL'
+  | 'P'
+
+
+-------------------------------------------------------------------------------
+-- Names
+-------------------------------------------------------------------------------
+
+UnqualifiedCon
+  : UPPER_ID
+
+UnqualifiedVar
+  : LOWER_ID
+
+ModuleName
+  : ModuleNameRec
+
+ModuleNameRec
+  : UnqualifiedCon
+  | ModuleNameRec '.' UnqualifiedCon
+
+NameVar
+  : UnqualifiedVar
+
+NameCon
+  : UnqualifiedCon
+
+ProgVar
+  : NameVar
+
+Constructor
+  : NameCon
+
+ProgVarWild
+  : wildcard(ProgVar)
+
+TypeVar
+  : NameVar
+
+TypeName
+  : NameCon
+
+KindBind
+  : '(' TypeVar ':' Kind ')'
+  | '(' TypeVar ')'
+  | TypeVar
+
+KindedTVar
+  : TypeName ':' Kind
+  | TypeName
+
+wildcard(v)
+  : v
+  | '_'
+
+bindings(p)
+  : {- empty -}
+  | bindings(p) p
+
+bindings1(p)
+  : p bindings(p)
+
+opt(t)
+  : {- empty -}
+  | t

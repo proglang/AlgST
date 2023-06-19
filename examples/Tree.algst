@@ -1,0 +1,40 @@
+data Tree = Leaf | Node Int Tree Tree
+
+sendTree : forall (s:S). Tree -> !Tree.s -> s
+sendTree [s] t c = case t of {
+  Leaf ->
+    select Leaf [s] c,
+  Node x l r ->
+    select Node [s] c
+      |> send [Int, !Tree.!Tree.s] x
+      |> sendTree l [!Tree.s]
+      |> sendTree r [s]
+}
+
+recvTree : forall (s:S). ?Tree.s -> (Tree, s)
+recvTree [s] c = match c with {
+  Leaf c ->
+    (Leaf, c),
+  Node c ->
+    let (x, c) = receive [Int, ?Tree.?Tree.s] c in
+    let (l, c) = recvTree [?Tree.s] c in
+    let (r, c) = recvTree [s] c in
+    (Node x l r, c)
+}
+
+tree : Tree
+tree = Node 10 (Node 5 Leaf Leaf) Leaf
+
+main : Tree
+main =
+  let (c1, c2) = new [!Tree.?Tree.End!] in
+  let _ =
+    fork_
+      ( let (t, c) = recvTree [!Tree.End?] c2 in
+        let c = sendTree [End?] t c in
+        wait c 
+      )
+  in
+  c1 |> sendTree [?Tree.End!] tree
+     |> recvTree [End!]
+     |> fstTerminate [Tree]

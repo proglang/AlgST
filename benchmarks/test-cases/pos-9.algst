@@ -1,0 +1,370 @@
+protocol Habx =
+  | Faig String
+  | Fapi -(Int -> (forall (xz:TU). (xz -> (String -o Int)))) -Kopw
+
+protocol Kopw =
+  | Gofm (String -o ((String -> Char) -> (Char -> Int))) -()
+
+protocol Butj =
+  | Ioqo -(() -o Int)
+  | Kamx (forall (yj:TL). String) (Char -> Int)
+
+type T1a = (! Habx . End!)
+type T1b = (! Habx . (dual (dual End!)))
+
+eq1a : T1a -> T1b
+eq1a x = x
+eq1b : T1b -> T1a
+eq1b x = x
+
+{-# BENCHMARK "1/3" T1a T1b #-}
+
+type T2a = (! Int . (dual (! (dual (! (Int -o ()) . End!)) . End!)))
+type T2b = (! Int . (? (? (Int -o ()) . (dual End!)) . (dual End!)))
+
+eq2a : T2a -> T2b
+eq2a x = x
+eq2b : T2b -> T2a
+eq2b x = x
+
+{-# BENCHMARK "2/11" T2a T2b #-}
+
+type T3a = (dual (! Kopw . (? Int . (? String . (dual (? Int . (! String . End?)))))))
+type T3b = (? Kopw . (! Int . (! String . (? Int . (dual (? String . (dual End?)))))))
+
+eq3a : T3a -> T3b
+eq3a x = x
+eq3b : T3b -> T3a
+eq3b x = x
+
+{-# BENCHMARK "3/13" T3a T3b #-}
+
+type T4a = (? Habx . (! String . (? (Char -o (String -o Char)) . (dual (? Kopw . End!)))))
+type T4b = (? Habx . (dual (? String . (dual (? (Char -o (String -o Char)) . (! Kopw . (dual End!)))))))
+
+eq4a : T4a -> T4b
+eq4a x = x
+eq4b : T4b -> T4a
+eq4b x = x
+
+{-# BENCHMARK "4/14" T4a T4b #-}
+
+type T5a = (dual (! () . (? Int . (? Int . (? Habx . (! Char . (! (String -o Char) . End!)))))))
+type T5b = (? () . (! Int . (dual (? Int . (dual (! Habx . (? Char . (dual (! (String -o Char) . End!)))))))))
+
+eq5a : T5a -> T5b
+eq5a x = x
+eq5b : T5b -> T5a
+eq5b x = x
+
+{-# BENCHMARK "5/16" T5a T5b #-}
+
+type T6a = (! (forall (xh:TL). xh) . (dual (? Kopw . (dual (! Butj . (! ((Int -o Char) -o ()) . End?))))))
+type T6b = (! (forall (zt:TL). zt) . (dual (? Kopw . (dual (! Butj . (! ((Int -o Char) -o ()) . End?))))))
+
+eq6a : T6a -> T6b
+eq6a x = x
+eq6b : T6b -> T6a
+eq6b x = x
+
+{-# BENCHMARK "6/16" T6a T6b #-}
+
+type T7a = (! Habx . (! Kopw . (dual (? Habx . (! Char . (! String . (! Habx . (? Int . End!))))))))
+type T7b = (! Habx . (! Kopw . (! Habx . (dual (! Char . (dual (? String . (? Habx . (! Int . (dual End!))))))))))
+
+eq7a : T7a -> T7b
+eq7a x = x
+eq7b : T7b -> T7a
+eq7b x = x
+
+{-# BENCHMARK "7/16" T7a T7b #-}
+
+type T8a = (! (() -o ()) . (? (! String . (dual (? (String -o (? (forall (yw:SL). ()) . (? Kopw . (? Butj . End!)))) . End!))) . End?))
+type T8b = (! (() -o ()) . (dual (! (! String . (! (String -o (? (forall (yw:SL). ()) . (dual (! Kopw . (dual (? Butj . End!)))))) . (dual End!))) . (dual End?))))
+
+eq8a : T8a -> T8b
+eq8a x = x
+eq8b : T8b -> T8a
+eq8b x = x
+
+{-# BENCHMARK "8/21" T8a T8b #-}
+
+type T9a = (? (forall (xs:SL). ((Char -o (String -> (forall (zn:SL). ()))) -> String)) . (! () . (? ((() -o Int) -o String) . (! Habx . (! Int . End?)))))
+type T9b = (? (forall (zs:SL). ((Char -o (String -> (forall (zy:SL). ()))) -> String)) . (dual (? () . (dual (? ((() -o Int) -o String) . (! Habx . (! Int . (dual (dual End?)))))))))
+
+eq9a : T9a -> T9b
+eq9a x = x
+eq9b : T9b -> T9a
+eq9b x = x
+
+{-# BENCHMARK "9/23" T9a T9b #-}
+
+type T10a = (dual (! ((forall (xb:SL). (forall (yy:SL). (dual (? Butj . xb)))) -o ((? (String -o Char) . End!) -> Int)) . (dual (? ((() -o Int) -> Char) . (! Char . End?)))))
+type T10b = (? ((forall (xm:SL). (forall (xs:SL). (! Butj . (dual xm)))) -o ((? (String -o Char) . (dual (dual End!))) -> Int)) . (? ((() -o Int) -> Char) . (! Char . (dual (dual End?)))))
+
+eq10a : T10a -> T10b
+eq10a x = x
+eq10b : T10b -> T10a
+eq10b x = x
+
+{-# BENCHMARK "10/26" T10a T10b #-}
+
+type T11a = (? Kopw . (? (((Int -> String) -o String) -> Int) . (? (String -o Int) . (! Habx . (? Kopw . (? Habx . (! Habx . (dual (! (forall (yy:TL). Char) . End!)))))))))
+type T11b = (? Kopw . (dual (! (((Int -> String) -o String) -> Int) . (dual (? (String -o Int) . (dual (? Habx . (! Kopw . (! Habx . (? Habx . (! (forall (zt:TL). Char) . (dual (dual End!)))))))))))))
+
+eq11a : T11a -> T11b
+eq11a x = x
+eq11b : T11b -> T11a
+eq11b x = x
+
+{-# BENCHMARK "11/27" T11a T11b #-}
+
+type T12a = (dual (! (forall (ym:TU). ((forall (ze:SL). (forall (yk:SL). (forall (xy:SL). (forall (za:TL). Char)))) -> (forall (yn:SL). (? (Int -> Char) . End?)))) . (! (forall (xe:TL). (! (() -o Int) . (! Butj . End?))) . (! Habx . End?))))
+type T12b = (? (forall (xw:TU). ((forall (zx:SL). (forall (yn:SL). (forall (yc:SL). (forall (zi:TL). Char)))) -> (forall (zu:SL). (? (Int -> Char) . End?)))) . (dual (! (forall (yo:TL). (! (() -o Int) . (dual (? Butj . (dual End?))))) . (! Habx . (dual (dual End?))))))
+
+eq12a : T12a -> T12b
+eq12a x = x
+eq12b : T12b -> T12a
+eq12b x = x
+
+{-# BENCHMARK "12/27" T12a T12b #-}
+
+type T13a = (? String . (dual (? ((Int -> ((forall (xc:TU). xc) -> (forall (xp:TU). (Char -o ((! End? . End!) -o Int))))) -> Int) . (? (? Butj . (dual (! () . End?))) . (! (forall (zb:TL). (forall (yg:TL). Int)) . End?)))))
+type T13b = (? String . (! ((Int -> ((forall (xs:TU). xs) -> (forall (xy:TU). (Char -o ((! End? . End!) -o Int))))) -> Int) . (! (? Butj . (dual (! () . (dual (dual End?))))) . (dual (! (forall (zq:TL). (forall (zy:TL). Int)) . End?)))))
+
+eq13a : T13a -> T13b
+eq13a x = x
+eq13b : T13b -> T13a
+eq13b x = x
+
+{-# BENCHMARK "13/31" T13a T13b #-}
+
+type T14a = (dual (! (((forall (xq:TU). (xq -> String)) -o (? Habx . (dual (? (! (! String . (dual (? Habx . End!))) . End?) . (? Kopw . End?))))) -o String) . (? Kopw . (? Habx . (? Habx . (! Char . End?))))))
+type T14b = (? (((forall (zo:TU). (zo -> String)) -o (? Habx . (! (! (! String . (! Habx . (dual End!))) . (dual (dual End?))) . (! Kopw . (dual End?))))) -o String) . (! Kopw . (! Habx . (dual (? Habx . (! Char . End?))))))
+
+eq14a : T14a -> T14b
+eq14a x = x
+eq14b : T14b -> T14a
+eq14b x = x
+
+{-# BENCHMARK "14/33" T14a T14b #-}
+
+type T15a = (dual (! (forall (xm:TL). ((forall (za:SL). (Int -o ())) -> Int)) . (dual (? (forall (ys:SL). ((! (? Butj . (! (forall (zl:TL). ys) . ys)) . ys) -o Int)) . (! Char . (? (forall (xj:TL). ()) . (! Kopw . (! Butj . (! Kopw . End!)))))))))
+type T15b = (? (forall (xj:TL). ((forall (yx:SL). (Int -o ())) -> Int)) . (dual (! (forall (xu:SL). ((! (? Butj . (! (forall (zw:TL). xu) . (dual (dual xu)))) . (dual (dual xu))) -o Int)) . (? Char . (! (forall (ya:TL). ()) . (? Kopw . (dual (! Butj . (dual (? Kopw . (dual End!)))))))))))
+
+eq15a : T15a -> T15b
+eq15a x = x
+eq15b : T15b -> T15a
+eq15b x = x
+
+{-# BENCHMARK "15/34" T15a T15b #-}
+
+type T16a = (? (Char -> String) . (! () . (? Butj . (! Butj . (! (? Butj . (! End! . (! Butj . (? Kopw . (? Butj . End?))))) . (dual (! Butj . (! Kopw . (dual (? Kopw . (dual (! (? Kopw . End!) . End!))))))))))))
+type T16b = (? (Char -> String) . (! () . (dual (! Butj . (dual (! Butj . (dual (? (? Butj . (! End! . (! Butj . (dual (! Kopw . (dual (? Butj . End?))))))) . (dual (? Butj . (dual (! Kopw . (! Kopw . (! (? Kopw . (dual (dual End!))) . End!))))))))))))))
+
+eq16a : T16a -> T16b
+eq16a x = x
+eq16b : T16b -> T16a
+eq16b x = x
+
+{-# BENCHMARK "16/36" T16a T16b #-}
+
+type T17a = (dual (? (forall (xf:TL). ((forall (zr:SL). zr) -o (Char -> ((? Int . (! (? String . (! Int . End!)) . End!)) -> (Int -o ()))))) . (! Habx . (dual (! (Int -o (Char -o ())) . (? Kopw . (dual (? Butj . End?))))))))
+type T17b = (! (forall (xc:TL). ((forall (zk:SL). zk) -o (Char -> ((? Int . (! (? String . (dual (? Int . (dual End!)))) . (dual (dual End!)))) -> (Int -o ()))))) . (? Habx . (dual (? (Int -o (Char -o ())) . (dual (? Kopw . (dual (? Butj . (dual (dual End?))))))))))
+
+eq17a : T17a -> T17b
+eq17a x = x
+eq17b : T17b -> T17a
+eq17b x = x
+
+{-# BENCHMARK "17/36" T17a T17b #-}
+
+type T18a = (? Kopw . (dual (! (! Kopw . (! Kopw . End!)) . (! (! (? (? Kopw . (? Int . (? (? (Char -o ()) . (? Butj . End!)) . End?))) . End?) . End!) . (! (! (Char -o String) . (dual (? Kopw . End?))) . End!)))))
+type T18b = (? Kopw . (? (! Kopw . (dual (? Kopw . (dual End!)))) . (dual (! (! (? (? Kopw . (? Int . (? (? (Char -o ()) . (dual (! Butj . (dual End!)))) . End?))) . End?) . (dual (dual End!))) . (dual (? (! (Char -o String) . (dual (? Kopw . (dual (dual End?))))) . (dual End!)))))))
+
+eq18a : T18a -> T18b
+eq18a x = x
+eq18b : T18b -> T18a
+eq18b x = x
+
+{-# BENCHMARK "18/37" T18a T18b #-}
+
+type T19a = (dual (! (? () . (? (forall (yy:TU). Char) . End?)) . (? ((((forall (yx:TL). Char) -> Char) -> (forall (xc:SL). (Char -> ()))) -> ((forall (xy:TL). Char) -> (Int -o ()))) . (! String . (dual (? (String -> (! (Int -o Int) . End?)) . End?))))))
+type T19b = (? (? () . (dual (! (forall (yj:TU). Char) . (dual End?)))) . (dual (? ((((forall (yn:TL). Char) -> Char) -> (forall (yx:SL). (Char -> ()))) -> ((forall (yt:TL). Char) -> (Int -o ()))) . (dual (? String . (dual (! (String -> (! (Int -o Int) . End?)) . (dual End?))))))))
+
+eq19a : T19a -> T19b
+eq19a x = x
+eq19b : T19b -> T19a
+eq19b x = x
+
+{-# BENCHMARK "19/37" T19a T19b #-}
+
+type T20a = (! Habx . (? Kopw . (! String . (dual (? (Char -o ()) . (! Kopw . (! Habx . (? (() -> String) . (dual (? (dual (! Int . (! Int . End?))) . (? () . (dual (? Kopw . (dual (? (Int -o (Int -> String)) . (? Kopw . End?))))))))))))))))
+type T20b = (! Habx . (? Kopw . (dual (? String . (dual (! (Char -o ()) . (? Kopw . (? Habx . (! (() -> String) . (? (? Int . (dual (! Int . (dual (dual End?))))) . (dual (! () . (? Kopw . (dual (? (Int -o (Int -> String)) . (dual (! Kopw . (dual End?))))))))))))))))))
+
+eq20a : T20a -> T20b
+eq20a x = x
+eq20b : T20b -> T20a
+eq20b x = x
+
+{-# BENCHMARK "20/42" T20a T20b #-}
+
+type T21a = (! Habx . (dual (? Butj . (dual (? Kopw . (! (? (String -o (! (Int -> String) . End?)) . (! Habx . (! () . (! Butj . (dual (! Kopw . (! Kopw . End?))))))) . (! (forall (zy:SL). ((? Butj . (? () . End?)) -o (Int -o Int))) . (? Habx . End!))))))))
+type T21b = (! Habx . (! Butj . (? Kopw . (! (? (String -o (! (Int -> String) . End?)) . (dual (? Habx . (dual (! () . (dual (? Butj . (! Kopw . (! Kopw . End?))))))))) . (! (forall (ze:SL). ((? Butj . (dual (! () . (dual End?)))) -o (Int -o Int))) . (? Habx . (dual (dual End!))))))))
+
+eq21a : T21a -> T21b
+eq21a x = x
+eq21b : T21b -> T21a
+eq21b x = x
+
+{-# BENCHMARK "21/43" T21a T21b #-}
+
+type T22a = (dual (! ((! Kopw . (dual (! (Char -> Char) . (? Habx . (! Habx . (? Habx . End!)))))) -> (forall (yg:SL). ())) . (! (dual (? Butj . End?)) . (dual (? Kopw . (dual (! (String -o (() -o (! (forall (xt:TU). String) . End!))) . (! Int . (dual (! Kopw . End!))))))))))
+type T22b = (? ((! Kopw . (dual (! (Char -> Char) . (? Habx . (! Habx . (dual (! Habx . (dual End!)))))))) -> (forall (zr:SL). ())) . (dual (! (! Butj . (dual End?)) . (! Kopw . (dual (? (String -o (() -o (! (forall (zg:TU). String) . End!))) . (? Int . (! Kopw . (dual (dual End!))))))))))
+
+eq22a : T22a -> T22b
+eq22a x = x
+eq22b : T22b -> T22a
+eq22b x = x
+
+{-# BENCHMARK "22/43" T22a T22b #-}
+
+type T23a = (! Int . (dual (? (() -> (! () . (? Char . (dual (! Kopw . (! String . End?)))))) . (! String . (! (((? Butj . (! () . (? Kopw . (! Butj . End?)))) -o ()) -> String) . (! (() -o Char) . (! () . (dual (! Butj . (! String . End?))))))))))
+type T23b = (! Int . (! (() -> (! () . (? Char . (? Kopw . (dual (! String . (dual (dual End?)))))))) . (dual (! String . (dual (? (((? Butj . (dual (? () . (! Kopw . (? Butj . (dual End?)))))) -o ()) -> String) . (? (() -o Char) . (? () . (! Butj . (dual (? String . (dual End?))))))))))))
+
+eq23a : T23a -> T23b
+eq23a x = x
+eq23b : T23b -> T23a
+eq23b x = x
+
+{-# BENCHMARK "23/44" T23a T23b #-}
+
+type T24a = (! Char . (? Char . (! Char . (! Int . (! Int . (? () . (dual (? (((Int -> Char) -o String) -o (() -o ())) . (dual (! Char . (? Kopw . (? Kopw . (! (String -o (forall (zj:SL). ())) . (! Habx . (dual (! (forall (zf:SL). (() -> Char)) . End?))))))))))))))))
+type T24b = (! Char . (dual (! Char . (dual (! Char . (! Int . (! Int . (dual (! () . (dual (! (((Int -> Char) -o String) -o (() -o ())) . (! Char . (? Kopw . (? Kopw . (! (String -o (forall (xq:SL). ())) . (! Habx . (dual (! (forall (zy:SL). (() -> Char)) . End?))))))))))))))))))
+
+eq24a : T24a -> T24b
+eq24a x = x
+eq24b : T24b -> T24a
+eq24b x = x
+
+{-# BENCHMARK "24/44" T24a T24b #-}
+
+type T25a = (! Kopw . (dual (? Butj . (! (() -o (forall (yd:TL). (? Butj . (? Habx . End?)))) . (? (forall (xi:SL). ()) . (! Habx . (? ((forall (xb:TU). (! Butj . (! xb . (? Kopw . (dual (! (? (dual (! Habx . (! Butj . End?))) . End!) . End!)))))) -o Int) . (! () . (? (! (() -o ()) . End?) . End!)))))))))
+type T25b = (! Kopw . (! Butj . (dual (! (() -o (forall (xx:TL). (? Butj . (? Habx . (dual (dual End?)))))) . (? (forall (zs:SL). ()) . (dual (? Habx . (! ((forall (yy:TU). (! Butj . (! yy . (? Kopw . (dual (! (? (? Habx . (dual (! Butj . End?))) . End!) . (dual (dual End!)))))))) -o Int) . (? () . (! (! (() -o ()) . End?) . (dual End!)))))))))))
+
+eq25a : T25a -> T25b
+eq25a x = x
+eq25b : T25b -> T25a
+eq25b x = x
+
+{-# BENCHMARK "25/49" T25a T25b #-}
+
+type T26a = (! Kopw . (dual (! String . (! Int . (? Habx . (! Int . (dual (! Char . (! Char . (? Butj . (? Kopw . (dual (! Int . (? (forall (yc:TL). ((forall (zm:TU). String) -> ())) . (? Butj . (! (forall (zz:TU). ((? Char . (! String . (? Kopw . End?))) -> ())) . (? Kopw . (dual (! (Char -> ()) . End!)))))))))))))))))))
+type T26b = (! Kopw . (? String . (dual (! Int . (dual (! Habx . (dual (! Int . (? Char . (dual (! Char . (dual (! Butj . (dual (? Kopw . (dual (! Int . (? (forall (xq:TL). ((forall (xv:TU). String) -> ())) . (? Butj . (dual (? (forall (yp:TU). ((? Char . (! String . (? Kopw . End?))) -> ())) . (dual (? Kopw . (? (Char -> ()) . (dual End!)))))))))))))))))))))))))
+
+eq26a : T26a -> T26b
+eq26a x = x
+eq26b : T26b -> T26a
+eq26b x = x
+
+{-# BENCHMARK "26/50" T26a T26b #-}
+
+type T27a = (! (Char -> ()) . (? Habx . (! Kopw . (dual (? Int . (! Kopw . (! Habx . (dual (! Kopw . (? (Int -o Char) . (? Int . (? Char . (? Kopw . (? (Int -o ((Int -o Int) -o Int)) . (? Char . (dual (? Habx . (! (() -o String) . (! Habx . (? Habx . (! Butj . End?)))))))))))))))))))))
+type T27b = (! (Char -> ()) . (dual (! Habx . (dual (! Kopw . (! Int . (? Kopw . (dual (! Habx . (? Kopw . (! (Int -o Char) . (dual (? Int . (? Char . (dual (! Kopw . (! (Int -o ((Int -o Int) -o Int)) . (dual (? Char . (dual (? Habx . (dual (? (() -o String) . (dual (! Habx . (dual (! Habx . (dual (! Butj . End?)))))))))))))))))))))))))))))
+
+eq27a : T27a -> T27b
+eq27a x = x
+eq27b : T27b -> T27a
+eq27b x = x
+
+{-# BENCHMARK "27/52" T27a T27b #-}
+
+type T28a = (? (dual (! (? (() -o String) . End!) . End?)) . (! Char . (! Butj . (? Habx . (dual (? String . (? Butj . (? Char . (? (! Habx . (! Habx . (! (? Char . (! (forall (yl:SL). ()) . (? Kopw . (? (Int -> ()) . End?)))) . (! () . (! ((Int -> (dual (! Int . End!))) -> ()) . End!))))) . End!)))))))))
+type T28b = (? (? (? (() -o String) . End!) . (dual End?)) . (! Char . (dual (? Butj . (! Habx . (? String . (dual (! Butj . (! Char . (dual (? (! Habx . (dual (? Habx . (? (? Char . (! (forall (xd:SL). ()) . (? Kopw . (dual (! (Int -> ()) . (dual End?)))))) . (? () . (? ((Int -> (? Int . (dual End!))) -> ()) . (dual End!))))))) . End!)))))))))))
+
+eq28a : T28a -> T28b
+eq28a x = x
+eq28b : T28b -> T28a
+eq28b x = x
+
+{-# BENCHMARK "28/53" T28a T28b #-}
+
+type T29a = (! Butj . (dual (! (forall (zf:TU). zf) . (dual (? (dual (! () . End!)) . (dual (? (forall (yy:TU). (() -> yy)) . (? Char . (? String . (! Kopw . (! Char . (! Habx . (! ((Int -> Char) -> ()) . (! Char . (! Int . (dual (? Kopw . (? Kopw . (! () . (! Butj . (! Kopw . (! Butj . (! Habx . End!)))))))))))))))))))))))
+type T29b = (! Butj . (dual (! (forall (xz:TU). xz) . (dual (? (? () . (dual End!)) . (dual (? (forall (xa:TU). (() -> xa)) . (dual (! Char . (dual (? String . (! Kopw . (dual (? Char . (dual (! Habx . (! ((Int -> Char) -> ()) . (! Char . (dual (? Int . (dual (! Kopw . (! Kopw . (dual (! () . (! Butj . (! Kopw . (! Butj . (dual (? Habx . (dual End!)))))))))))))))))))))))))))))))
+
+eq29a : T29a -> T29b
+eq29a x = x
+eq29b : T29b -> T29a
+eq29b x = x
+
+{-# BENCHMARK "29/54" T29a T29b #-}
+
+type T30a = (dual (? (() -o (String -o ())) . (dual (! Habx . (? Habx . (dual (! ((String -> (forall (ys:TL). Char)) -o ((dual (? Butj . End?)) -> ())) . (dual (! Butj . (? (() -> (forall (yp:TL). ((dual (? (dual (! Char . End!)) . (dual (! (? (forall (zf:SL). ()) . End?) . (? Butj . (dual (! () . End!))))))) -> String))) . (? String . (! String . End?))))))))))))
+type T30b = (! (() -o (String -o ())) . (dual (? Habx . (dual (? Habx . (? ((String -> (forall (zr:TL). Char)) -o ((! Butj . (dual End?)) -> ())) . (! Butj . (dual (! (() -> (forall (xy:TL). ((! (? Char . (dual End!)) . (dual (? (? (forall (yw:SL). ()) . (dual (dual End?))) . (dual (? Butj . (? () . (dual End!))))))) -> String))) . (dual (? String . (! String . (dual (dual End?))))))))))))))
+
+eq30a : T30a -> T30b
+eq30a x = x
+eq30b : T30b -> T30a
+eq30b x = x
+
+{-# BENCHMARK "30/57" T30a T30b #-}
+
+type T31a = (dual (? (String -o Char) . (? (forall (zr:SL). Char) . (? Kopw . (dual (! Int . (? Kopw . (dual (? (Char -o Int) . (dual (? (() -o Int) . (dual (? (? Int . (? Butj . (! Habx . End?))) . (! (() -> (! Kopw . (dual (! (forall (yp:SL). Int) . End!)))) . (! Habx . (! Char . (! Int . (! (forall (ya:TU). (forall (yu:TL). (yu -> (String -> Int)))) . (? Kopw . End!)))))))))))))))))))
+type T31b = (! (String -o Char) . (dual (? (forall (xr:SL). Char) . (dual (! Kopw . (dual (? Int . (! Kopw . (dual (! (Char -o Int) . (dual (! (() -o Int) . (dual (! (? Int . (? Butj . (! Habx . (dual (dual End?))))) . (dual (! (() -> (! Kopw . (? (forall (yw:SL). Int) . (dual End!)))) . (! Habx . (dual (? Char . (? Int . (? (forall (zp:TU). (forall (xn:TL). (xn -> (String -> Int)))) . (! Kopw . (dual End!)))))))))))))))))))))))
+
+eq31a : T31a -> T31b
+eq31a x = x
+eq31b : T31b -> T31a
+eq31b x = x
+
+{-# BENCHMARK "31/61" T31a T31b #-}
+
+type T32a = (! (forall (ye:SL). Int) . (! Int . (dual (? ((forall (xw:SL). Char) -o String) . (dual (! (forall (xh:SL). (! (forall (zn:TU). (dual (? (! (dual (? (forall (zi:TL). (Char -o (forall (xw:SL). zi))) . (? ((Char -> (() -o ())) -o String) . (? Habx . (? Habx . End?))))) . End!) . End?))) . (? Habx . End!))) . (? String . (! Habx . (? (forall (zk:TL). String) . (? Habx . (dual (! (forall (yt:TU). (Int -o ())) . (! Habx . End!)))))))))))))
+type T32b = (! (forall (yq:SL). Int) . (! Int . (! ((forall (zv:SL). Char) -o String) . (dual (? (forall (ze:SL). (! (forall (xf:TU). (! (! (! (forall (yz:TL). (Char -o (forall (zn:SL). yz))) . (! ((Char -> (() -o ())) -o String) . (dual (? Habx . (? Habx . (dual (dual End?))))))) . (dual (dual End!))) . (dual End?))) . (dual (! Habx . (dual End!))))) . (! String . (? Habx . (! (forall (zz:TL). String) . (! Habx . (! (forall (yj:TU). (Int -o ())) . (! Habx . End!)))))))))))
+
+eq32a : T32a -> T32b
+eq32a x = x
+eq32b : T32b -> T32a
+eq32b x = x
+
+{-# BENCHMARK "32/62" T32a T32b #-}
+
+type T33a = (! Butj . (! Int . (! () . (! Int . (? () . (? ((((forall (zw:SL). String) -o String) -o (forall (zk:SL). (String -> zk))) -o String) . (! Char . (? ((String -> String) -> Char) . (? (forall (xo:TU). xo) . (! Habx . (dual (? (String -o ()) . (! (forall (xo:TU). (() -o (dual (? (Int -> xo) . End?)))) . (! Kopw . (dual (! Kopw . (dual (? Kopw . (? Kopw . (dual (! Butj . End!)))))))))))))))))))))
+type T33b = (! Butj . (! Int . (! () . (dual (? Int . (dual (? () . (dual (! ((((forall (zk:SL). String) -o String) -o (forall (zo:SL). (String -> zo))) -o String) . (dual (! Char . (? ((String -> String) -> Char) . (dual (! (forall (ye:TU). ye) . (dual (! Habx . (! (String -o ()) . (? (forall (yf:TU). (() -o (! (Int -> yf) . (dual End?)))) . (dual (! Kopw . (dual (! Kopw . (! Kopw . (dual (? Kopw . (dual (! Butj . End!)))))))))))))))))))))))))))
+
+eq33a : T33a -> T33b
+eq33a x = x
+eq33b : T33b -> T33a
+eq33b x = x
+
+{-# BENCHMARK "33/64" T33a T33b #-}
+
+type T34a = (dual (? ((forall (yb:TL). ((Int -o Int) -> Char)) -o Char) . (? Butj . (? Butj . (? Char . (? (? Kopw . (dual (! Char . (! (forall (zd:TL). ()) . End!)))) . (? Habx . (dual (? Int . (? Habx . (! Habx . (dual (? Char . (? Kopw . (? (forall (yp:SL). ((String -o String) -> yp)) . (dual (? (forall (zw:TU). zw) . (? Butj . (! Char . (dual (! () . (? Kopw . (? () . (! (dual (! Butj . End?)) . (! Habx . End?)))))))))))))))))))))))))
+type T34b = (! ((forall (zw:TL). ((Int -o Int) -> Char)) -o Char) . (! Butj . (! Butj . (! Char . (dual (? (? Kopw . (dual (! Char . (! (forall (xe:TL). ()) . End!)))) . (? Habx . (dual (? Int . (dual (! Habx . (dual (! Habx . (! Char . (! Kopw . (! (forall (yv:SL). ((String -o String) -> yv)) . (dual (! (forall (zv:TU). zv) . (! Butj . (? Char . (dual (? () . (! Kopw . (! () . (? (? Butj . (dual End?)) . (dual (! Habx . (dual (dual End?)))))))))))))))))))))))))))))
+
+eq34a : T34a -> T34b
+eq34a x = x
+eq34b : T34b -> T34a
+eq34b x = x
+
+{-# BENCHMARK "34/70" T34a T34b #-}
+
+type T35a = (! () . (dual (? Char . (? Int . (! Kopw . (? Habx . (! Kopw . (dual (? Butj . (dual (? Int . (! Butj . (? String . (? ((dual (! Kopw . End?)) -> String) . (! (forall (zb:TU). Char) . (? Char . (? ((() -o ()) -o (() -o (forall (xk:TL). Char))) . (? Butj . (? (? (dual (! () . End!)) . End!) . (? Habx . (dual (! String . (? Butj . (! Char . (? (() -o Int) . (! Kopw . (! Int . (! Habx . (dual (? () . (? Kopw . (? (Int -o Int) . (? String . End?)))))))))))))))))))))))))))))))))
+type T35b = (! () . (dual (? Char . (? Int . (dual (? Kopw . (! Habx . (dual (! Kopw . (! Butj . (dual (! Int . (? Butj . (! String . (! ((? Kopw . (dual End?)) -> String) . (? (forall (zo:TU). Char) . (! Char . (dual (? ((() -o ()) -o (() -o (forall (zi:TL). Char))) . (? Butj . (dual (! (? (? () . (dual End!)) . End!) . (dual (? Habx . (? String . (! Butj . (dual (! Char . (dual (! (() -o Int) . (dual (! Kopw . (dual (? Int . (? Habx . (? () . (dual (! Kopw . (! (Int -o Int) . (! String . (dual End?)))))))))))))))))))))))))))))))))))))))))
+
+eq35a : T35a -> T35b
+eq35a x = x
+eq35b : T35b -> T35a
+eq35b x = x
+
+{-# BENCHMARK "35/84" T35a T35b #-}
+
+type T36a = (? () . (! String . (? (forall (yz:TL). Char) . (! Char . (? (dual (? (dual (! () . End?)) . End!)) . (! Habx . (! String . (? Kopw . (! () . (? () . (dual (! Char . (? Kopw . (dual (? () . (! Char . (! Kopw . (! Char . (! Char . (? Habx . (! Kopw . (? Char . (? Kopw . (! () . (! Kopw . (! (forall (zz:SL). (((Int -> ()) -o ()) -o Int)) . (? Int . (! Kopw . (dual (! (Int -o (! (! Butj . (dual (? Kopw . End?))) . End!)) . (? String . (? Habx . End?))))))))))))))))))))))))))))))))
+type T36b = (? () . (dual (? String . (! (forall (xe:TL). Char) . (? Char . (dual (? (! (? () . (dual End?)) . (dual End!)) . (dual (? Habx . (dual (! String . (dual (! Kopw . (? () . (! () . (dual (? Char . (! Kopw . (dual (! () . (dual (! Char . (! Kopw . (! Char . (dual (? Char . (dual (? Habx . (! Kopw . (dual (! Char . (dual (? Kopw . (dual (? () . (dual (! Kopw . (! (forall (zt:SL). (((Int -> ()) -o ()) -o Int)) . (dual (! Int . (? Kopw . (dual (? (Int -o (! (! Butj . (dual (? Kopw . (dual (dual End?))))) . (dual (dual End!)))) . (! String . (! Habx . (dual End?))))))))))))))))))))))))))))))))))))))))))))))
+
+eq36a : T36a -> T36b
+eq36a x = x
+eq36b : T36b -> T36a
+eq36b x = x
+
+{-# BENCHMARK "36/85" T36a T36b #-}

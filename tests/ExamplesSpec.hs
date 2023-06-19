@@ -12,6 +12,13 @@ import System.Process.Typed
 import Test
 
 spec :: Spec
+spec = return ()
+
+{-
+   Testing the exampels is disabled for the artifact because our examples are a
+   bit different than in the development version and include failing examples.
+
+spec :: Spec
 spec = parallel do
   (examplesDir, allExamples) <- runIO do
     examplesDir <- getDataDir <&> (</> "examples")
@@ -43,3 +50,5 @@ run args = do
   -- We use `readProcess_` here because it will include the stdout and stderr
   -- in the exception.
   void $ readProcess_ process
+
+-}

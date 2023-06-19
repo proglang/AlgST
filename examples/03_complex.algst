@@ -1,6 +1,0 @@
-data Complex = Complex Int Int
-
-conjugate : Complex -> Complex
-conjugate complex =
-  let Complex real imag = complex in
-  Complex real (negate imag)

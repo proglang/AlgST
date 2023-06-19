@@ -1,5 +1,0 @@
-constU : ∀(a:TU). a -> ∀(b:TU). b -> a
-constU a _ = a
-
-constL : ∀(a:TL). a -> ∀(b:TU). b -o a
-constL a _ = a

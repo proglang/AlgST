@@ -42,7 +42,6 @@ builtinsModuleCtxt :: Tc.CheckContext
               --
               "(<&>) : ∀(a:TU). ∀(b:TL). ∀(c:SL). (a, c) -> (a -> b) -o (b, c)",
               "(<&>) x f = let (a, c) = x in (f a, c)",
-              --
               "(<*>) : ∀(a:TL). ∀(b:TL). ∀(c1:SL). ∀(c2:SL). ∀(c3:SL).",
               "  (c1 -o (a -o b, c2)) -> (c2 -o (a, c3)) -o (c1 -o (b, c3))",
               "(<*>) lhs rhs c1 =",

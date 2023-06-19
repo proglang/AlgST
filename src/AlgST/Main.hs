@@ -220,17 +220,19 @@ answerQueries out outMode queries checkResult = do
 runInterpret ::
   RunOpts -> OutputHandle -> OutputMode -> HashMap ModuleName (Driver.Result Tc) -> IO Bool
 runInterpret opts out outMode checkedModules = do
+  let prettyMain =
+        "‘" ++ getUnqualified (optsMainName opts) ++ "’"
   let mmainName = do
         HM.lookup MainModule checkedModules
-          >>= Driver.lookupRenamed MainFunction
+          >>= Driver.lookupRenamed (optsMainName opts)
   outputStrLn out ""
   case mmainName of
     Nothing -> do
-      outputError out outMode "No ‘main’ to run."
+      outputError out outMode $ unwords ["No", prettyMain, "to run."]
       pure False
     Just mainName -> do
       clearSticky out
-      outputStrLn out "Running ‘main’"
+      outputStrLn out $ unwords ["Running", prettyMain ++ "."]
       hSetBuffering stderr LineBuffering
       result <- try do
         let env = foldMap (I.programEnvironment . Driver.resultModule) checkedModules

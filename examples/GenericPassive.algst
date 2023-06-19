@@ -1,0 +1,13 @@
+import Arith
+import Stream
+
+type Service (a:P) = forall (s:S). ?a.s -> s
+
+stream : forall (a:P). Service a -> ?Stream a.End! -> ()
+stream [a] serve c =
+  match c with {
+    Next c -> serve [?Stream a.End!] c |> stream [a] serve
+  }
+
+streamArith : ?Stream Arith.End! -> ()
+streamArith = stream [Arith] serveArith

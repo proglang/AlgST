@@ -1,6 +1,6 @@
 " Syntax file for algebraic sessions
 "
-" Author: Janek Spaderna
+" Author: gitlab.com/blue_box
 " License: MIT
 
 if exists('b:current_syntax')
@@ -26,7 +26,7 @@ syn keyword algstDecl type data protocol
   \ skipempty
 syn keyword algstBuiltin select receive send new fork fork_
 
-syn match algstKind contained "\<\([TSM][LU]\?\|P\)\>"
+syn match algstKind contained "\<\([TS][LU]\?\|P\)\>"
 
 syn match algstKindAnnot "\<\k\+\s*:" 
       \ contained

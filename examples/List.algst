@@ -1,0 +1,74 @@
+data List a = Nil | Cons a (List a)
+
+----------------------------------------------------------------------
+-- sending
+
+type Send a = a -> forall(s:S). !a.s -> s
+
+sendList : forall a. Send a -> Send (List a)
+sendList [a] send_a xs [s] c =
+  case xs of {
+    Nil       -> select Nil [a,s] c,
+    Cons x xs -> select Cons [a,s] c
+              |> send_a [!List a.s] x
+	      |> sendList [a] send_a [s] xs
+  }
+
+send_int : Send Int
+send_int x [s] = send [Int] x [s]
+
+sendList_int : Send (List Int)
+sendList_int = sendList [Int] send_int
+
+sendList_list_int : Send (List (List Int))
+sendList_list_int = sendList [List Int] sendList_int
+
+----------------------------------------------------------------------
+-- receiving
+
+type Recv a = forall(s:S). ?a.s -> (a, s)
+
+recvList : forall a. Recv a -> Recv (List a)
+recvList [a] recv_a [s] c =
+  match c with {
+    Nil c -> (Nil[a], c),
+    Cons c -> let (x,  c) = recv_a   [?List a.s] c in
+              let (xs, c) = recvList [a] recv_a [s] c in
+	      (Cons[a] x xs, c)
+}
+
+recv_int : Recv Int
+recv_int = receive [Int]
+
+recvList_int : Recv (List Int)
+recvList_int = recvList [Int] recv_int
+
+recvList_list_int : Recv (List (List Int))
+recvList_list_int = recvList [List Int] recvList_int
+
+----------------------------------------------------------------------
+
+list1 : List Int
+list1 = Cons [Int] 1 (Cons [Int] 2 (Cons [Int] 3 (Nil [Int])))
+
+list2 : List Int
+list2 = Cons [Int] 10 (Cons [Int] 20 (Cons [Int] 30 (Nil [Int])))
+
+lists : List (List Int)
+lists = Cons [List Int] list1 (Cons [List Int] list2 (Nil [List Int]))
+
+main : ()
+main =
+  let (c1, c2) = new [!List Int.!List (List Int).End!] in
+  let _ = fork_ (
+            sendList_int [!List (List Int).End!] list1 c1
+              |> sendList_list_int [End!] lists
+              |> terminate)
+  in
+  let (x, c2) = recvList_int [?List (List Int).End?] c2 in
+  let _ = traceMsg "== received `list1` ==" in
+  let _ = trace [List Int] x in
+  let (y, c2) = recvList_list_int [End?] c2 in
+  let _ = traceMsg "== received `lists` ==" in
+  let _ = trace [List (List Int)] y in
+  wait c2

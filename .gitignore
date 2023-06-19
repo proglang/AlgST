@@ -1,5 +1,6 @@
-*.cabal
 dist
 dist-*
 .stack-work/
 .direnv
+.docker-cache
+benchmarks/test-cases/*.csv

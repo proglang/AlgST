@@ -1,0 +1,63 @@
+import Toolbox
+
+type Neg    = Seq Int -Int
+type Add    = Seq Int (Seq Int -Int)
+type Arith  = Either Neg Add
+
+serveNeg : Service Neg
+serveNeg [s] c = match c with {
+  Seq c ->
+    let (x, c) = receive [Int,!Int.s] c in
+    send [Int, s] (0 - x) c
+}
+
+serveAdd : Service Add
+serveAdd [s] c = match c with {
+  Seq c ->
+    let (x, c) = receive [Int, ?Seq Int -Int.s] c in
+    match c with {
+      Seq c ->
+        let (y, c) = receive [Int, !Int.s] c in
+        send [Int, s] (x + y) c
+    }
+}
+
+serveArith : Service Arith
+serveArith = either [Neg] serveNeg [Add] serveAdd 
+
+serveAriths : Service (Repeat Arith)
+serveAriths = repeater [Arith] serveArith
+
+clientNeg : forall (s:S). Int -> !Arith.s -> (Int, s)
+clientNeg [s] x c =
+  c |> select Left [Neg, Add, s]
+    |> select Seq  [Int, -Int, s]
+    |> send        [Int, ?Int.s]  x
+    |> receive     [Int, s]
+
+clientAdd : forall (s:S). Int -> Int -> !Arith.s -> (Int, s)
+clientAdd [s] x y c =
+  c |> select Right [Neg, Add, s]
+    |> select Seq   [Int, Seq Int -Int, s]
+    |> send         [Int, !Seq Int -Int.s]  x
+    |> select Seq   [Int, -Int, s]
+    |> send         [Int, ?Int.s]           y
+    |> receive      [Int, s]
+
+main : ()
+main =
+  let (c1, c2) = new [!Repeat Arith.End!] in
+  let _ = fork_ (serveAriths [End?] c2 |> wait) in
+  -- Adding 10 and 20.
+  let c1 = select More [Arith, End!] c1 in
+  let (x, c1) = clientAdd [!Repeat Arith.End!] 10 20 c1 in
+  let _ = traceMsg "10 + 20 =" in
+  let _ = trace [Int] x in
+  -- Negate result.
+  let c1 = select More [Arith, End!] c1 in
+  let (y, c1) = clientNeg [!Repeat Arith.End!] x c1 in
+  let _ = traceMsg "-(10 + 20) =" in
+  let _ = trace [Int] y in
+  -- Terminate channel.
+  select Quit [Arith, End!] c1
+    |> terminate

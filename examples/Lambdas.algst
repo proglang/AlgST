@@ -1,0 +1,11 @@
+f : Int -> Int
+f = \i -> i + 2
+
+g : Int -> Int
+g n = (\i -> i + 2) n
+
+h : Int -> Int
+h = let (fn, _) = (\i -> i + 2, ()) in fn
+
+h' : Int -> Int
+h' = let (fn, _) = (\(i:Int) -> i + 2, ()) in fn

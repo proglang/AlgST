@@ -1,0 +1,257 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.35.1.
+--
+-- see: https://github.com/sol/hpack
+
+name:           AlgST
+version:        2.0.0
+synopsis:       Parser, Typechecker & Interpreter for Algebraic Session Types
+author:         gitlab.com/blue_box
+maintainer:     gitlab.com/blue_box
+copyright:      2022 gitlab.com/blue_box
+license:        MIT
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+data-files:
+    examples/Arith.algst
+    examples/ArithTB.algst
+    examples/Ast.algst
+    examples/Benchmark.algst
+    examples/Buffering.algst
+    examples/Dual.algst
+    examples/Flip.algst
+    examples/FlipFlop.algst
+    examples/GenericActive.algst
+    examples/GenericPassive.algst
+    examples/Isomorphism.algst
+    examples/Lambdas.algst
+    examples/List.algst
+    examples/NestedCFL.algst
+    examples/Queue.algst
+    examples/Stack.algst
+    examples/Stream.algst
+    examples/Toolbox.algst
+    examples/Tree.algst
+
+flag benchmarker
+  description: Build type equivalence benchmarker into AlgST
+  manual: True
+  default: False
+
+library
+  exposed-modules:
+      AlgST.Benchmark
+      AlgST.Builtins
+      AlgST.Builtins.Names
+      AlgST.Builtins.TH
+      AlgST.Builtins.TH2
+      AlgST.CommandLine
+      AlgST.Driver
+      AlgST.Driver.Dependencies
+      AlgST.Driver.Output
+      AlgST.Interpret
+      AlgST.Main
+      AlgST.Parse.Lexer
+      AlgST.Parse.Parser
+      AlgST.Parse.ParseUtils
+      AlgST.Parse.Phase
+      AlgST.Parse.Unparser
+      AlgST.Rename
+      AlgST.Rename.Error
+      AlgST.Rename.Fresh
+      AlgST.Rename.Modules
+      AlgST.Rename.Monad
+      AlgST.Rename.Operators
+      AlgST.Rename.Phase
+      AlgST.Syntax.Decl
+      AlgST.Syntax.Expression
+      AlgST.Syntax.Kind
+      AlgST.Syntax.Module
+      AlgST.Syntax.Name
+      AlgST.Syntax.Operators
+      AlgST.Syntax.Phases
+      AlgST.Syntax.Pos
+      AlgST.Syntax.Traversal
+      AlgST.Syntax.Tree
+      AlgST.Syntax.Type
+      AlgST.Typing
+      AlgST.Typing.Align
+      AlgST.Typing.Error
+      AlgST.Typing.Monad
+      AlgST.Typing.NormalForm
+      AlgST.Typing.Phase
+      AlgST.Util
+      AlgST.Util.Error
+      AlgST.Util.ErrorMessage
+      AlgST.Util.Generically
+      AlgST.Util.Lenses
+      AlgST.Util.Output
+      AlgST.Util.PartialOrd
+      Control.Monad.Eta
+  other-modules:
+      Paths_AlgST
+  hs-source-dirs:
+      src
+  default-extensions:
+      BlockArguments
+      ImportQualifiedPost
+      LambdaCase
+  ghc-options: -j -Wall -Wno-orphans -Wno-name-shadowing -Wno-unticked-promoted-constructors -Wincomplete-uni-patterns -Wincomplete-record-updates -Wredundant-constraints -Wcompat
+  build-tools:
+      alex
+    , happy
+  build-depends:
+      algebraic-graphs ==0.6.*
+    , ansi-terminal
+    , array
+    , async
+    , base >=4.16.4.0 && <5
+    , call-stack
+    , containers >=0.5.9
+    , deepseq
+    , directory >=1.3.2.0
+    , dlist
+    , filepath >=1.4.2
+    , foldl
+    , generic-lens-lite
+    , hashable
+    , indexed-traversable
+    , lens-family >=2.1.0 && <3
+    , lens-family-th
+    , monad-validate
+    , mtl >=2.2.1
+    , optparse-applicative
+    , scheduler
+    , semialign
+    , singletons-th
+    , stm
+    , template-haskell
+    , th-lift-instances
+    , these
+    , transformers
+    , unliftio-core
+    , unordered-containers
+    , with-utf8
+  default-language: Haskell2010
+  if flag(benchmarker)
+    cpp-options: -DALGST_BENCHMARKER
+    build-depends:
+        gauge
+
+executable algst
+  main-is: Main.hs
+  other-modules:
+      Paths_AlgST
+  hs-source-dirs:
+      exe
+  default-extensions:
+      BlockArguments
+      ImportQualifiedPost
+      LambdaCase
+  ghc-options: -j -Wall -Wno-orphans -Wno-name-shadowing -Wno-unticked-promoted-constructors -Wincomplete-uni-patterns -Wincomplete-record-updates -Wredundant-constraints -Wcompat -threaded -rtsopts -with-rtsopts=-N
+  build-tools:
+      alex
+    , happy
+  build-depends:
+      AlgST
+    , algebraic-graphs ==0.6.*
+    , ansi-terminal
+    , array
+    , async
+    , base >=4.16.4.0 && <5
+    , call-stack
+    , containers >=0.5.9
+    , deepseq
+    , directory >=1.3.2.0
+    , dlist
+    , filepath >=1.4.2
+    , foldl
+    , generic-lens-lite
+    , hashable
+    , indexed-traversable
+    , lens-family >=2.1.0 && <3
+    , lens-family-th
+    , monad-validate
+    , mtl >=2.2.1
+    , optparse-applicative
+    , scheduler
+    , semialign
+    , singletons-th
+    , stm
+    , template-haskell
+    , th-lift-instances
+    , these
+    , transformers
+    , unliftio-core
+    , unordered-containers
+    , with-utf8
+  default-language: Haskell2010
+
+test-suite tests
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      ExamplesSpec
+      InterpretSpec
+      KindSpec
+      ParseSpec
+      RenameSpec
+      Test
+      Test.Golden
+      TypingRelationSpec
+      TypingSpec
+      Paths_AlgST
+  hs-source-dirs:
+      tests
+  default-extensions:
+      BlockArguments
+      ImportQualifiedPost
+      LambdaCase
+  ghc-options: -j -Wall -Wno-orphans -Wno-name-shadowing -Wno-unticked-promoted-constructors -Wincomplete-uni-patterns -Wincomplete-record-updates -Wredundant-constraints -Wcompat -threaded -rtsopts "-with-rtsopts=-N -qg -I0"
+  build-tools:
+      algst
+  build-tool-depends:
+      hspec-discover:hspec-discover
+  build-depends:
+      AlgST
+    , algebraic-graphs ==0.6.*
+    , ansi-terminal
+    , array
+    , async
+    , base >=4.16.4.0 && <5
+    , call-stack
+    , containers >=0.5.9
+    , deepseq
+    , directory >=1.3.2.0
+    , dlist
+    , filepath >=1.4.2
+    , foldl
+    , generic-lens-lite
+    , hashable
+    , hspec
+    , hspec-core
+    , hspec-discover
+    , indexed-traversable
+    , lens-family >=2.1.0 && <3
+    , lens-family-th
+    , monad-validate
+    , mtl >=2.2.1
+    , optparse-applicative
+    , raw-strings-qq
+    , reflection
+    , scheduler
+    , semialign
+    , singletons-th
+    , stm
+    , template-haskell
+    , th-lift-instances
+    , these
+    , transformers
+    , typed-process
+    , unliftio-core
+    , unordered-containers
+    , with-utf8
+  default-language: Haskell2010

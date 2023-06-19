@@ -1,0 +1,19 @@
+import Arith
+import Stream
+
+type Service (a:P) = forall (s:S). ?a.s -> s
+
+streamAct : forall (a:P). Service a -> !Stream -a.End! -> ()
+streamAct [a] serve c =
+  select Next [-a, End!] c
+    |> serve [!Stream -a.End!]
+    |> streamAct [a] serve
+
+streamActArith : !Stream -Arith.End! -> ()
+streamActArith = streamAct [Arith] serveArith
+
+streamActOnes : !Stream Int.End! -> ()
+streamActOnes = streamAct [-Int] (send [Int] 1)
+
+main : ()
+main = showAll [Int] streamActOnes

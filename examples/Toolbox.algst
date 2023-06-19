@@ -1,0 +1,32 @@
+type Service (p:P) = ∀(s:S). ?p.s -> s
+
+--
+
+protocol Repeat (x:P) = More x (Repeat x) | Quit
+
+repeater : ∀(p:P). Service p -> Service (Repeat p)
+repeater [p] serveP [s] c = match c with {
+  Quit c -> c,
+  More c -> c |> serveP [?Repeat p.s] |> repeater [p] serveP [s]
+}
+
+--
+
+protocol Seq (a:P) (b:P) = Seq a b
+
+seq : ∀(p:P). Service p -> ∀(q:P). Service q -> Service (Seq p q)
+seq [p] serve_p [q] serve_q [s] c = match c with {
+  Seq c ->
+    c |> serve_p [?q.s] |> serve_q [s]
+}
+
+--
+
+protocol Either (a:P) (b:P) = Left a | Right b
+
+either : ∀(p:P). Service p -> ∀(q:P). Service q -> Service (Either p q)
+either [p] serve_p [q] serve_q [s]c =
+  match c with {
+    Left  c -> serve_p [s] c,
+    Right c -> serve_q [s] c
+}

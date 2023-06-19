@@ -12,6 +12,10 @@ where
 
 import AlgST.Benchmark qualified as Bench
 import AlgST.Interpret qualified as I
+import AlgST.Parse.Lexer qualified as L
+import AlgST.Syntax.Name
+import AlgST.Syntax.Pos
+import AlgST.Util
 import AlgST.Util.Output
 import Control.Applicative
 import Data.Sequence (Seq)
@@ -99,6 +103,7 @@ data RunOpts = RunOpts
     optsQuiet :: !Bool,
     optsQueries :: ![Query],
     optsDoEval :: !Bool,
+    optsMainName :: !Unqualified,
     optsDebugEval :: !Bool,
     optsBufferSize :: !Natural,
     optsDriverPaths :: !(Seq FilePath),
@@ -114,6 +119,7 @@ optsParser = do
   optsSource <- sourceParser
   optsDriverPaths <- driverSearchDirs
   optsDoEval <- evalFlagParser
+  optsMainName <- evalMainParser
   optsBufferSize <- evalBufSizeParser
   optsDebugEval <- evalVerboseParser
   optsQueries <- many queryParser
@@ -173,8 +179,31 @@ evalFlagParser :: O.Parser Bool
 evalFlagParser =
   O.flag False True . mconcat $
     [ O.long "run",
-      O.help "Look for a ‘main’ symbol visible from the Main module to run."
+      O.help "Evaluate the symbol specified with --main from the Main module."
     ]
+
+evalMainParser :: O.Parser Unqualified
+evalMainParser =
+  O.option parser . mconcat $
+    [ O.short 'm',
+      O.long "main",
+      O.value MainFunction,
+      O.metavar "NAME",
+      O.help . concat $
+        [ "Specifies which symbol to evaluate when --run is given. Defaults to ‘",
+          getUnqualified MainFunction,
+          "’. Must be an unqualified, lowercase name."
+        ]
+    ]
+  where
+    parser = O.eitherReader \s ->
+      case L.dropNewlines <$> L.scanTokens s of
+        Right [L.TokenLowerId (_ :@ name)] -> Right (Unqualified name)
+        _ -> Left $ "invalid function name: ‘" ++ s ++ "’" ++ hint s
+    hint s =
+      mguard
+        ('.' `elem` s)
+        " (qualified names are not supported)"
 
 evalVerboseParser :: O.Parser Bool
 evalVerboseParser =
@@ -253,6 +282,6 @@ getOptions =
   where
     parserInfo =
       [ O.header
-          "AlgST - frontend, typechecker and interpreter for Algebraic \
-          \Session Types."
+          "AlgST - frontend, typechecker and interpreter for Parameterized \
+          \Algebraic Protocols."
       ]

@@ -1,5 +1,0 @@
-const : ∀(a:TU). ∀(b:TU). a -> b -> a
-const a _ = a
-
-const' : ∀(a:TU). ∀(b:TU). a -> b -> a
-const' = \[a:TU] [b:TU] (a:a) (_:b) -> a

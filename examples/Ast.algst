@@ -1,0 +1,34 @@
+data Ast = Con Int | Add Ast Ast
+
+protocol AstP = ConP Int | AddP AstP AstP
+
+sendAst : Ast -> forall (s:S). !AstP.s -> s
+sendAst t [s] c = case t of {
+  Con x ->
+    select ConP [s] c
+      |> send [Int, s] x,
+  Add tl tr ->
+    select AddP [s] c
+      |> sendAst tl [!AstP.s] |> sendAst tr [s]
+}
+
+recvAst : forall (s:S). ?AstP.s -> (Ast, s)
+recvAst [s] c = match c with {
+  ConP c ->
+    let (x, c) = receive [Int, s] c in
+    (Con x, c),
+  AddP c ->
+    let (tl, c) = recvAst [?AstP.s] c in
+    let (tr, c) = recvAst [s] c in
+    (Add tl tr, c)
+}
+
+ast : Ast
+ast = Add (Con 10) (Add (Con 2) (Con 3))
+
+main : Ast
+main =
+  let (c1, c2) = new [!AstP.End!] in
+  let _ = fork_ (sendAst [End!] ast c1 |> terminate) in
+  let ast' = recvAst [End?] c2 |> fstWait [Ast] in
+  ast'

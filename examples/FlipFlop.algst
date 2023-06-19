@@ -1,0 +1,57 @@
+import Flip (type Flipper, Flipper)
+
+protocol Flip = Flip -Int Flop
+protocol Flop = Flop Int Flip
+
+flipper : !Flip.End! -> End!
+flipper c =
+  let c = select Flip [End!] c in
+  let (x, c) = receive [Int, !Flop.End!] c in
+  select Flop [End!] c
+    |>  send [Int, !Flip.End!] x
+    |>  flipper
+
+-- mutual recursion
+
+flip : !Flip.End! -> End!
+flip c =
+  select Flip [End!] c 
+    |> receive [Int, !Flop.End!]
+    |> flop
+
+flop : (Int, !Flop.End!) -> End!
+flop p =
+  let (x, c) = p in
+  select Flop [End!] c
+    |> send [Int, !Flip.End!] x
+    |> flip
+
+flipperFlop : forall (s1:S) (s2:S). ?Flipper.s1 -> !Flip.s2 -o ()
+flipperFlop [s1] [s2] c1 c2 = match c1 with {
+  Flipper c1 ->
+    let c2 = select Flip [s2] c2 in
+    let (x, c2) = receive [Int, !Flop.s2] c2 in
+    let c1 = send [Int, !Flipper.s1] x c1 in
+    let c1 = select Flipper [s1] c1 in
+    let (x, c1) = receive [Int, ?Flipper.s1] c1 in
+    let c2 = select Flop [s2] c2 in
+    let c2 = send [Int, !Flip.s2] x c2 in
+    flipperFlop [s1] [s2] c1 c2
+}
+
+flopFlipper : forall (s1:S) (s2:S). ?Flip.s1 -> !Flipper.s2 -o ()
+flopFlipper [s1] [s2] c1 c2 = match c1 with {
+  Flip c1 ->
+    let c2 = select Flipper [s2] c2 in
+    let (x, c2) = receive [Int, ?Flipper.s2] c2 in
+    let c1 = send [Int, ?Flop.s1] x c1 in
+    match c1 with {
+      Flop c1 ->
+        let (x, c1) = receive [Int, ?Flip.s1] c1 in
+        match c2 with {
+          Flipper c2 ->
+            let c2 = send [Int, !Flipper.s2] x c2 in
+            flopFlipper [s1] [s2] c1 c2
+        }
+    }
+}

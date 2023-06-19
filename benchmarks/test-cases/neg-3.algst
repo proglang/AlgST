@@ -1,0 +1,192 @@
+protocol Gouu =
+  | Digi -(forall (yu:TL). (String -o yu)) Char
+  | Baqf
+  | Kunc (forall (yr:SL). yr)
+
+protocol Doap =
+  | Jovs
+  | Fugh (forall (yb:SL). ((String -o String) -o Int))
+
+protocol Liaj =
+  | Jikp
+  | Juwf (forall (zf:TU). String) -Gouu ((Int -o Char) -o Int)
+
+type T1a = (dual (! Doap . (dual (! Gouu . (? () . End?)))))
+type T1b = (dual (! Doap . (dual (! Gouu . (? String . End?)))))
+
+{-# BENCHMARK! "1/9" T1a T1b #-}
+
+type T2a = (! (forall (zj:TU). ((forall (xy:TL). (Char -> (Int -o Char))) -o Int)) . End?)
+type T2b = (! Int . End?)
+
+{-# BENCHMARK! "2/11" T2a T2b #-}
+
+type T3a = (dual (? (? (() -> String) . End?) . (? Doap . (? String . End!))))
+type T3b = (dual (? (? (Int -> String) . End?) . (? Doap . (? String . End!))))
+
+{-# BENCHMARK! "3/12" T3a T3b #-}
+
+type T4a = (dual (? (String -> (! Doap . (? Liaj . (? Doap . (! () . End!))))) . End?))
+type T4b = (dual End?)
+
+{-# BENCHMARK! "4/14" T4a T4b #-}
+
+type T5a = (dual (? ((Char -o ()) -> Int) . (dual (! Liaj . (dual (? Doap . End?))))))
+type T5b = (dual (? Char . (dual (! Liaj . (dual (? Doap . End?))))))
+
+{-# BENCHMARK! "5/14" T5a T5b #-}
+
+type T6a = (? Doap . (! Liaj . (? Doap . (! (() -o String) . (! Gouu . (! () . End?))))))
+type T6b = (? Doap . (! Liaj . (! (() -o String) . (! Gouu . (! () . End?)))))
+
+{-# BENCHMARK! "6/15" T6a T6b #-}
+
+type T7a = (? Doap . (! Gouu . (? Liaj . (! Int . (? (! Char . (! Gouu . End!)) . End?)))))
+type T7b = (? Doap . (! Gouu . (? Liaj . (! Int . (? (! Char . End!) . End?)))))
+
+{-# BENCHMARK! "7/15" T7a T7b #-}
+
+type T8a = (! (! (Char -o String) . (? Char . End?)) . (! Liaj . (! Liaj . (? Gouu . (dual (? Liaj . (dual (! Liaj . End!))))))))
+type T8b = (! (! (Char -o String) . End?) . (! Liaj . (! Liaj . (? Gouu . (dual (? Liaj . (dual (! Liaj . End!))))))))
+
+{-# BENCHMARK! "8/21" T8a T8b #-}
+
+type T9a = (dual (! ((Char -> (() -> (String -> String))) -> (forall (xm:SL). (xm -> ((dual (! Doap . xm)) -o ((forall (yt:TU). yt) -o xm))))) . End!))
+type T9b = (dual (! ((Char -> (() -> (String -> String))) -> (forall (xm:SL). (xm -> ((dual (! Doap . xm)) -o (Char -o xm))))) . End!))
+
+{-# BENCHMARK! "9/23" T9a T9b #-}
+
+type T10a = (? Int . (! Doap . (dual (! Gouu . (? String . (? Char . (! Doap . (? () . (? String . (dual (! (dual (? Liaj . End?)) . End!)))))))))))
+type T10b = (? Int . (dual (! Gouu . (? String . (? Char . (! Doap . (? () . (? String . (dual (! (dual (? Liaj . End?)) . End!))))))))))
+
+{-# BENCHMARK! "10/24" T10a T10b #-}
+
+type T11a = (dual (? (String -> ()) . (dual (! (String -o ()) . (! () . (! (Char -> String) . (! Liaj . (dual (! Int . (! String . End?))))))))))
+type T11b = (dual (? (String -> ()) . (dual (! (String -o ()) . (! Int . (! (Char -> String) . (! Liaj . (dual (! Int . (! String . End?))))))))))
+
+{-# BENCHMARK! "11/24" T11a T11b #-}
+
+type T12a = (dual (? (forall (yr:TU). (! Doap . End!)) . (dual (? (((dual (? Gouu . (? String . (? () . End?)))) -> Char) -> (? () . (? Liaj . End!))) . (? Doap . (! Doap . (? Char . End!)))))))
+type T12b = (dual (? (forall (yr:TU). (! Doap . End!)) . (dual (? (((dual (? Gouu . (? String . (? () . End?)))) -> Char) -> (? Char . (? Liaj . End!))) . (? Doap . (! Doap . (? Char . End!)))))))
+
+{-# BENCHMARK! "12/31" T12a T12b #-}
+
+type T13a = (! (Char -> ()) . (! ((forall (zo:TU). (forall (yi:TU). Int)) -> ()) . (? (! (forall (yk:SL). Int) . End!) . (! End! . (? Gouu . (? String . (! Int . (! Int . (? (() -o (Int -o Int)) . End!)))))))))
+type T13b = (! (Char -> ()) . (! ((forall (zo:TU). (forall (yi:TU). Int)) -> ()) . (? (! (forall (yk:SL). Int) . End!) . (! End! . (? Gouu . (? String . (! Int . (! Int . (? (() -o (Int -o String)) . End!)))))))))
+
+{-# BENCHMARK! "13/32" T13a T13b #-}
+
+type T14a = (? Doap . (dual (! (String -> Char) . (? Int . (! String . (? (Int -> String) . (dual (! String . (! Doap . (! (String -> Int) . (? Liaj . (? (Int -> Int) . (! Doap . End?)))))))))))))
+type T14b = (? Doap . (dual (! (String -> String) . (? Int . (! String . (? (Int -> String) . (dual (! String . (! Doap . (! (String -> Int) . (? Liaj . (? (Int -> Int) . (! Doap . End?)))))))))))))
+
+{-# BENCHMARK! "14/33" T14a T14b #-}
+
+type T15a = (? Gouu . (! Liaj . (! Int . (? Int . (! Liaj . (! (dual (! Liaj . End?)) . (dual (? (dual (! Gouu . (! (String -o Int) . End!))) . (? () . (dual (! Char . (? () . (! Gouu . End!)))))))))))))
+type T15b = (? Gouu . (! Liaj . (! Int . (? Int . (! Liaj . (! (dual (! Liaj . End?)) . (dual (? (dual (! Gouu . (! (String -o Int) . End!))) . (? () . (dual (! Int . (? () . (! Gouu . End!)))))))))))))
+
+{-# BENCHMARK! "15/35" T15a T15b #-}
+
+type T16a = (! Int . (dual (! ((() -o ()) -> Int) . (dual (! (forall (zu:SL). ((dual (! (String -o (Char -> Int)) . (dual (! (zu -o Char) . (? Liaj . (! String . End?)))))) -> ())) . (dual (! Int . End!)))))))
+type T16b = (! Int . (dual (! ((Char -o ()) -> Int) . (dual (! (forall (zu:SL). ((dual (! (String -o (Char -> Int)) . (dual (! (zu -o Char) . (? Liaj . (! String . End?)))))) -> ())) . (dual (! Int . End!)))))))
+
+{-# BENCHMARK! "16/35" T16a T16b #-}
+
+type T17a = (? () . (! () . (! (forall (zm:SL). (Char -> ())) . (! (forall (zj:TU). ()) . (? String . (! (forall (zv:SL). (? Gouu . (dual (! Doap . (! Liaj . End?))))) . (! Int . (! (Char -> String) . (? Gouu . (dual (? String . End?)))))))))))
+type T17b = (? () . (! () . (! (forall (zj:TU). ()) . (? String . (! (forall (zv:SL). (? Gouu . (dual (! Doap . (! Liaj . End?))))) . (! Int . (! (Char -> String) . (? Gouu . (dual (? String . End?))))))))))
+
+{-# BENCHMARK! "17/36" T17a T17b #-}
+
+type T18a = (dual (? (forall (xc:TU). (? Liaj . (! Char . (dual (? (Char -o String) . (? (? Liaj . (! () . End?)) . (dual (! (! Doap . (? (? Liaj . (? Gouu . End?)) . End?)) . (? Gouu . (dual (? (Char -o xc) . End?))))))))))) . End?))
+type T18b = (dual (? (forall (xc:TU). (? Liaj . (! Char . (dual (? (Char -o String) . (? (? Liaj . (! () . End?)) . (dual (! (! Doap . (? (? Liaj . (? Gouu . End?)) . End?)) . (dual (? (Char -o xc) . End?)))))))))) . End?))
+
+{-# BENCHMARK! "18/38" T18a T18b #-}
+
+type T19a = (dual (! ((Int -> String) -o String) . (! String . (? (forall (yw:SL). (forall (yy:TU). (? Gouu . (? Gouu . (! (String -> String) . (? String . yw)))))) . (! End! . (! (End! -o String) . (? Doap . (? (String -> Int) . (! Doap . End?)))))))))
+type T19b = (dual (! ((Int -> String) -o String) . (! String . (? (forall (yw:SL). (forall (yy:TU). (? Gouu . (? Gouu . (! (String -> String) . yw))))) . (! End! . (! (End! -o String) . (? Doap . (? (String -> Int) . (! Doap . End?)))))))))
+
+{-# BENCHMARK! "19/38" T19a T19b #-}
+
+type T20a = (? Liaj . (? Liaj . (! Doap . (! (String -> (forall (za:SL). (String -> Char))) . (? Char . (? (() -o String) . (? String . (dual (! (forall (xc:TU). (forall (yv:SL). ())) . (dual (! Liaj . (! Gouu . (? Char . (dual (! Liaj . (? Liaj . End!))))))))))))))))
+type T20b = (? Liaj . (? Liaj . (! Doap . (! (String -> (forall (za:SL). (String -> String))) . (? Char . (? (() -o String) . (? String . (dual (! (forall (xc:TU). (forall (yv:SL). ())) . (dual (! Liaj . (! Gouu . (? Char . (dual (! Liaj . (? Liaj . End!))))))))))))))))
+
+{-# BENCHMARK! "20/39" T20a T20b #-}
+
+type T21a = (? (! Char . (? () . (dual (! () . (! Liaj . (! Char . (? (Char -o (String -o Int)) . End?))))))) . (? Char . (dual (? (forall (xe:TL). ((dual (! Doap . End?)) -o (forall (yq:SL). (((forall (zy:TL). (forall (xc:TL). ())) -o (xe -> yq)) -o (xe -o yq))))) . End!))))
+type T21b = (? (! Char . (? () . (dual (! () . (! Liaj . (! Char . (? (Char -o (String -o Int)) . End?))))))) . (? Char . (dual (? (forall (xe:TL). ((dual (! Doap . End?)) -o (forall (yq:SL). (((forall (zy:TL). (forall (xc:TL). ())) -o String) -o (xe -o yq))))) . End!))))
+
+{-# BENCHMARK! "21/42" T21a T21b #-}
+
+type T22a = (dual (! ((forall (zp:TL). (zp -o (String -> Int))) -> ()) . (! (? Liaj . (! Doap . (? (String -> Int) . (dual (? (Int -> Char) . (dual (? () . End!))))))) . (? (forall (yt:TU). (! Doap . (? Liaj . End!))) . (? (dual (! Int . (dual (! (forall (zo:TU). (forall (yy:TU). (yy -> zo))) . End!)))) . End?)))))
+type T22b = (dual (! ((forall (zp:TL). (zp -o (String -> Int))) -> ()) . (! (? Liaj . (! Doap . (? (String -> Int) . (dual (? (Int -> Char) . (dual (? () . End!))))))) . (? (forall (yt:TU). (! Doap . (? Liaj . End!))) . (? (dual (! Int . (dual (! (forall (zo:TU). (forall (yy:TU). (() -> zo))) . End!)))) . End?)))))
+
+{-# BENCHMARK! "22/48" T22a T22b #-}
+
+type T23a = (dual (? ((forall (zn:TL). (dual (! Gouu . (dual (! Doap . (! String . (! Liaj . End?))))))) -o (() -> (forall (xz:SL). String))) . (dual (? String . (dual (? (? Int . (dual (? (dual (? Liaj . End?)) . (? ((forall (zs:SL). zs) -o ()) . (? Liaj . (? (() -o (forall (zb:SL). ())) . (dual (! Liaj . End?)))))))) . End!))))))
+type T23b = (dual (? ((forall (zn:TL). (dual (! Gouu . (dual (! Doap . (! String . (! Liaj . End?))))))) -o (() -> (forall (xz:SL). String))) . (dual (? String . (dual End!)))))
+
+{-# BENCHMARK! "23/49" T23a T23b #-}
+
+type T24a = (! Gouu . (dual (? String . (? (String -o (forall (xv:TL). (forall (yx:TU). Int))) . (! String . (? (Char -o (String -o Char)) . (? (forall (yi:TL). (() -> yi)) . (dual (! (forall (zk:TU). String) . (dual (? Char . (dual (? Int . (? (forall (yj:SL). (String -o String)) . (! Gouu . (? Gouu . (dual (! Gouu . (? (? Doap . End?) . End?)))))))))))))))))))
+type T24b = (! Gouu . (dual (? String . (? (String -o (forall (xv:TL). ())) . (! String . (? (Char -o (String -o Char)) . (? (forall (yi:TL). (() -> yi)) . (dual (! (forall (zk:TU). String) . (dual (? Char . (dual (? Int . (? (forall (yj:SL). (String -o String)) . (! Gouu . (? Gouu . (dual (! Gouu . (? (? Doap . End?) . End?)))))))))))))))))))
+
+{-# BENCHMARK! "24/51" T24a T24b #-}
+
+type T25a = (! Doap . (! (? Doap . (dual (! (Int -o (() -> ())) . End?))) . (! (String -o Char) . (dual (! ((Int -> (forall (xl:SL). Int)) -o Char) . (! (Int -> ()) . (dual (? Doap . (! String . (? (forall (yd:TL). ((? (forall (zk:TL). Char) . (? Liaj . End?)) -> (() -o ()))) . (? Gouu . (? Int . (! Int . End?)))))))))))))
+type T25b = (! Doap . (! (? Doap . (dual (! (Int -o (() -> ())) . End?))) . (! (String -o Char) . (dual (! (String -o Char) . (! (Int -> ()) . (dual (? Doap . (! String . (? (forall (yd:TL). ((? (forall (zk:TL). Char) . (? Liaj . End?)) -> (() -o ()))) . (? Gouu . (? Int . (! Int . End?)))))))))))))
+
+{-# BENCHMARK! "25/53" T25a T25b #-}
+
+type T26a = (! Int . (? () . (? Gouu . (! Gouu . (! Gouu . (! Liaj . (! Liaj . (dual (? Char . (! (? (forall (xs:SL). (forall (xe:SL). xs)) . End!) . (? Int . (dual (! Liaj . (! ((dual (! Liaj . End?)) -> String) . (? Doap . (! Char . (dual (! Gouu . (? Gouu . (? (! ((Int -o ()) -o Int) . End!) . (! Doap . End!)))))))))))))))))))))
+type T26b = (! Int . (? () . (? Gouu . (! Gouu . (! Gouu . (! Liaj . (! Liaj . (dual (? Char . (! (? (forall (xs:SL). (forall (xe:TU). (forall (xe:SL). xs))) . End!) . (? Int . (dual (! Liaj . (! ((dual (! Liaj . End?)) -> String) . (? Doap . (! Char . (dual (! Gouu . (? Gouu . (? (! ((Int -o ()) -o Int) . End!) . (! Doap . End!)))))))))))))))))))))
+
+{-# BENCHMARK! "26/55" T26a T26b #-}
+
+type T27a = (? () . (! () . (dual (! (Char -> Int) . (! Int . (! ((! Liaj . End?) -o (forall (zv:TL). (() -o Int))) . (! Int . (! Int . (! Liaj . (? () . (dual (! Char . (! Liaj . (! String . (dual (! (? () . (? Gouu . End!)) . (? (forall (xk:TU). xk) . (! Int . (! Liaj . (! ((forall (xe:SL). (? () . (dual (? xe . xe)))) -> Char) . End!))))))))))))))))))))
+type T27b = (? () . (! () . (dual (! (Char -> Int) . (! Char . (! ((! Liaj . End?) -o (forall (zv:TL). (() -o Int))) . (! Int . (! Int . (! Liaj . (? () . (dual (! Char . (! Liaj . (! String . (dual (! (? () . (? Gouu . End!)) . (? (forall (xk:TU). xk) . (! Int . (! Liaj . (! ((forall (xe:SL). (? () . (dual (? xe . xe)))) -> Char) . End!))))))))))))))))))))
+
+{-# BENCHMARK! "27/60" T27a T27b #-}
+
+type T28a = (dual (? (Int -o ()) . (! ((Int -> (? () . (? () . (dual (! Gouu . (? () . (! Doap . End?))))))) -> String) . (dual (! ((String -> (Char -o ((() -o ((Char -o (Int -o Int)) -o (Int -> Int))) -o Char))) -o (! (dual (? Gouu . End!)) . (? (! Gouu . (! Doap . (! Liaj . End?))) . End!))) . (dual (! Gouu . End!)))))))
+type T28b = (dual (? (Int -o ()) . (! ((Int -> (? () . (dual (! Gouu . (? () . (! Doap . End?)))))) -> String) . (dual (! ((String -> (Char -o ((() -o ((Char -o (Int -o Int)) -o (Int -> Int))) -o Char))) -o (! (dual (? Gouu . End!)) . (? (! Gouu . (! Doap . (! Liaj . End?))) . End!))) . (dual (! Gouu . End!)))))))
+
+{-# BENCHMARK! "28/60" T28a T28b #-}
+
+type T29a = (! Doap . (dual (? (forall (zr:TL). (zr -> String)) . (dual (! Char . (! Char . (? (! String . (? Doap . (dual (! Doap . End?)))) . (? (String -> String) . (? () . (! (forall (xu:TU). (forall (xs:SL). ((xs -o (() -o String)) -o xu))) . (? Liaj . (! (forall (yl:SL). (dual (! (yl -o yl) . yl))) . (? ((() -o ()) -o (forall (xy:TL). ())) . (? String . (? Gouu . End?)))))))))))))))
+type T29b = (! Doap . (dual (? (forall (zr:TL). (zr -> String)) . (dual (! Char . (! Char . (? (! String . (? Doap . (dual (! Doap . End?)))) . (? (String -> ()) . (? () . (! (forall (xu:TU). (forall (xs:SL). ((xs -o (() -o String)) -o xu))) . (? Liaj . (! (forall (yl:SL). (dual (! (yl -o yl) . yl))) . (? ((() -o ()) -o (forall (xy:TL). ())) . (? String . (? Gouu . End?)))))))))))))))
+
+{-# BENCHMARK! "29/60" T29a T29b #-}
+
+type T30a = (dual (! ((dual (? String . End!)) -o ((! Doap . (! Doap . (? Char . End!))) -o (Char -o Int))) . (! (() -> (forall (xe:TU). ((! Liaj . (? (forall (yc:TL). String) . End?)) -o (Int -> Char)))) . (! (forall (zk:SL). Char) . (dual (? (String -o Char) . (! Gouu . (dual (! (() -o ((forall (zr:TU). (String -> (? (Int -> ()) . End?))) -o Char)) . (! (Char -> (forall (xx:TL). (? (() -o ()) . End?))) . End!))))))))))
+type T30b = (dual (! ((dual (? String . End!)) -o ((! Doap . (! Doap . (? Char . End!))) -o (Char -o Int))) . (! (() -> (forall (xe:TU). ((! Liaj . (? (forall (yc:TL). String) . End?)) -o (Int -> Char)))) . (! (forall (zk:TU). (forall (zk:SL). Char)) . (dual (? (String -o Char) . (! Gouu . (dual (! (() -o ((forall (zr:TU). (String -> (? (Int -> ()) . End?))) -o Char)) . (! (Char -> (forall (xx:TL). (? (() -o ()) . End?))) . End!))))))))))
+
+{-# BENCHMARK! "30/66" T30a T30b #-}
+
+type T31a = (dual (! Gouu . (! String . (! String . (dual (? String . (? Gouu . (! (! () . (! String . End!)) . (! Doap . (? (forall (zw:TL). String) . (? Liaj . (! (forall (zp:TL). (String -> Int)) . (! Doap . (? Liaj . (? Char . (! Char . (! () . (! () . (? Gouu . (? () . (? Liaj . (? Gouu . (! Liaj . (! String . (! () . (? String . (! Liaj . (? (() -> ()) . (dual (! () . (! Char . End!)))))))))))))))))))))))))))))))
+type T31b = (dual (! Gouu . (! String . (! String . (dual (? String . (? Gouu . (! (! () . (! String . End!)) . (! Doap . (? (forall (zw:TL). String) . (? Liaj . (! (forall (zp:TL). (String -> Int)) . (! Doap . (? Liaj . (? Char . (! Char . (! () . (! () . (? Gouu . (? () . (? Liaj . (? Gouu . (! Liaj . (! String . (! () . (? String . (! Liaj . (? (() -> ()) . (dual (! () . End!))))))))))))))))))))))))))))))
+
+{-# BENCHMARK! "31/70" T31a T31b #-}
+
+type T32a = (? Char . (? Char . (! Gouu . (? Liaj . (! Liaj . (? (? Char . (dual (? (Int -> ()) . End?))) . (? Gouu . (! Gouu . (? Gouu . (? (forall (yz:SL). Char) . (? Liaj . (! (? Char . (! Liaj . End!)) . (? Char . (! (Int -> (? (dual (! Doap . End?)) . End?)) . (! (Char -o ()) . (? Liaj . (! Int . (! Liaj . (! Gouu . (? Gouu . (dual (! () . (! () . (! String . (! Doap . (? (Int -> Int) . End?))))))))))))))))))))))))))
+type T32b = (? Char . (? Char . (! Gouu . (? Liaj . (! Liaj . (? (? Char . (dual (? (Int -> ()) . End?))) . (? Gouu . (! Gouu . (? Gouu . (? (forall (yz:SL). Char) . (? Liaj . (! (? Char . (! Liaj . End!)) . (? Char . (! (Int -> (? (dual (! Doap . End?)) . End?)) . (! (Char -o ()) . (? Liaj . (! Int . (! Gouu . (? Gouu . (dual (! () . (! () . (! String . (! Doap . (? (Int -> Int) . End?)))))))))))))))))))))))))
+
+{-# BENCHMARK! "32/75" T32a T32b #-}
+
+type T33a = (! Liaj . (? Char . (! (forall (zv:TL). (dual (! Doap . (! Liaj . End?)))) . (! Doap . (? Char . (? (forall (zl:TU). ((String -o String) -o Int)) . (? (forall (zh:SL). zh) . (? () . (dual (? (Char -> String) . (? Gouu . (? (forall (zh:TL). (! Liaj . (dual (? Char . End!)))) . (! Int . (! (! Doap . (? (Int -o Int) . End?)) . (? Gouu . (! (? Doap . (! (forall (xu:TL). Int) . (? Int . End?))) . (? Int . (? Doap . (! Liaj . (! (Char -o String) . End!))))))))))))))))))))
+type T33b = (! Liaj . (? Char . (! (forall (zv:TL). (dual (! Doap . (! Liaj . End?)))) . (! Doap . (? Char . (? (forall (zl:TU). ((String -o String) -o Int)) . (? (forall (zh:SL). zh) . (? () . (dual (? (Char -> String) . (? Gouu . (? (forall (zh:TL). (! Liaj . (dual (? Char . End!)))) . (! Int . (! (! Doap . (? (Int -o Int) . End?)) . (? Gouu . (! (? Doap . (! (forall (xu:TL). Int) . End?)) . (? Int . (? Doap . (! Liaj . (! (Char -o String) . End!))))))))))))))))))))
+
+{-# BENCHMARK! "33/75" T33a T33b #-}
+
+type T34a = (? () . (? Char . (! Doap . (! () . (! (Char -> ()) . (? (forall (zo:TU). zo) . (dual (? ((! Doap . (dual (? ((Int -o Int) -> Char) . End!))) -o (dual (? Char . (! String . (! String . End!))))) . (! Doap . (! (String -> Int) . (? Doap . (dual (? Liaj . (dual (! Doap . (! Liaj . (? Char . (? Liaj . (! Doap . (dual (? String . (dual (? (! (Int -> String) . (! Gouu . (! Gouu . End?))) . (! (forall (yf:TL). Int) . (? Char . (? Liaj . End!))))))))))))))))))))))))))
+type T34b = (? () . (? Char . (! Doap . (! () . (! (Char -> ()) . (? (forall (zo:TU). zo) . (dual (? ((! Doap . (dual (? ((Int -o Int) -> Char) . End!))) -o (dual (? Char . (! String . (! String . End!))))) . (! Doap . (! (String -> Int) . (? Doap . (dual (? Liaj . (dual (! Doap . (! Liaj . (? Char . (? Liaj . (! Doap . (dual (? String . (dual (? (! String . (! Gouu . (! Gouu . End?))) . (! (forall (yf:TL). Int) . (? Char . (? Liaj . End!))))))))))))))))))))))))))
+
+{-# BENCHMARK! "34/80" T34a T34b #-}
+
+type T35a = (? Liaj . (? Char . (? Doap . (dual (! Gouu . (? Liaj . (? () . (? String . (? (Int -> ()) . (? Doap . (! Doap . (? Char . (dual (? Liaj . (? Liaj . (! (! Gouu . (! Doap . End!)) . (? (Char -> ()) . (? Char . (? String . (? Doap . (! Int . (! Gouu . (? Gouu . (! Int . (? Int . (? Doap . (? String . (dual (! Doap . (dual (! Char . (dual (? Doap . (? Liaj . (! Doap . (! Liaj . (! () . (! Int . (? (Int -o Int) . (! Doap . End!))))))))))))))))))))))))))))))))))))))))
+type T35b = (? Liaj . (? Char . (? Doap . (dual (! Gouu . (? Liaj . (? () . (? String . (? (Int -> ()) . (? Doap . (! Doap . (? Char . (dual (? Liaj . (? Liaj . (! (! Gouu . (! Doap . End!)) . (? () . (? Char . (? String . (? Doap . (! Int . (! Gouu . (? Gouu . (! Int . (? Int . (? Doap . (? String . (dual (! Doap . (dual (! Char . (dual (? Doap . (? Liaj . (! Doap . (! Liaj . (! () . (! Int . (? (Int -o Int) . (! Doap . End!))))))))))))))))))))))))))))))))))))))))
+
+{-# BENCHMARK! "35/86" T35a T35b #-}
+
+type T36a = (! Liaj . (? Gouu . (dual (! (String -> ()) . (! Char . (? Int . (? Liaj . (! Gouu . (? Gouu . (! Int . (dual (? Doap . (! Gouu . (? Int . (! Gouu . (! Liaj . (? Gouu . (? Int . (! Char . (! Gouu . (! (! Liaj . (? Gouu . (! (! Gouu . (? Liaj . End?)) . End!))) . (dual (? () . (? Liaj . (dual (? Liaj . (dual (? Gouu . (? Liaj . (? Gouu . (! () . (! Liaj . (dual (! (Char -o (Char -> String)) . (? Gouu . (! Liaj . (? () . (! (forall (zm:TU). String) . (! Gouu . (? () . (? () . (? Gouu . End!))))))))))))))))))))))))))))))))))))))))))
+type T36b = (! Liaj . (? Gouu . (dual (! (String -> ()) . (! Char . (? Int . (? Liaj . (! Gouu . (? Gouu . (! Int . (dual (? Doap . (! Gouu . (? Int . (! Gouu . (! Liaj . (? Gouu . (? Int . (! Char . (! Gouu . (! (! Liaj . (? Gouu . (! (! Gouu . (? Liaj . End?)) . End!))) . (dual (? Int . (? Liaj . (dual (? Liaj . (dual (? Gouu . (? Liaj . (? Gouu . (! () . (! Liaj . (dual (! (Char -o (Char -> String)) . (? Gouu . (! Liaj . (? () . (! (forall (zm:TU). String) . (! Gouu . (? () . (? () . (? Gouu . End!))))))))))))))))))))))))))))))))))))))))))
+
+{-# BENCHMARK! "36/96" T36a T36b #-}
